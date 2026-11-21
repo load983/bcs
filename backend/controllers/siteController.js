@@ -27,7 +27,9 @@ const cleanHttpUrl = (v) => {
   return /^https?:\/\//i.test(s) ? s : `https://${s.replace(/^\/+/, '')}`;
 };
 
-const logoUrlOf = (s) => (s.logo?.contentType && s.logo?.updatedAt ? `/api/site/logo?v=${new Date(s.logo.updatedAt).getTime()}` : '');
+const publicBaseUrl = (req) => String(process.env.SERVER_URL || `${req.protocol}://${req.get('host')}`).replace(/\/+$/, '');
+const assetUrlOf = (req, p) => `${publicBaseUrl(req)}${p}`;
+const logoUrlOf = (s, req) => (s.logo?.contentType && s.logo?.updatedAt ? assetUrlOf(req, `/api/site/logo?v=${new Date(s.logo.updatedAt).getTime()}`) : '');
 
 const publicLink = (l) => ({
   slug: l.slug,
@@ -35,19 +37,19 @@ const publicLink = (l) => ({
   titleEn: l.titleEn,
   externalUrl: l.externalUrl || '',
 });
-const publicImages = (s) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: i.path, alt: i.alt || '' }]));
-const publicMedia = (s) => (s.media || []).map((m) => ({ id: String(m._id), kind: m.kind, url: m.path, contentType: m.contentType || '', title: m.title || '', alt: m.alt || '' }));
+const publicImages = (s, req) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: assetUrlOf(req, i.path), alt: i.alt || '' }]));
+const publicMedia = (s, req) => (s.media || []).map((m) => ({ id: String(m._id), kind: m.kind, url: assetUrlOf(req, m.path), contentType: m.contentType || '', title: m.title || '', alt: m.alt || '' }));
 
 // ---------- পাবলিক ----------
 exports.getPublicConfig = async (req, res) => {
   try {
     const s = await getSettings();
     res.json({
-      logoUrl: logoUrlOf(s),
+      logoUrl: logoUrlOf(s, req),
       textOverrides: (s.textOverrides || []).filter((o) => o.bn || o.en).map((o) => ({ key: o.key, bn: o.bn, en: o.en })),
       footerLinks: (s.footerLinks || []).filter((l) => l.enabled && (l.titleBn || l.titleEn)).map(publicLink),
-      images: publicImages(s),
-      media: publicMedia(s),
+      images: publicImages(s, req),
+      media: publicMedia(s, req),
     });
   } catch (err) {
     res.status(500).json({ message: 'তথ্য লোড করা যায়নি' });
@@ -86,14 +88,14 @@ exports.adminGet = async (req, res) => {
   try {
     const s = await getSettings();
     res.json({
-      logoUrl: logoUrlOf(s),
+      logoUrl: logoUrlOf(s, req),
       textOverrides: (s.textOverrides || []).map((o) => ({ key: o.key, bn: o.bn, en: o.en })),
       footerLinks: (s.footerLinks || []).map((l) => ({
         slug: l.slug, titleBn: l.titleBn, titleEn: l.titleEn, contentBn: l.contentBn, contentEn: l.contentEn,
         externalUrl: l.externalUrl || '', enabled: l.enabled !== false,
       })),
-      images: publicImages(s),
-      media: publicMedia(s),
+      images: publicImages(s, req),
+      media: publicMedia(s, req),
     });
   } catch (err) {
     res.status(500).json({ message: 'সেটিংস লোড করা যায়নি' });
@@ -116,7 +118,7 @@ exports.adminUploadLogo = async (req, res) => {
     const s = await getSettings();
     s.logo = { data: req.file.buffer, contentType: req.file.mimetype, updatedAt: new Date() };
     await s.save();
-    res.json({ message: 'লোগো আপডেট হয়েছে', logoUrl: logoUrlOf(s) });
+    res.json({ message: 'লোগো আপডেট হয়েছে', logoUrl: logoUrlOf(s, req) });
   } catch (err) {
     res.status(500).json({ message: 'লোগো সেভ করা যায়নি' });
   }
@@ -154,7 +156,7 @@ exports.adminUploadImage = async (req, res) => {
     s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
     await s.save();
     if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
-    res.json({ message: 'সাইটের ছবি আপডেট হয়েছে', images: publicImages(s) });
+    res.json({ message: 'সাইটের ছবি আপডেট হয়েছে', images: publicImages(s, req) });
   } catch (err) {
     if (req.file) fs.unlink(req.file.path, () => {});
     res.status(500).json({ message: err.message || 'ছবি সেভ করা যায়নি' });
@@ -169,7 +171,7 @@ exports.adminDeleteImage = async (req, res) => {
     s.images = (s.images || []).filter((i) => i.slot !== slot);
     await s.save();
     if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
-    res.json({ message: 'সাইটের ছবি সরানো হয়েছে', images: publicImages(s) });
+    res.json({ message: 'সাইটের ছবি সরানো হয়েছে', images: publicImages(s, req) });
   } catch (err) { res.status(500).json({ message: 'ছবি সরানো যায়নি' }); }
 };
 
@@ -242,7 +244,7 @@ exports.adminUploadMedia = async (req, res) => {
     if (!req.file) return res.status(400).json({ message: 'ছবি বা ভিডিও ফাইল বাছাই করুন' });
     const s = await getSettings(); const kind = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
     s.media = [...(s.media || []), { kind, path: `/uploads/site/${req.file.filename}`, contentType: req.file.mimetype, title: String(req.body.title || '').trim().slice(0, 160), alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() }];
-    await s.save(); res.json({ message: 'Homepage media যোগ হয়েছে', media: publicMedia(s) });
+    await s.save(); res.json({ message: 'Homepage media যোগ হয়েছে', media: publicMedia(s, req) });
   } catch (err) { if (req.file) fs.unlink(req.file.path, () => {}); res.status(500).json({ message: err.message || 'Media সেভ করা যায়নি' }); }
 };
 
@@ -252,6 +254,6 @@ exports.adminDeleteMedia = async (req, res) => {
     const s = await getSettings(); const old = (s.media || []).find((m) => String(m._id) === id);
     s.media = (s.media || []).filter((m) => String(m._id) !== id); await s.save();
     if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
-    res.json({ message: 'Homepage media সরানো হয়েছে', media: publicMedia(s) });
+    res.json({ message: 'Homepage media সরানো হয়েছে', media: publicMedia(s, req) });
   } catch (err) { res.status(500).json({ message: 'Media সরানো যায়নি' }); }
 };
