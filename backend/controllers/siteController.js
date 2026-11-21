@@ -12,6 +12,7 @@ const MAX_TEXT_LEN = 2000;
 const MAX_LINKS = 10;
 const MAX_CONTENT_LEN = 20000;
 const KEY_RE = /^[\w.\-]{1,100}$/;
+const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SLUG_RE = /^[a-z0-9-]{1,40}$/;
 const SLOT_RE = /^[a-z0-9-]{1,30}$/;
 const MEDIA_ID_RE = /^[a-f0-9]{24}$/i;
@@ -180,7 +181,7 @@ exports.adminSaveTexts = async (req, res) => {
     const clean = [];
     for (const o of list) {
       const key = String(o?.key || '');
-      if (!KEY_RE.test(key) || seen.has(key)) continue;
+      if (!KEY_RE.test(key) || RESERVED_KEYS.has(key) || seen.has(key)) continue;
       const bn = String(o?.bn || '').trim().slice(0, MAX_TEXT_LEN);
       const en = String(o?.en || '').trim().slice(0, MAX_TEXT_LEN);
       if (!bn && !en) continue; // দুটোই ফাঁকা = ডিফল্টে ফেরত

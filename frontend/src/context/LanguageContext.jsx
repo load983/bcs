@@ -26,8 +26,11 @@ function readInitialLang() {
 let textOverrides = {};
 const overrideListeners = new Set();
 export function applyTextOverrides(list) {
-  const next = {};
-  (Array.isArray(list) ? list : []).forEach((o) => { if (o && o.key) next[o.key] = { bn: o.bn || '', en: o.en || '' }; });
+  const next = Object.create(null);
+  (Array.isArray(list) ? list : []).forEach((o) => {
+    if (!o || typeof o.key !== 'string' || !o.key || ['__proto__', 'constructor', 'prototype'].includes(o.key)) return;
+    next[o.key] = { bn: o.bn || '', en: o.en || '' };
+  });
   textOverrides = next;
   overrideListeners.forEach((fn) => fn());
 }

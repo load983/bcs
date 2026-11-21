@@ -169,6 +169,7 @@ export default function Home() {
       {/* ---------- Features ---------- */}
       <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
         <Reveal type="up" className="mx-auto mb-10 max-w-xl text-center">
+          {images.feature?.url && <img src={images.feature.url} alt={images.feature.alt || t('home.featuresTitle')} className="mx-auto mb-6 h-28 w-full max-w-2xl rounded-2xl object-cover shadow-soft" />}
           <h2 className="section-title">{t('home.featuresTitle')}</h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 sm:text-base">
             {t('home.featuresSub')}
@@ -197,6 +198,7 @@ export default function Home() {
       <section className="bg-gray-50/70 py-16 dark:bg-white/[0.02] sm:py-20">
         <div className="mx-auto max-w-5xl px-4">
           <Reveal type="up" className="mx-auto mb-12 max-w-xl text-center">
+            {images.promo?.url && <img src={images.promo.url} alt={images.promo.alt || t('home.howTitle')} className="mx-auto mb-6 h-36 w-full rounded-2xl object-cover shadow-soft" />}
             <h2 className="section-title">{t('home.howTitle')}</h2>
             <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 sm:text-base">{t('home.howSub')}</p>
           </Reveal>
