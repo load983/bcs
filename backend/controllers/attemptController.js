@@ -337,6 +337,8 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
     attemptId: attempt._id,
     showInstantly,
     examId: exam?._id,
+    examTitle: exam?.title || '',
+    hasOriginalSource: !!(exam?.sourcePdfPath && fs.existsSync(exam.sourcePdfPath)),
     showLeaderboard: !!exam?.settings?.showLeaderboard,
     submittedAt: attempt.submittedAt,
     resource,
@@ -461,6 +463,35 @@ exports.downloadResourcePdf = async (req, res) => {
     res.download(exam.resource.pdfPath, exam.resource.pdfOriginalName || 'resource.pdf');
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+};
+
+// ---------- ৫.৫ পরীক্ষা জমা দেওয়ার পর মূল আপলোড ফাইল ডাউনলোড ----------
+exports.downloadOriginalSourcePdf = async (req, res) => {
+  try {
+    const attempt = await loadOwnAttempt(req, res);
+    if (!attempt) return;
+    if (attempt.status !== 'submitted') {
+      return res.status(400).json({ message: 'পরীক্ষা এখনো জমা হয়নি' });
+    }
+
+    const exam = await Exam.findById(attempt.exam).select('title sourcePdfPath');
+    if (!exam?.sourcePdfPath) {
+      return res.status(404).json({ message: 'মূল আপলোড PDF পাওয়া যায়নি' });
+    }
+    if (!fs.existsSync(exam.sourcePdfPath)) {
+      return res.status(404).json({ message: 'মূল আপলোড PDF ফাইলটি সার্ভারে খুঁজে পাওয়া যায়নি' });
+    }
+
+    const extension = path.extname(exam.sourcePdfPath).toLowerCase() || '.pdf';
+    const safeTitle = String(exam.title || 'exam')
+      .replace(/[\\/:*?"<>|\x00-\x1F]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 120) || 'exam';
+    return res.download(exam.sourcePdfPath, `${safeTitle}-original${extension}`);
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'মূল আপলোড PDF ডাউনলোড করা যায়নি' });
   }
 };
 

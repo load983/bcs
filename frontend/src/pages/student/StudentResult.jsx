@@ -25,6 +25,8 @@ export default function StudentResult() {
   const [downloadError, setDownloadError] = useState('');
   const [downloadingResource, setDownloadingResource] = useState(false);
   const [resourceDownloadError, setResourceDownloadError] = useState('');
+  const [downloadingOriginal, setDownloadingOriginal] = useState(false);
+  const [originalDownloadError, setOriginalDownloadError] = useState('');
   const [reviewLoading, setReviewLoading] = useState(false);
   const [reviewError, setReviewError] = useState('');
 
@@ -66,6 +68,27 @@ export default function StudentResult() {
       setResourceDownloadError(t('result.resourceDownloadFailed'));
     } finally {
       setDownloadingResource(false);
+    }
+  };
+
+  const handleDownloadOriginal = async () => {
+    setDownloadingOriginal(true);
+    setOriginalDownloadError('');
+    try {
+      const res = await axiosClient.get(`/attempts/${attemptId}/source-pdf`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: res.headers['content-type'] || 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      const safeTitle = String(result.examTitle || 'exam').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'exam';
+      link.setAttribute('download', `${safeTitle}-original.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+    } catch {
+      setOriginalDownloadError(t('result.originalDownloadFailed'));
+    } finally {
+      setDownloadingOriginal(false);
     }
   };
 
@@ -144,6 +167,13 @@ export default function StudentResult() {
             </button>
           )}
           {downloadError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{downloadError}</p>}
+
+          {result.hasOriginalSource && (
+            <button onClick={handleDownloadOriginal} disabled={downloadingOriginal} className="btn-success w-full disabled:opacity-60">
+              {downloadingOriginal ? t('result.downloading') : t('result.downloadOriginal')}
+            </button>
+          )}
+          {originalDownloadError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{originalDownloadError}</p>}
 
           {result.resource?.kind === 'link' && (
             <a

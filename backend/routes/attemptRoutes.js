@@ -19,6 +19,7 @@ router.put('/:attemptId/answer', ...own, ctrl.saveAnswer);
 router.post('/:attemptId/submit', ...own, ctrl.submitAttempt);
 router.get('/:attemptId/download-pdf', ...own, ctrl.downloadResultPdf);
 router.get('/:attemptId/resource-pdf', ...own, ctrl.downloadResourcePdf);
+router.get('/:attemptId/source-pdf', ...own, ctrl.downloadOriginalSourcePdf);
 router.get('/:attemptId/review', ...own, ctrl.getAttemptReview);
 router.get('/:attemptId/feedback', ...own, feedbackCtrl.getMyFeedback);
 router.put('/:attemptId/feedback', ...own, feedbackCtrl.saveMyFeedback);

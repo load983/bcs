@@ -318,6 +318,8 @@ const entries = {
   'result.downloadPdf': { bn: '📄 সঠিক উত্তরসহ PDF ডাউনলোড করো', en: '📄 Download PDF with correct answers' },
   'result.downloading': { bn: 'ডাউনলোড হচ্ছে...', en: 'Downloading...' },
   'result.downloadFailed': { bn: 'PDF ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।', en: 'Could not download the PDF. Please try again.' },
+  'result.downloadOriginal': { bn: '📥 মূল পরীক্ষার PDF ডাউনলোড করো', en: '📥 Download original exam PDF' },
+  'result.originalDownloadFailed': { bn: 'মূল পরীক্ষার PDF ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।', en: 'Could not download the original exam PDF. Please try again.' },
   'result.viewResource': { bn: '🔗 অতিরিক্ত রিসোর্স দেখো', en: '🔗 View extra resource' },
   'result.downloadResource': { bn: '📥 অতিরিক্ত রিসোর্স ডাউনলোড করো', en: '📥 Download extra resource' },
   'result.resourceDownloadFailed': { bn: 'অতিরিক্ত রিসোর্স ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।', en: 'Could not download the extra resource. Please try again.' },
