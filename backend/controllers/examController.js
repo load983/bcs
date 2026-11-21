@@ -544,12 +544,30 @@ exports.publishExam = async (req, res) => {
     if (exam.teacher.toString() !== req.user.id) {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
-    const unanswered = await Question.countDocuments({ exam: exam._id, correctOptionIndex: { $lt: 0 } });
-    if (unanswered > 0) {
-      return res.status(400).json({ message: `${unanswered}টি প্রশ্নের সঠিক উত্তর বাছাই করা হয়নি। প্রকাশের আগে Edit করে উত্তর ঠিক করো।` });
-    }
     if (exam.pending) {
       return res.status(400).json({ message: 'অসম্পূর্ণ (পেন্ডিং) পরীক্ষা চালু করা যাবে না। আগে পরীক্ষাটি সম্পূর্ণ করে তৈরি করো' });
+    }
+
+    // Older/imported records may have a missing or out-of-range answer index;
+    // a MongoDB `$lt: 0` query does not catch those cases.
+    const questions = await Question.find({ exam: exam._id })
+      .select('questionText options correctOptionIndex')
+      .lean();
+    if (questions.length === 0) {
+      return res.status(400).json({ message: 'প্রকাশের আগে পরীক্ষায় কমপক্ষে একটি প্রশ্ন যোগ করুন।' });
+    }
+    const invalidQuestionCount = questions.filter((q) => {
+      const options = Array.isArray(q.options) ? q.options : [];
+      const answer = q.correctOptionIndex;
+      return !String(q.questionText || '').trim()
+        || options.length < 2
+        || !Number.isInteger(answer)
+        || answer < 0
+        || answer >= options.length
+        || !String(options[answer] || '').trim();
+    }).length;
+    if (invalidQuestionCount > 0) {
+      return res.status(400).json({ message: `${invalidQuestionCount}টি প্রশ্ন অসম্পূর্ণ বা সঠিক উত্তরবিহীন। প্রকাশের আগে Edit করে ঠিক করুন।` });
     }
 
     const firstTimePublish = exam.status !== 'published';

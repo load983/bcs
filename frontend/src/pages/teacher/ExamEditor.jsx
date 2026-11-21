@@ -44,6 +44,7 @@ export default function ExamEditor() {
   const dispatch = useDispatch();
   const { currentExam, questions, shareLink } = useSelector((s) => s.exam);
   const [settings, setSettings] = useState(null);
+  const [publishing, setPublishing] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [classIds, setClassIds] = useState([]);
   const [editingQ, setEditingQ] = useState(null);
@@ -101,9 +102,18 @@ export default function ExamEditor() {
   };
 
   const handlePublish = async () => {
+    if (publishing) return;
     const ok = await saveSettings();
     if (!ok) return;
-    dispatch(publishExam(id));
+    setPublishing(true);
+    try {
+      await dispatch(publishExam(id)).unwrap();
+      await dispatch(fetchExamById(id));
+    } catch (err) {
+      alert(typeof err === 'string' ? err : 'পরীক্ষা প্রকাশ করা যায়নি। আবার চেষ্টা করুন।');
+    } finally {
+      setPublishing(false);
+    }
   };
 
   const handleClassChange = (nextClassIds) => {
@@ -255,8 +265,8 @@ export default function ExamEditor() {
           <button onClick={saveSettings} className="btn-secondary">
             {t('editor.saveSettings')}
           </button>
-          <button onClick={handlePublish} className="btn-primary">
-            {t('editor.publish')}
+          <button onClick={handlePublish} disabled={publishing} className="btn-primary disabled:cursor-not-allowed disabled:opacity-60">
+            {publishing ? t('common.loading') : t('editor.publish')}
           </button>
         </div>
 
