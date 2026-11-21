@@ -15,6 +15,7 @@ import PdfPreviewModal from '../../components/PdfPreviewModal';
 import MessagesTab from './MessagesTab';
 import MyDataExportButton from '../../components/MyDataExportButton';
 import TeacherBackupPanel from '../../components/TeacherBackupPanel';
+import UploadProgress from '../../components/UploadProgress';
 
 const statusColor = {
   draft: 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300',
@@ -66,6 +67,7 @@ export default function TeacherDashboard() {
   const [studentClassFilter, setStudentClassFilter] = useState('all');
   const [studentForm, setStudentForm] = useState({ name: '', phone: '', roll: '', password: '', classId: '' });
   const [createdCredential, setCreatedCredential] = useState(null);
+  const [studentImportProgress, setStudentImportProgress] = useState(null);
   const [showStudentGrid, setShowStudentGrid] = useState(false);
   const [bulkRows, setBulkRows] = useState(() => Array.from({ length: 5 }, () => ({ name: '', phone: '', roll: '', password: '', classId: '' })));
 
@@ -279,7 +281,9 @@ export default function TeacherDashboard() {
   const importStudents = async (e) => {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
     const fd = new FormData(); fd.append('file', file);
-    try { const { data } = await axiosClient.post('/auth/students/import', fd); setCreatedCredential(data.created?.[0] || null); alert(`${data.message}${data.failed?.length ? `; ${data.failed.length}টি row ব্যর্থ` : ''}`); const refreshed = await axiosClient.get('/auth/students'); setStudents(refreshed.data); } catch (err) { alert(err.response?.data?.message || 'Import ব্যর্থ হয়েছে'); }
+    setStudentImportProgress(0);
+    try { const { data } = await axiosClient.post('/auth/students/import', fd, { onUploadProgress: (event) => event.total && setStudentImportProgress(Math.round((event.loaded / event.total) * 100)) }); setCreatedCredential(data.created?.[0] || null); alert(`${data.message}${data.failed?.length ? `; ${data.failed.length}টি row ব্যর্থ` : ''}`); const refreshed = await axiosClient.get('/auth/students'); setStudents(refreshed.data); } catch (err) { alert(err.response?.data?.message || 'Import ব্যর্থ হয়েছে'); }
+    finally { setStudentImportProgress(null); }
   };
   const updateBulkRow = (index, key, value) => setBulkRows((rows) => rows.map((row, i) => (i === index ? { ...row, [key]: value } : row)));
   const addBulkRows = (count = 5) => setBulkRows((rows) => [...rows, ...Array.from({ length: count }, () => ({ name: '', phone: '', roll: '', password: '', classId: '' }))]);
@@ -581,6 +585,7 @@ export default function TeacherDashboard() {
             <select className="input" required value={studentForm.classId} onChange={(e) => setStudentForm({ ...studentForm, classId: e.target.value })}><option value="">শ্রেণী বাছাই করুন</option>{classes.map((c) => <option key={c._id} value={c._id}>{c.name}</option>)}</select>
             <button className="btn-primary">Account তৈরি</button>
             <label className="btn-secondary cursor-pointer text-center">ফাইল import<input type="file" className="sr-only" accept=".csv,.xlsx,.pdf,.doc,.docx,.json,.txt" onChange={importStudents} /></label>
+            <UploadProgress progress={studentImportProgress} label="Import হচ্ছে..." />
             <button type="button" className="btn-success" onClick={() => downloadFile('/auth/students/credentials/export', `student-credentials-${studentClassFilter}.xlsx`, studentClassFilter !== 'all' ? { classId: studentClassFilter } : {})}>এই শ্রেণীর Credentials Excel</button>
             <button type="button" className="btn-secondary" onClick={() => downloadFile('/auth/students/credentials/pdf', `student-credentials-${studentClassFilter}.pdf`, studentClassFilter !== 'all' ? { classId: studentClassFilter } : {})}>এই শ্রেণীর Credentials PDF</button>
             <span className="text-xs text-gray-500 sm:col-span-6">ফাইলের header: name, phone, roll, password, class. roll/password না দিলে automatically তৈরি হবে।</span>

@@ -6,6 +6,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useDialog } from './adminUi';
 import SearchableSelect from '../../components/SearchableSelect';
 import { downloadFile } from '../../utils/download';
+import UploadProgress from '../../components/UploadProgress';
 
 export default function AdminUsers({ say }) {
   const { t, locale } = useLanguage();
@@ -15,6 +16,7 @@ export default function AdminUsers({ say }) {
   const [search, setSearch] = useState('');
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [importProgress, setImportProgress] = useState(null);
   const [open, setOpen] = useState(null); // এক্সপ্যান্ড করা ইউজারের আইডি
   const [edit, setEdit] = useState(null); // { _id, name, email, phone, roll }
   const [pw, setPw] = useState({}); // { [id]: 'নতুন পাসওয়ার্ড' }
@@ -90,7 +92,8 @@ export default function AdminUsers({ say }) {
   const importAccounts = async (e) => {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
     const fd = new FormData(); fd.append('file', file);
-    try { const { data } = await axiosClient.post('/admin/users/import', fd); setNewCredential(data.created?.[0] || null); await load(); say(`${data.message}${data.failed?.length ? `; ${data.failed.length}টি row ব্যর্থ` : ''}`); } catch (e2) { errMsg(e2); }
+    setImportProgress(0);
+    try { const { data } = await axiosClient.post('/admin/users/import', fd, { onUploadProgress: (event) => event.total && setImportProgress(Math.round((event.loaded / event.total) * 100)) }); setNewCredential(data.created?.[0] || null); await load(); say(`${data.message}${data.failed?.length ? `; ${data.failed.length}টি row ব্যর্থ` : ''}`); } catch (e2) { errMsg(e2); } finally { setImportProgress(null); }
   };
   const exportCredentials = (format) => downloadFile(`/admin/users/credentials/${format === 'pdf' ? 'pdf' : 'export'}`, `${role}-credentials.${format}`, { role }).catch(errMsg);
 
@@ -116,6 +119,7 @@ export default function AdminUsers({ say }) {
         <button className="btn-primary">Account তৈরি</button>
         <label className="btn-secondary cursor-pointer text-center">ফাইল import<input type="file" className="sr-only" accept=".csv,.xlsx,.pdf,.doc,.docx,.json,.txt" onChange={importAccounts} /></label>
         <span className="text-xs text-gray-500 sm:col-span-6">CSV/Excel header: name, email/phone, roll, password, class. ফাঁকা password বা roll automatically তৈরি হবে।</span>
+        <UploadProgress progress={importProgress} label="Import হচ্ছে..." />
       </form>
       {newCredential && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-200"><b>নতুন credential:</b> {newCredential.name} · Login: {newCredential.email || newCredential.phone} · Roll: {newCredential.roll || '-'} · Password: <span className="font-mono font-bold select-all">{newCredential.password}</span> {newCredential.accessCode && <> · Access code: {newCredential.accessCode}</>}</div>}
 

@@ -118,9 +118,9 @@ export const setResourceLink = createAsyncThunk('exam/setResourceLink', async ({
   }
 });
 
-export const uploadResourcePdf = createAsyncThunk('exam/uploadResourcePdf', async ({ id, formData }, { rejectWithValue }) => {
+export const uploadResourcePdf = createAsyncThunk('exam/uploadResourcePdf', async ({ id, formData, onUploadProgress }, { rejectWithValue }) => {
   try {
-    const r = await axios.post(`${API_URL}/${id}/resource-pdf`, formData);
+    const r = await axios.post(`${API_URL}/${id}/resource-pdf`, formData, { onUploadProgress });
     return r.data;
   } catch (e) {
     return rejectWithValue(e.response?.data?.message || 'Failed to upload resource PDF');

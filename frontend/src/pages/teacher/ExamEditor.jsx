@@ -19,6 +19,7 @@ import OptionImage from '../../components/OptionImage';
 import ClassSelect from '../../components/ClassSelect';
 import MathText from '../../components/MathText';
 import FormulaToolbar from '../../components/FormulaToolbar';
+import UploadProgress from '../../components/UploadProgress';
 
 // datetime-local ইনপুট শুধু "YYYY-MM-DDTHH:mm" (লোকাল সময়) বোঝে; সার্ভার থেকে আসে UTC ISO স্ট্রিং।
 const pad2 = (n) => String(n).padStart(2, '0');
@@ -50,6 +51,7 @@ export default function ExamEditor() {
   const [editingQ, setEditingQ] = useState(null);
   const [resourceLinkInput, setResourceLinkInput] = useState('');
   const [resourcePdfFile, setResourcePdfFile] = useState(null);
+  const [resourceUploadProgress, setResourceUploadProgress] = useState(null);
   const [resourceError, setResourceError] = useState('');
 
   useEffect(() => { dispatch(fetchExamById(id)); }, [dispatch, id]);
@@ -133,7 +135,12 @@ export default function ExamEditor() {
     if (!resourcePdfFile) return;
     const formData = new FormData();
     formData.append('pdf', resourcePdfFile);
-    dispatch(uploadResourcePdf({ id, formData }));
+    setResourceUploadProgress(0);
+    dispatch(uploadResourcePdf({
+      id,
+      formData,
+      onUploadProgress: (event) => event.total && setResourceUploadProgress(Math.round((event.loaded / event.total) * 100)),
+    })).finally(() => setResourceUploadProgress(null));
     setResourcePdfFile(null);
   };
 
@@ -307,6 +314,7 @@ export default function ExamEditor() {
               <PdfDropzone compact file={resourcePdfFile} onFile={setResourcePdfFile} onError={setResourceError} />
               {resourceError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{resourceError}</p>}
               <button onClick={handleUploadPdf} disabled={!resourcePdfFile} className="w-full rounded-lg bg-primary-600 px-3 py-2 text-sm text-white hover:bg-primary-700 disabled:opacity-50">{t('editor.upload')}</button>
+              <UploadProgress progress={resourceUploadProgress} label={t('diagram.uploading')} />
             </div>
           </Field>
         </div>

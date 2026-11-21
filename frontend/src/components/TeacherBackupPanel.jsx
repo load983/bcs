@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import axiosClient from '../api/axiosClient';
 import { useLanguage } from '../context/LanguageContext';
+import UploadProgress from './UploadProgress';
 
 export default function TeacherBackupPanel() {
   const { t } = useLanguage();
@@ -8,6 +9,7 @@ export default function TeacherBackupPanel() {
   const [busy, setBusy] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [progress, setProgress] = useState(null);
 
   const downloadBackup = async () => {
     setBusy('download'); setMessage(''); setError('');
@@ -30,12 +32,16 @@ export default function TeacherBackupPanel() {
     if (!/\.zip$/i.test(file.name)) { setError(t('backup.zipOnly')); return; }
     if (!window.confirm(t('backup.confirmRestore'))) return;
     setBusy('restore'); setMessage(''); setError('');
+    setProgress(0);
     try {
       const form = new FormData(); form.append('backup', file);
-      const { data } = await axiosClient.post('/teacher-backup/restore', form, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const { data } = await axiosClient.post('/teacher-backup/restore', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: (event) => event.total && setProgress(Math.round((event.loaded / event.total) * 100)),
+      });
       setMessage(t('backup.restoreDone', { classes: data.restored?.classes || 0, exams: data.restored?.exams || 0, students: data.restored?.students || 0, attempts: data.restored?.attempts || 0 }));
     } catch (err) { setError(err.response?.data?.message || t('backup.failed')); }
-    finally { setBusy(''); }
+    finally { setBusy(''); setProgress(null); }
   };
 
   return <section className="card mb-5 border border-primary-200 p-4 dark:border-primary-500/30">
@@ -53,5 +59,6 @@ export default function TeacherBackupPanel() {
     </div>
     {message && <p role="status" className="mt-3 text-sm text-emerald-700 dark:text-emerald-300">{message}</p>}
     {error && <p role="alert" className="mt-3 text-sm text-red-600 dark:text-red-400">{error}</p>}
+    <UploadProgress progress={progress} label={t('backup.working')} />
   </section>;
 }

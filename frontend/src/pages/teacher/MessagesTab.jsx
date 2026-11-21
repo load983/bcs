@@ -6,6 +6,7 @@ import axiosClient from '../../api/axiosClient';
 import assetUrl from '../../utils/assetUrl';
 import { useLanguage } from '../../context/LanguageContext';
 import useTeacherFeatures from '../../hooks/useTeacherFeatures';
+import UploadProgress from '../../components/UploadProgress';
 
 const MAX_TEXT = 2000;
 const MAX_MEDIA_FILES = 8;
@@ -27,6 +28,7 @@ export default function MessagesTab({ classes }) {
   const [previews, setPreviews] = useState([]);
   const [selected, setSelected] = useState([]);
   const [sending, setSending] = useState(false);
+  const [sendProgress, setSendProgress] = useState(null);
   const [dragActive, setDragActive] = useState(false);
   const fileRef = useRef(null);
 
@@ -37,6 +39,7 @@ export default function MessagesTab({ classes }) {
   const [editRemove, setEditRemove] = useState(false);
   const [renotify, setRenotify] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [editProgress, setEditProgress] = useState(null);
 
   const load = useCallback(() => {
     axiosClient
@@ -83,12 +86,13 @@ export default function MessagesTab({ classes }) {
     if (!text.trim() && files.length === 0) return flash('error', t('msg.needContent'));
     if (selected.length === 0) return flash('error', t('msg.needClass'));
     setSending(true);
+    setSendProgress(0);
     try {
       const fd = new FormData();
       fd.append('text', text.trim());
       fd.append('classIds', JSON.stringify(selected));
       files.forEach((file) => fd.append('files', file));
-      const { data } = await axiosClient.post('/messages', fd);
+      const { data } = await axiosClient.post('/messages', fd, { onUploadProgress: (event) => event.total && setSendProgress(Math.round((event.loaded / event.total) * 100)) });
       setItems((list) => [data.item, ...list]);
       setText('');
       setFiles([]);
@@ -97,7 +101,7 @@ export default function MessagesTab({ classes }) {
     } catch (err) {
       flash('error', err.response?.data?.message || t('msg.sendFailed'));
     } finally {
-      setSending(false);
+      setSending(false); setSendProgress(null);
     }
   };
 
@@ -112,20 +116,21 @@ export default function MessagesTab({ classes }) {
   const saveEdit = async (m) => {
     if (!editText.trim() && !editImage && (editRemove || !m.imageUrl)) return flash('error', t('msg.needContent'));
     setSaving(true);
+    setEditProgress(0);
     try {
       const fd = new FormData();
       fd.append('text', editText.trim());
       if (editImage) fd.append('image', editImage);
       if (editRemove) fd.append('removeImage', 'true');
       if (renotify) fd.append('renotify', 'true');
-      const { data } = await axiosClient.put(`/messages/${m._id}`, fd);
+      const { data } = await axiosClient.put(`/messages/${m._id}`, fd, { onUploadProgress: (event) => event.total && setEditProgress(Math.round((event.loaded / event.total) * 100)) });
       setItems((list) => list.map((x) => (x._id === m._id ? data.item : x)));
       setEditId(null);
       flash('success', t('msg.updated'));
     } catch (err) {
       flash('error', err.response?.data?.message || t('msg.sendFailed'));
     } finally {
-      setSaving(false);
+      setSaving(false); setEditProgress(null);
     }
   };
 
@@ -229,6 +234,7 @@ export default function MessagesTab({ classes }) {
         <button type="submit" disabled={sending || classes.length === 0} className="btn-primary">
           {sending ? t('msg.sending') : t('msg.send')}
         </button>
+        <UploadProgress progress={sendProgress} label={t('msg.sending')} />
       </form>
 
       {/* 📜 পাঠানো মেসেজ */}
@@ -278,6 +284,7 @@ export default function MessagesTab({ classes }) {
                     </button>
                     <button className="btn-secondary" onClick={() => setEditId(null)}>{t('common.cancel')}</button>
                   </div>
+                  <UploadProgress progress={editProgress} label={t('msg.sending')} />
                 </div>
               ) : (
                 <>

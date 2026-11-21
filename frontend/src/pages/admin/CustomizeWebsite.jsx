@@ -7,6 +7,7 @@ import { translations } from '../../i18n/translations';
 import { useLanguage } from '../../context/LanguageContext';
 import { useSite } from '../../context/SiteContext';
 import { useDialog } from './adminUi';
+import UploadProgress from '../../components/UploadProgress';
 
 const BRAND_KEYS = ['brand.name', 'brand.short', 'brand.splash'];
 const PAGE_SIZE = 40;
@@ -151,6 +152,8 @@ function BilingualField({ label, k, overrides, setText, long }) {
 function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, setText, onSave, images, setImages, media, setMedia }) {
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(null);
+  const uploadConfig = { onUploadProgress: (event) => event.total && setUploadProgress(Math.round((event.loaded / event.total) * 100)) };
 
   const upload = async (e) => {
     const file = e.target.files?.[0];
@@ -162,13 +165,14 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
     fd.append('logo', file);
     setBusy(true);
     try {
-      const { data } = await axiosClient.post('/admin/site/logo', fd);
+      setUploadProgress(0);
+      const { data } = await axiosClient.post('/admin/site/logo', fd, uploadConfig);
       setLogoUrl(data.logoUrl);
       await refreshSite();
       say(data.message || t('a.saved'));
     } catch (err) {
       say(err.response?.data?.message || t('a.saveFailed'));
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setUploadProgress(null); }
   };
 
   const remove = async () => {
@@ -180,7 +184,7 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
       say(data.message || t('a.saved'));
     } catch (err) {
       say(err.response?.data?.message || t('a.saveFailed'));
-    } finally { setBusy(false); }
+    } finally { setBusy(false); setUploadProgress(null); }
   };
 
   const uploadSlot = async (slot, e) => {
@@ -189,29 +193,31 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
     if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 5 * 1024 * 1024) return say('PNG/JPG/WEBP/GIF ছবি, সর্বোচ্চ ৫ MB');
     const fd = new FormData(); fd.append('image', file); fd.append('slot', slot); fd.append('alt', slot);
     setBusy(true);
-    try { const { data } = await axiosClient.post('/admin/site/image', fd); setImages(data.images || {}); await refreshSite(); say(data.message || t('a.saved')); }
+    setUploadProgress(0);
+    try { const { data } = await axiosClient.post('/admin/site/image', fd, uploadConfig); setImages(data.images || {}); await refreshSite(); say(data.message || t('a.saved')); }
     catch (err) { say(err.response?.data?.message || t('a.saveFailed')); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setUploadProgress(null); }
   };
   const removeSlot = async (slot) => {
     setBusy(true);
     try { const { data } = await axiosClient.delete(`/admin/site/image/${slot}`); setImages(data.images || {}); await refreshSite(); say(data.message || t('a.saved')); }
     catch (err) { say(err.response?.data?.message || t('a.saveFailed')); }
-    finally { setBusy(false); }
+    finally { setBusy(false); setUploadProgress(null); }
   };
 
   const uploadMedia = async (e) => {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
     if (!/^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/.test(file.type) || file.size > 50 * 1024 * 1024) return say('ছবি বা MP4/WEBM/OGG ভিডিও, সর্বোচ্চ ৫০ MB');
     const fd = new FormData(); fd.append('media', file); fd.append('title', file.name.replace(/\.[^.]+$/, ''));
-    setBusy(true); try { const { data } = await axiosClient.post('/admin/site/media', fd); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); }
+    setBusy(true); setUploadProgress(0); try { const { data } = await axiosClient.post('/admin/site/media', fd, uploadConfig); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); setUploadProgress(null); }
   };
   const removeMedia = async (id) => {
-    setBusy(true); try { const { data } = await axiosClient.delete(`/admin/site/media/${id}`); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); }
+    setBusy(true); try { const { data } = await axiosClient.delete(`/admin/site/media/${id}`); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); setUploadProgress(null); }
   };
 
   return (
     <div className="space-y-5">
+      <UploadProgress progress={uploadProgress} label={t('cz.uploading')} />
       <div className="card p-4">
         <h3 className="mb-1 font-semibold dark:text-white">{t('cz.logo')}</h3>
         <p className="mb-3 text-sm text-gray-500">{t('cz.logoHint')}</p>
