@@ -1,0 +1,1695 @@
+<!DOCTYPE html>
+<html lang="bn"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>বিজ্ঞান ডায়াগ্রাম স্টুডিও</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef3f1;--fg:#16302b;--cd:#fff;--bd:#c9d8d3;--ac:#0f766e;--ab:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1917;--fg:#e2f0ec;--cd:#162622;--bd:#2a4540;--ac:#4fd1c0;--ab:#06201c}}
+:root[data-theme=dark]{--bg:#0e1917;--fg:#e2f0ec;--cd:#162622;--bd:#2a4540;--ac:#4fd1c0;--ab:#06201c}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;background:var(--bg);color:var(--fg);font:15px 'Hind Siliguri','Noto Sans Bengali',system-ui,sans-serif}
+header{padding:8px 12px 2px;display:flex;align-items:baseline;gap:8px;flex:none}
+h1{font-size:19px;margin:0;font-weight:600}
+header small{opacity:.65;font-size:12px}
+.row{display:flex;gap:6px;overflow-x:auto;padding:5px 10px;flex:none;align-items:center;scrollbar-width:none}
+button,label.b{font:inherit;color:var(--fg);background:var(--cd);border:1px solid var(--bd);border-radius:9px;padding:6px 10px;white-space:nowrap;cursor:pointer;flex:none}
+button.on{background:var(--ac);color:var(--ab);border-color:var(--ac)}
+button:focus-visible,label.b:focus-within{outline:2px solid var(--ac);outline-offset:1px}
+#sj button{flex:1;font-weight:600;padding:8px 6px}
+input[type=color]{width:34px;height:32px;padding:0;border:1px solid var(--bd);border-radius:8px;background:none;flex:none}
+#cv{flex:1;min-height:0;margin:2px 10px;border:1px solid var(--bd);border-radius:12px;background:#fff;overflow:hidden;position:relative;box-shadow:0 4px 18px rgba(0,0,0,.06)}
+#s{cursor:grab}#s.dragging{cursor:grabbing}#s.erasing{cursor:crosshair}.hint{position:absolute;right:10px;bottom:10px;background:rgba(22,48,43,.82);color:#fff;border-radius:10px;padding:5px 9px;font-size:11px;pointer-events:none}
+#s{width:100%;height:100%;touch-action:none;display:block}
+#st{padding-bottom:8px}
+.st{width:74px;padding:4px 2px;font-size:11px;white-space:normal;line-height:1.15;display:flex;flex-direction:column;align-items:center;gap:2px}
+.st svg{width:44px;height:44px}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;z-index:9}
+#ov[hidden]{display:none}
+#ov div{background:var(--cd);border-radius:12px;padding:12px;max-width:520px;text-align:center}
+#ov img{max-width:100%;max-height:55vh;border:1px solid var(--bd);background:#fff}
+#ov a{color:var(--ac)}
+#gn input{font:inherit;color:var(--fg);background:var(--cd);border:1px solid var(--bd);border-radius:9px;padding:6px 9px;flex:none}#msg{font-size:12px;opacity:.8;white-space:nowrap}
+#gp{margin:2px 10px;padding:8px;border:1px solid var(--bd);border-radius:12px;background:var(--cd);display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:none;max-height:36vh;overflow:auto}
+#gp[hidden],#go[hidden]{display:none}
+#gp textarea,#gp input[type=text],#gp input[type=number]{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:9px;padding:6px 9px}
+#gq{flex:1 1 260px;min-height:44px;resize:vertical}
+#go{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex-basis:100%}
+#go input[type=number],#go input[type=text]{width:84px}
+.gl{display:flex;align-items:center;gap:5px;font-size:12px}
+.chip{padding:3px 10px;font-size:12px;border-radius:99px}
+.rx-panel{margin:3px 10px;padding:11px 13px;border:1px solid var(--bd);border-radius:14px;background:linear-gradient(135deg,var(--cd),color-mix(in srgb,var(--ac) 7%,var(--cd)));box-shadow:0 4px 16px rgba(0,0,0,.05);flex:none;max-height:34vh;overflow:auto}
+.rx-heading{display:flex;align-items:baseline;gap:10px;margin-bottom:8px}.rx-heading b{font-size:14px;color:var(--ac)}.rx-heading span,.rx-presets>span{font-size:11px;opacity:.7}
+.rx-grid{display:grid;grid-template-columns:minmax(140px,1fr) minmax(110px,.65fr) minmax(110px,.65fr) minmax(140px,1fr) auto auto;gap:7px;align-items:end}
+.rx-grid label{display:grid;gap:3px;font-size:11px;opacity:.82}.rx-grid input,.rx-grid select{width:100%;min-width:0;height:34px;padding:5px 8px;border:1px solid var(--bd);border-radius:8px;background:var(--bg);color:var(--fg);font:inherit}.rx-grid button{height:34px;background:var(--ac);color:var(--ab);border-color:var(--ac)}
+.rx-presets{display:flex;align-items:center;gap:5px;margin-top:8px;flex-wrap:wrap}.rx-presets button{padding:2px 9px;font-size:11px}
+@media(max-width:760px){.rx-panel{max-height:31vh;padding:8px}.rx-heading{align-items:flex-start;flex-direction:column;gap:0}.rx-grid{grid-template-columns:1fr 1fr}.rx-grid label:first-child,.rx-grid label:nth-child(4){grid-column:span 2}.rx-grid .rx-condition{grid-column:span 1}.rx-presets{margin-top:6px}}
+@media(prefers-reduced-motion:no-preference){.rx-panel{animation:rx-in .18s ease-out}@keyframes rx-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}}
+
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:3;background:var(--bg)}
+button,label.b{transition:background .15s,border-color .15s,transform .05s}
+button:hover:not(.on){border-color:var(--ac)}button:active{transform:scale(.97)}
+.sep{width:1px;align-self:stretch;background:var(--bd);margin:2px 3px;flex:none}
+@media(min-width:760px){#tl,#ac,#sr,#ob,#gn{flex-wrap:wrap;overflow:visible}}
+.gl input[type=range],#tx input[type=range]{accent-color:var(--ac)}
+.gl output{min-width:34px;font-size:11px;opacity:.75}
+.sw{width:26px;height:26px;border-radius:50%;padding:0;border:2px solid var(--bd)}
+.sw.on{outline:2px solid var(--ac);outline-offset:2px}
+#bgp{margin:2px 10px;padding:7px 9px;border:1px solid var(--bd);border-radius:10px;background:var(--cd);display:flex;flex-wrap:wrap;gap:7px;align-items:center;flex:none}
+#bgs{display:flex;gap:6px;flex-wrap:wrap}
+#tx{position:fixed;inset:0;z-index:20;display:flex;align-items:flex-end;justify-content:center;pointer-events:none}
+.tp{pointer-events:auto;background:var(--cd);color:var(--fg);width:min(680px,100%);max-height:62vh;overflow:auto;border:1px solid var(--bd);border-radius:14px 14px 0 0;padding:10px 12px calc(10px + env(safe-area-inset-bottom,0px));display:flex;flex-direction:column;gap:8px;box-shadow:0 -8px 28px rgba(0,0,0,.25)}
+.th{display:flex;align-items:center;gap:6px}.th span{margin-left:auto;display:flex;gap:6px}
+.tp textarea{font:inherit;font-size:16px;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:9px;padding:8px;resize:vertical;min-height:64px}
+.tr{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.tr select{font:inherit;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:9px;padding:5px 6px}
+.sy{max-height:84px;overflow:auto;gap:4px}.sy button{padding:3px 9px;min-width:34px}
+#gdv{position:fixed;inset:0;z-index:30;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;padding:10px}
+.gb{background:var(--cd);color:var(--fg);width:min(780px,100%);max-height:94vh;border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+.gh{display:flex;gap:6px;align-items:center;padding:10px 12px;border-bottom:1px solid var(--bd)}.gh span{margin-left:auto;display:flex;gap:6px}
+.gc{overflow:auto;padding:2px 16px 18px;line-height:1.6;font-size:14px}
+.gc h3{margin:16px 0 4px;color:var(--ac);font-size:15px}.gc ul{margin:0;padding-left:20px}.gc li{margin:3px 0}
+.gc kbd{background:var(--bg);border:1px solid var(--bd);border-radius:5px;padding:0 5px;font-size:12px}
+</style></head><body>
+<header><h1>বিজ্ঞান ডায়াগ্রাম স্টুডিও</h1><small>পদার্থ · গণিত · রসায়ন</small><button id="hb" style="margin-left:auto" title="সব অপশনের ব্যাখ্যা">❓ গাইড</button><button id="lg" aria-label="Language">English</button></header>
+<div class="row" id="sj"></div>
+<div class="row" id="tl"></div>
+<div class="row" id="ac">
+ <button id="un" title="শেষ কাজ ফিরিয়ে নিন (Ctrl+Z)">↶ আগে</button><button id="rd" title="আবার করুন (Ctrl+Y)">↷ পরে</button><span class="sep"></span>
+ <button id="zo" title="জুম কমান">🔍−</button><button id="zi" title="জুম বাড়ান">🔍＋</button><button id="ft" title="সব ডায়াগ্রাম পর্দায় ফিট">⤢ ফিট</button>
+ <button id="gv" class="on" title="স্ক্রিনে জাল দেখান/লুকান (ছবিতে জাল যায় না)">▦ জাল</button><button id="sn" title="আঁকার সময় জালের ঘরে বসে যাবে">🧲 জালে বসান</button>
+ <button id="bgb" title="ক্যানভাসের ব্যাকগ্রাউন্ড রং">🖼 ব্যাকগ্রাউন্ড</button><span class="sep"></span>
+ <button id="mu" title="একাধিক বস্তু নির্বাচন: ট্যাপ/ক্লিকে যোগ-বাদ, ফাঁকা জায়গায় টেনে বক্স নির্বাচন">☑ বহু-নির্বাচন</button><button id="sa" title="সব বস্তু নির্বাচন (Ctrl+A)">সব নির্বাচন</button><span class="sep"></span>
+ <button id="pj" title="প্রকল্প ফাইল (.json) হিসেবে সংরক্ষণ">💾 সংরক্ষণ</button><label class="b" title="সংরক্ষিত প্রকল্প ফাইল খুলুন">📂 খুলুন<input type="file" id="po" accept=".json,application/json" hidden></label><span class="sep"></span>
+ <button id="ep" title="ছবি (PNG) হিসেবে নিন">PNG</button><button id="es" title="ভেক্টর ছবি (SVG) হিসেবে নিন">SVG</button><button id="uq2" class="on" hidden>✅ প্রশ্নে যুক্ত করুন</button>
+ <button id="cl" title="ক্যানভাস খালি করুন">🗑 সব মুছুন</button>
+</div>
+<div class="row" id="al" hidden>
+ <b style="font-size:12px">সাজান</b>
+ <button data-a="l" title="বামে সারিবদ্ধ">⇤ বাম</button><button data-a="c" title="অনুভূমিক মাঝে">⇔ মাঝ</button><button data-a="r" title="ডানে সারিবদ্ধ">⇥ ডান</button><span class="sep"></span>
+ <button data-a="t" title="উপরে সারিবদ্ধ">⤒ উপর</button><button data-a="m" title="উল্লম্ব মাঝে">⇕ মাঝ</button><button data-a="b" title="নিচে সারিবদ্ধ">⤓ নিচ</button><span class="sep"></span>
+ <button data-a="dh" title="অনুভূমিকভাবে সমান ফাঁক">↔ সমান ফাঁক</button><button data-a="dv" title="উল্লম্বভাবে সমান ফাঁক">↕ সমান ফাঁক</button>
+</div>
+<div id="bgp" hidden>
+ <b style="font-size:13px">ব্যাকগ্রাউন্ড রং</b><div id="bgs"></div>
+ <label class="gl" title="নিজের পছন্দের রং"><input type="color" id="bgc" value="#ffffff" aria-label="ব্যাকগ্রাউন্ড রং"></label>
+ <label class="gl" title="ছবিতে কোনো ব্যাকগ্রাউন্ড থাকবে না (PNG স্বচ্ছ হবে)"><input type="checkbox" id="bgt"> স্বচ্ছ</label>
+</div>
+<div class="row" id="sr">
+ <label class="gl" title="লাইন / লেখার রং">রং <input type="color" id="col" value="#111111" aria-label="রং"></label>
+ <label class="gl" title="লাইনের মোটা">মোটা <input type="range" id="wd" min="1" max="12" value="3" aria-label="মোটা" style="width:90px"></label>
+</div>
+<div class="row" id="ob" hidden>
+ <label class="gl" title="নির্বাচিত বস্তুর আকার">আকার <input type="range" id="sz" min="0.2" max="8" step="0.05" value="1" style="width:84px"></label>
+ <label class="gl" title="ঘোরানো (ডিগ্রি)">ঘূর্ণন <input type="range" id="rt" min="0" max="359" step="1" value="0" style="width:84px"><output id="rtv">0°</output></label><button id="ro" title="৯০° ঘোরান">⟳ 90°</button>
+ <label class="gl" title="স্বচ্ছতা">স্বচ্ছতা <input type="range" id="op" min="10" max="100" step="5" value="100" style="width:70px"></label><span class="sep"></span>
+ <label class="gl" id="fcl" title="ভরাটের রং"><input type="color" id="fc" value="#fff3b0"></label><button id="fl" title="নির্বাচিত আকৃতি রং দিয়ে ভরাট/খালি">🎨 ভরাট</button>
+ <button id="ds" title="রেখা ডটেড/সলিড">┄ ডট রেখা</button><button id="fx" title="আয়নার মতো উল্টান">⇋ উল্টান</button><span class="sep"></span>
+ <button id="fr" title="সামনে আনুন">⬆ সামনে</button><button id="bk" title="পেছনে পাঠান">⬇ পেছনে</button><button id="du" title="কপি (Ctrl+D)">⧉ কপি</button><button id="de" title="মুছুন (Delete)">🗑 মুছুন</button>
+ <button id="lk" title="টেনে সরানো ও ছোট-বড় করা বন্ধ/চালু">🔒 লক</button><button id="te" class="on" hidden title="লেখা সম্পাদনা করুন">✎ লেখা বদলান</button>
+</div>
+<div class="row" id="gn"><input id="smi" placeholder="🧪 যৌগের নাম/SMILES: aspirin, CCO" style="width:210px"><button id="gm">যৌগ আঁকুন</button><button id="rxtog" aria-expanded="false">⚗️ বিক্রিয়া সাজান</button><button id="gtog" aria-expanded="false">📈 গ্রাফ</button><span id="msg" role="status" aria-live="polite"></span></div>
+<div id="rxp" class="rx-panel" hidden>
+ <div class="rx-heading"><b>⚗️ বিক্রিয়া চিত্র নির্মাতা</b><span>সমীকরণটি নিজে লিখুন; স্টুডিও সুন্দরভাবে সাজাবে।</span></div>
+ <div class="rx-grid">
+  <label>বিক্রিয়ক<input id="rx-left" maxlength="70" placeholder="যেমন: 2H₂ + O₂"></label>
+  <label class="rx-condition">তীরের ওপর<input id="rx-above" maxlength="45" placeholder="যেমন: Δ / Pt"></label>
+  <label class="rx-condition">তীরের নিচে<input id="rx-below" maxlength="45" placeholder="যেমন: চাপ / দ্রাবক"></label>
+  <label>উৎপাদ<input id="rx-right" maxlength="70" placeholder="যেমন: 2H₂O"></label>
+  <label>তীর<select id="rx-arrow"><option>→</option><option>⇌</option><option>⇄</option></select></label>
+  <button id="rx-add" class="on">চিত্রে যোগ করুন</button>
+ </div>
+ <div class="rx-presets"><span>দ্রুত উদাহরণ:</span><button data-rx="water">পানি</button><button data-rx="neutral">প্রশমন</button><button data-rx="photo">সালোকসংশ্লেষ</button></div>
+</div>
+<div id="gp" hidden>
+ <textarea id="gq" rows="2" placeholder="সমীকরণ লিখুন — একাধিক হলে ; বা নতুন লাইন দিয়ে আলাদা করুন&#10;y = sin(x); x^2 + y^2 = 25; r = 1 + cos(t); (sin(3t), sin(2t))"></textarea>
+ <label class="gl">পরিসর ±<input id="g_r" type="number" value="10" min="0.1" max="1000" step="any" style="width:70px"></label>
+ <button id="gd" class="on">গ্রাফ আঁকুন</button><button id="gu" hidden>↻ নির্বাচিত গ্রাফ আপডেট</button><button id="gs">⚙ সেটিংস</button>
+ <div id="go" hidden>
+  <label class="gl">শিরোনাম<input id="g_title" type="text" style="width:150px" maxlength="60"></label>
+  <label class="gl">x ন্যূনতম<input id="g_xMin" type="number" step="any"></label><label class="gl">x সর্বোচ্চ<input id="g_xMax" type="number" step="any"></label>
+  <label class="gl">y ন্যূনতম<input id="g_yMin" type="number" step="any"></label><label class="gl">y সর্বোচ্চ<input id="g_yMax" type="number" step="any"></label>
+  <label class="gl">t শুরু<input id="g_tMin" type="text" placeholder="0"></label><label class="gl">t শেষ<input id="g_tMax" type="text" placeholder="2pi"></label>
+  <label class="gl"><input id="g_grid" type="checkbox" checked> জাল</label><label class="gl" title="গ্রাফের ওপরে সমীকরণের লেখা (যেমন y = ln(x)) দেখাবে — ডিফল্টে বন্ধ"><input id="g_legend" type="checkbox"> সমীকরণের লেখা দেখান</label>
+ </div>
+ <div id="gpre" style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:5px"></div>
+</div>
+<div id="cv"><svg id="s" viewBox="0 0 700 700" xmlns="http://www.w3.org/2000/svg" font-family="Hind Siliguri,Noto Sans Bengali,sans-serif">
+<defs><pattern id="g" width="25" height="25" patternUnits="userSpaceOnUse"><path d="M25 0H0V25" fill="none" stroke="#8a9a96" stroke-opacity=".28" stroke-width="1"/></pattern></defs>
+<rect id="bgr" x="-4000" y="-4000" width="9000" height="9000" fill="#fff"/><rect id="gridr" x="-4000" y="-4000" width="9000" height="9000" fill="url(#g)"/><g id="L"></g><circle id="ecur" r="12" fill="rgba(255,255,255,.35)" stroke="#111" stroke-width="1.5" stroke-dasharray="4 3" style="display:none;pointer-events:none"/></svg></div>
+<div class="row" id="tb"></div>
+<div class="row" id="st"></div>
+<div id="ov" hidden></div>
+<div id="tx" hidden><div class="tp" role="dialog" aria-label="লেখা সম্পাদনা">
+ <div class="th"><b>✎ লেখা সম্পাদনা</b><span><button id="tx_ok" class="on">✓ ঠিক আছে</button><button id="tx_no">✕ বাতিল</button></span></div>
+ <svg id="tx_pv" aria-hidden="true" style="width:100%;height:64px;flex:none;border:1px dashed var(--bd);border-radius:9px"></svg>
+ <textarea id="tx_t" rows="2" placeholder="লেখা লিখুন (যেমন: F = ma, H₂O, ∫f(x)dx, √x) — নতুন লাইনের জন্য Enter"></textarea>
+ <div class="tr">
+  <select id="tx_f" aria-label="ফন্ট"><option value="s">সাধারণ (Sans)</option><option value="r">সেরিফ (Serif)</option><option value="m">মনোস্পেস (Mono)</option></select>
+  <label class="gl">আকার <input type="range" id="tx_s" min="12" max="160" value="28" style="width:90px"><output id="tx_sv">28</output></label>
+  <button id="tx_b" title="বোল্ড"><b>B</b></button><button id="tx_i" title="ইটালিক"><i>I</i></button><button id="tx_u" title="আন্ডারলাইন"><u>U</u></button>
+ </div>
+ <div class="tr">
+  <button data-al="l">বাম</button><button data-al="c">মাঝে</button><button data-al="r">ডান</button>
+  <label class="gl">লাইন ফাঁক <select id="tx_l"><option value="1">1.0</option><option value="1.25">1.25</option><option value="1.5">1.5</option><option value="2">2.0</option></select></label>
+  <label class="gl" title="লেখার রং">রং <input type="color" id="tx_c"></label>
+  <label class="gl" title="লেখার পেছনে রঙিন ব্যাকগ্রাউন্ড"><input type="checkbox" id="tx_hc"> হাইলাইট <input type="color" id="tx_h" value="#fff3b0"></label>
+ </div>
+ <div class="tr">
+  <button id="tx_sb" title="নির্বাচিত অংশ নিচে (H₂O)">x₂ নিচে</button><button id="tx_sp" title="নির্বাচিত অংশ উপরে (x²)">x² উপরে</button><button id="tx_nm" title="নির্বাচিত অংশ সাধারণ করুন">Aa সাধারণ</button>
+ </div>
+ <details><summary style="cursor:pointer;font-size:13px">চিহ্ন ও গ্রিক অক্ষর</summary><div class="tr sy" id="tx_y" style="margin-top:6px"></div></details>
+</div></div>
+<div id="gdv" hidden><div class="gb"><div class="gh"><b id="gt"></b><span><button data-gl="bn">বাংলা</button><button data-gl="en">English</button><button id="gx" aria-label="Close">✕</button></span></div><div class="gc" id="gcn"></div></div></div>
+
+<script>
+// ---- ভাষা / Language (বাংলা ↔ English) ----
+const EN={
+'বিজ্ঞান ডায়াগ্রাম স্টুডিও':'Science Diagram Studio','পদার্থ · গণিত · রসায়ন':'Physics · Maths · Chemistry',
+'রং':'Colour','মোটা':'Thickness','বড়':'Bigger','ছোট':'Smaller','ঘোরান':'Rotate','কপি':'Copy','মুছুন':'Delete','আগে':'Undo','সব মুছুন':'Clear all',
+'আঁকার সময় জালের ঘরে বসে যাবে':'Items snap to grid squares while drawing','জালে বসান':'Snap to grid','স্ক্রিনে জাল দেখান/লুকান (ছবিতে জাল যায় না)':'Show/hide grid on screen (grid is never in the image)','জাল':'Grid',
+'প্রশ্নে যুক্ত করুন':'Add to question','লেখার আকার':'Text size','ভরাটের রং':'Fill colour','নির্বাচিত আকৃতি রং দিয়ে ভরাট/খালি':'Fill / unfill the selected shape','ভরাট':'Fill',
+'রেখা ডটেড/সলিড':'Dotted / solid line','ডট রেখা':'Dotted','আয়নার মতো উল্টান':'Mirror flip','উল্টান':'Flip','সামনে':'Front','পেছনে':'Back','পরে':'Redo','সব ডায়াগ্রাম পর্দায় ফিট':'Fit whole diagram on screen','ফিট':'Fit',
+'যৌগ আঁকুন':'Draw compound','গ্রাফ':'Graph','গ্রাফ আঁকুন':'Draw graph','নির্বাচিত গ্রাফ আপডেট':'Update selected graph','সেটিংস':'Settings',
+'পরিসর':'Range','শিরোনাম':'Title','x ন্যূনতম':'x min','x সর্বোচ্চ':'x max','y ন্যূনতম':'y min','y সর্বোচ্চ':'y max','t শুরু':'t start','t শেষ':'t end','লেজেন্ড':'Legend',
+'টানুন = সরান · wheel/pinch = zoom · কোণ = resize · লেখায় ডাবল-ক্লিক = বদল':'Drag = move · wheel/pinch = zoom · corner = resize · double-click text = edit',
+'🧪 যৌগের নাম/SMILES: aspirin, CCO':'🧪 Compound name/SMILES: aspirin, CCO',
+'সমীকরণ লিখুন — একাধিক হলে ; বা নতুন লাইন দিয়ে আলাদা করুন\ny = sin(x); x^2 + y^2 = 25; r = 1 + cos(t); (sin(3t), sin(2t))':'Type equation(s) — separate several with ; or a new line\ny = sin(x); x^2 + y^2 = 25; r = 1 + cos(t); (sin(3t), sin(2t))',
+'অ্যারোমেটিক':'Aromatic','বেনজিন':'Benzene','টলুইন':'Toluene','ফেনল':'Phenol','অ্যানিলিন':'Aniline','নাইট্রোবেনজিন':'Nitrobenzene','বেনজোয়িক অ্যাসিড':'Benzoic acid','ক্লোরোবেনজিন':'Chlorobenzene','পিরিডিন':'Pyridine','ন্যাফথালিন':'Naphthalene','অ্যান্থ্রাসিন':'Anthracene',
+'অ্যালিফেটিক':'Aliphatic','মিথেন':'Methane','প্রোপেন':'Propane','বিউটেন':'Butane','হেক্সেন':'Hexane','ইথানল':'Ethanol','ইথানয়িক অ্যাসিড':'Ethanoic acid','ইথিন':'Ethene','ইথাইন':'Ethyne','সাইক্লোহেক্সেন':'Cyclohexane','সাইক্লোপেন্টেন':'Cyclopentane',
+'বর্তনী, আলো ও বল':'Circuits, light & force','রোধ':'Resistor','ব্যাটারি':'Battery','বাল্ব':'Bulb','সুইচ':'Switch','ধারক':'Capacitor','উত্তল লেন্স':'Convex lens','অবতল লেন্স':'Concave lens','দর্পণ':'Mirror','স্প্রিং':'Spring','নত তল':'Inclined plane','দোলক':'Pendulum','ভেক্টর':'Vector','চুম্বক':'Magnet','তরঙ্গ':'Wave',
+'জ্যামিতি ও গ্রাফ':'Geometry & graphs','স্থানাঙ্ক অক্ষ':'Coordinate axes','অধিবৃত্ত':'Hyperbola','সাইন তরঙ্গ':'Sine wave','ত্রিভুজ':'Triangle','সমকোণী ত্রিভুজ':'Right triangle','বৃত্ত ও ব্যাসার্ধ':'Circle & radius','কোণ θ':'Angle θ','সংখ্যারেখা':'Number line','ঘনক':'Cube','ভেন চিত্র':'Venn diagram',
+'রসায়ন: বন্ধন ও বলয়':'Chemistry: bonds & rings','একক বন্ধন':'Single bond','দ্বিবন্ধন':'Double bond','ত্রিবন্ধন':'Triple bond','ঘন তীর-বন্ধন':'Wedge bond','ড্যাশ-বন্ধন':'Dash bond','বিচ্ছিন্ন বন্ধন':'Broken bond','৩-বলয়':'3-ring','৪-বলয়':'4-ring','৫-বলয়':'5-ring','৬-বলয়':'6-ring','৭-বলয়':'7-ring','৮-বলয়':'8-ring','কেকুলে বেনজিন':'Kekulé benzene','বৃত্তসহ বেনজিন':'Benzene with circle',
+'রসায়ন: পরমাণু ও মূলক':'Chemistry: atoms & groups','তীর ও চিহ্ন':'Arrows & signs','গ্রিক ও গণিত প্রতীক':'Greek & maths symbols','আকৃতি ও যন্ত্র':'Shapes & apparatus',
+'বর্গ':'Square','গোল-কোণা বক্স':'Rounded box','রম্বস':'Rhombus','পঞ্চভুজ':'Pentagon','ষড়ভুজ':'Hexagon','তারা':'Star','চাপ':'Arc','বক্ররেখা':'Curve','বাঁকা তীর':'Curved arrow','ব্রেস':'Brace','দ্বিমুখী তীর':'Double arrow','রশ্মি':'Ray','বিন্দুরেখা':'Dotted line','জিগজ্যাগ':'Zigzag','বিকার':'Beaker','কনিক্যাল ফ্লাস্ক':'Conical flask','পরীক্ষানল':'Test tube','থার্মোমিটার':'Thermometer','কোষ':'Cell','ফ্লোচার্ট বক্স':'Flowchart box','বিন্দু':'Dot',
+'পদার্থ: আরও যন্ত্র':'Physics: more apparatus','অ্যামিটার':'Ammeter','ভোল্টমিটার':'Voltmeter','গ্যালভানোমিটার':'Galvanometer','আবেশক':'Inductor','ডায়োড':'Diode','AC উৎস':'AC source','ভূ-সংযোগ':'Earth (ground)','প্রিজম':'Prism','কপিকল':'Pulley','উত্তল দর্পণ':'Convex mirror','ক্ষেত্ররেখা':'Field lines',
+'গণিত: আরও আকৃতি':'Maths: more shapes','চোঙ':'Cylinder','শঙ্কু':'Cone','গোলক':'Sphere','বার চার্ট':'Bar chart','পাই চার্ট':'Pie chart','সামান্তরিক':'Parallelogram','ট্রাপিজিয়াম':'Trapezium','গ্রিড':'Grid lines','জ্যা':'Chord','স্পর্শক':'Tangent',
+'পদার্থ: রাশি ও একক':'Physics: quantities & units','গণিত: সূত্র-চিহ্ন':'Maths: formula symbols',
+'রসায়ন: কার্যকরী মূলক ও জৈব':'Chemistry: functional groups & organic','অ্যালকিন':'Alkene','অ্যালকাইন':'Alkyne','কার্বোনিল':'Carbonyl','অ্যালডিহাইড':'Aldehyde','কিটোন':'Ketone','এস্টার':'Ester','অ্যামাইড':'Amide','অ্যামিন':'Amine','হাইড্রক্সিল':'Hydroxyl','সায়ানো':'Cyano','নাইট্রো':'Nitro','ফেনাইল':'Phenyl',
+'রসায়ন: অজৈব ও সমন্বয়':'Chemistry: inorganic & coordination','পানি H₂O':'Water H₂O','কার্বন ডাই-অক্সাইড':'Carbon dioxide','অ্যামোনিয়া':'Ammonia','সালফিউরিক অ্যাসিড':'Sulfuric acid','নাইট্রিক অ্যাসিড':'Nitric acid','সোডিয়াম হাইড্রক্সাইড':'Sodium hydroxide','সমন্বয় বন্ধন':'Coordinate bond','আয়নিক বন্ধন':'Ionic bond','হাইড্রোজেন বন্ধন':'Hydrogen bond','লুইস ডট':'Lewis dot',
+'রসায়ন: বিক্রিয়া ও ল্যাব':'Chemistry: reactions & lab','বিক্রিয়া':'Reaction','সমতা বিক্রিয়া':'Equilibrium reaction','অনুঘটক':'Catalyst','তাপ Δ':'Heat Δ','পাতন':'Distillation','ফিল্টার':'Filter','বাষ্পীভবন':'Evaporation','গ্যাস সংগ্রহ':'Gas collection',
+'পদার্থ: মেকানিক্স ও গতি':'Physics: mechanics & motion','গতি':'Motion','মুক্তদেহ চিত্র':'Free-body diagram','প্রক্ষেপণ':'Projectile','ঢালু তল':'Sloped surface','টর্ক':'Torque','সংঘর্ষ':'Collision','দ্বৈত কপিকল':'Double pulley',
+'পদার্থ: তাপ, তরঙ্গ ও আধুনিক':'Physics: heat, waves & modern','তাপ প্রবাহ':'Heat flow','তাপীয় প্রসারণ':'Thermal expansion','স্থির তরঙ্গ':'Standing wave','শব্দ তরঙ্গ':'Sound wave','EM তরঙ্গ':'EM wave','ফটোইলেকট্রিক':'Photoelectric','পরমাণু':'Atom','নিউক্লিয়াস':'Nucleus',
+'গণিত: কনিক ও ফাংশন':'Maths: conics & functions','পরাবৃত্ত':'Parabola','উপবৃত্ত':'Ellipse','ধাপ ফাংশন':'Step function','খণ্ডিত ফাংশন':'Piecewise function','ভেক্টর যোগ':'Vector addition','ঢাল':'Slope',
+'গণিত: জ্যামিতি 2D/3D':'Maths: geometry 2D/3D','ঘুড়ি':'Kite','অষ্টভুজ':'Octagon','বৃত্তখণ্ড':'Sector','ছাঁটা শঙ্কু':'Frustum','ত্রিভুজ প্রিজম':'Triangular prism','3D অক্ষ':'3D axes',
+'⚗️ রসায়ন':'⚗️ Chemistry','⚡ পদার্থবিজ্ঞান':'⚡ Physics','📐 গণিত':'📐 Maths',
+'☝ নির্বাচন':'☝ Select','✏️ কলম':'✏️ Pen','／ রেখা':'／ Line','→ তীর':'→ Arrow','↔ দ্বিমুখী':'↔ Double arrow','▭ আয়তক্ষেত্র':'▭ Rectangle','◯ উপবৃত্ত':'◯ Ellipse','T লেখা':'T Text',
+'🔎 ডায়াগ্রাম খুঁজুন...':'🔎 Search symbols...','🖼 ডায়াগ্রাম আপলোড':'🖼 Upload image',
+'লেখা লিখুন (যেমন: F = ma, H₂O, ∫f(x)dx, √x)':'Enter text (e.g. F = ma, H₂O, ∫f(x)dx, √x)','লেখা সম্পাদনা করুন':'Edit text','সব মুছে ফেলবেন?':'Clear everything?',
+'আগে কিছু আঁকুন':'Draw something first','ছবি বানানো যায়নি':'Could not create the image','ডায়াগ্রাম':'Diagram',
+'ছবিটি দীর্ঘক্ষণ চেপে ধরে (কম্পিউটারে ডান-ক্লিক করে) সংরক্ষণ করুন।':'Long-press the image (right-click on a computer) to save it.','⬇ ডাউনলোড':'⬇ Download','বন্ধ করুন':'Close',
+'লোড হচ্ছে...':'Loading...','✓ আঁকা হয়েছে':'✓ Drawn','পাওয়া যায়নি (ইংরেজি নাম/SMILES ও ইন্টারনেট লাগবে)':'Not found (needs an English name/SMILES and internet)',
+'✓ গ্রাফ আঁকা হয়েছে':'✓ Graph drawn','গ্রাফ আঁকা যায়নি':'Could not draw the graph','✓ গ্রাফ আপডেট হয়েছে':'✓ Graph updated','গ্রাফ আপডেট করা যায়নি':'Could not update the graph',
+'সূত্র বোঝা যায়নি — সমীকরণটি আবার দেখুন।':'Could not understand the formula — please re-check the equation.',
+'সূত্র বোঝা যায়নি — বন্ধনী বা ফাংশনটি পরীক্ষা করুন।':'Could not understand the formula — check the brackets or function.',
+'সমীকরণের একটি অংশ অসম্পূর্ণ।':'Part of the equation is incomplete.',
+'সূত্র বোঝা যায়নি — সংখ্যা, x, y, বন্ধনী বা ফাংশন ব্যবহার করুন।':'Could not understand the formula — use numbers, x, y, brackets or functions.',
+'সূত্র বোঝা যায়নি — অপারেটর বা বন্ধনী পরীক্ষা করুন।':'Could not understand the formula — check operators or brackets.',
+'এই পরিসরে গ্রাফ দেখা যাচ্ছে না — সমীকরণ বা পরিসর বদলে দেখুন।':'No graph is visible in this range — change the equation or the range.',
+'আগে একটি সমীকরণ লিখুন।':'Type an equation first.','একটি সমীকরণে একটি “=” চিহ্ন ব্যবহার করুন।':'Use only one “=” sign in an equation.','সমীকরণের দুই পাশে মান লিখুন।':'Write something on both sides of the equation.',
+'t-এর সীমা বোঝা যায়নি — যেমন 0 বা 2pi লিখুন।':'Could not understand the t limit — e.g. write 0 or 2pi.','t-এর শেষ মান শুরুর মানের চেয়ে বড় হতে হবে।':'The t end value must be greater than the start value.',
+'পরিসর ০.১ থেকে ১০০০-এর মধ্যে দিন।':'Give a range between 0.1 and 1000.','সমীকরণ থেকে গ্রাফ তৈরি হয়নি — সূত্রটি পরীক্ষা করুন।':'No graph was produced — check the formula.',
+'রেখা':'Line','ঘন':'Cubic','sin ও cos':'sin & cos','চক্রবৃদ্ধি':'Exponential','লগ':'Log','বৃত্ত':'Circle','হাইপারবোলা':'Hyperbola','কার্ডিওয়েড':'Cardioid','সর্পিল':'Spiral','গোলাপ':'Rose','লিসাজু':'Lissajous'
+};
+Object.assign(EN,{'△ ত্রিভুজ আঁকুন':'△ Draw triangle','◇ হীরা আঁকুন':'◇ Draw diamond','▢ গোল-কোণা বক্স আঁকুন':'▢ Draw rounded box','⤴ কৌণিক সংযোগ':'⤴ Elbow connector','⚗️ বিক্রিয়া সাজান':'⚗️ Reaction builder','⚗️ বিক্রিয়া চিত্র নির্মাতা':'⚗️ Reaction diagram builder','সমীকরণটি নিজে লিখুন; স্টুডিও সুন্দরভাবে সাজাবে।':'Enter the equation; the studio will format it.','বিক্রিয়ক':'Reactants','উৎপাদ':'Products','তীরের ওপর':'Above arrow','তীরের নিচে':'Below arrow','তীর':'Arrow','চিত্রে যোগ করুন':'Add to canvas','দ্রুত উদাহরণ:':'Quick examples:','পানি':'Water','প্রশমন':'Neutralization','সালোকসংশ্লেষ':'Photosynthesis','দুই পাশে বিক্রিয়ক/উৎপাদ লিখুন।':'Enter both reactants and products.','✓ বিক্রিয়া চিত্র যোগ হয়েছে':'✓ Reaction diagram added','যেমন: 2H₂ + O₂':'e.g. 2H₂ + O₂','যেমন: Δ / Pt':'e.g. Δ / Pt','যেমন: চাপ / দ্রাবক':'e.g. pressure / solvent','যেমন: 2H₂O':'e.g. 2H₂O'});
+const LK='ds-lang';let lang='bn';
+try{const q=new URLSearchParams(location.search).get('lang');lang=q==='en'||q==='bn'?q:(localStorage.getItem(LK)||localStorage.getItem('app-lang')||'bn')}catch(_){}
+if(lang!=='en')lang='bn';
+const BN_RE=/[\u0980-\u09FF]/;
+const PAT=[
+ [/^এই রূপে (.+) ব্যবহার করা যাবে না।$/,'$1 cannot be used in this form.'],
+ [/^“(.+)” ফাংশনটি সমর্থিত নয়।$/,'The function “$1” is not supported.'],
+ [/^(.+) ফাংশনে (\d+)টি মান দিতে হবে।$/,'$1 needs $2 value(s).'],
+ [/^(.+)-এর সীমা ঠিক নেই — ছোট মান আগে, বড় মান পরে দিন।$/,'The $1 limits are invalid — give the smaller value first, then the larger.'],
+ [/^একসাথে সর্বোচ্চ (\d+)টি সমীকরণ দেওয়া যাবে।$/,'You can enter at most $1 equations at once.']
+];
+function tr(x){
+ if(lang!=='en'||typeof x!=='string'||!BN_RE.test(x))return x;
+ if(EN[x]!==undefined)return EN[x];
+ const m=x.match(/^([^\u0980-\u09FFA-Za-z]*)([\s\S]*?)([^\u0980-\u09FFA-Za-z]*)$/);
+ if(m&&EN[m[2]]!==undefined)return m[1]+EN[m[2]]+m[3];
+ for(const[r,o]of PAT)if(r.test(x))return x.replace(r,o);
+ return x;
+}
+const SKIP='#sj,#tl,#tb,#st,#gpre,#ov,#msg,#gdv,#tx_y,#bgs,script,style';
+const ORIG=new WeakMap(),AORIG=new WeakMap();
+function trStatic(){
+ const w=document.createTreeWalker(document.body,NodeFilter.SHOW_TEXT);const nodes=[];while(w.nextNode())nodes.push(w.currentNode);
+ nodes.forEach(n=>{if(n.parentElement&&n.parentElement.closest(SKIP))return;if(!ORIG.has(n)){if(!BN_RE.test(n.nodeValue))return;ORIG.set(n,n.nodeValue)}n.nodeValue=tr(ORIG.get(n))});
+ document.querySelectorAll('[placeholder],[title],[aria-label]').forEach(e=>{if(e.closest(SKIP))return;let o=AORIG.get(e);if(!o){o={};['placeholder','title','aria-label'].forEach(a=>{const v=e.getAttribute(a);if(v&&BN_RE.test(v))o[a]=v});AORIG.set(e,o)}for(const a in o)e.setAttribute(a,tr(o[a]))});
+ document.title=tr('বিজ্ঞান ডায়াগ্রাম স্টুডিও');document.documentElement.lang=lang;
+ const lb=document.getElementById('lg');if(lb){lb.textContent=lang==='en'?'বাংলা':'English';lb.title=lang==='en'?'বাংলায় দেখুন':'Switch to English'}
+}
+function setLang(l){lang=l;try{localStorage.setItem(LK,l)}catch(_){}trStatic();ui();render();$('#msg').textContent='';const gp=document.querySelectorAll('#gpre .chip');gp.forEach((b,k)=>b.textContent=tr(GE.GRAPH_PRESETS[k].label))}
+const TGT=(()=>{try{return new URLSearchParams(location.search).get('target')==='option'}catch(_){return false}})(),UQT=TGT?'অপশনে যুক্ত করুন':'প্রশ্নে যুক্ত করুন';
+const EMB=window.parent!==window,$=s=>document.querySelector(s),svg=$('#s'),L=$('#L'),ov=$('#ov');
+const P=(n,r,a=-90,cx=50,cy=50)=>Array.from({length:n},(_,k)=>{const t=(a+360/n*k)*Math.PI/180;return[cx+r*Math.cos(t),cy+r*Math.sin(t)]});
+const l=(a,b,c,d)=>`<line x1="${a}" y1="${b}" x2="${c}" y2="${d}"/>`;
+const T=(x,y,t,s=14)=>`<text x="${x}" y="${y}" font-size="${s}" text-anchor="middle" dominant-baseline="middle" fill="currentColor" stroke="none">${t}</text>`;
+const C=(x,y,r)=>`<circle cx="${x}" cy="${y}" r="${r}"/>`;
+const G=a=>`<polygon points="${a.map(p=>p.join(',')).join(' ')}"/>`;
+const Y=s=>`<polyline points="${s}"/>`,D=d=>`<path d="${d}"/>`;
+const hx=(cx=50,cy=55,r=24,o=1)=>G(P(6,r,-90,cx,cy))+(o?C(cx,cy,r*.6):'');
+const sb=t=>l(50,31,50,16)+T(50,8,t);
+const ax=l(5,50,95,50)+l(50,95,50,5)+G([[95,50],[88,46],[88,54]])+G([[50,5],[46,12],[54,12]])+T(92,61,'x',12)+T(60,9,'y',12);
+const lx=l(0,50,100,50).replace('/>',' stroke-dasharray="4 3"/>');
+const S={},CATS=[];
+const cat=(n,a)=>CATS.push([n,a.map(([id,nm,f,sc])=>(S[id]={n:nm,f,s:sc},id))]);
+const catT=(n,a)=>cat(n,a.map(t=>['t:'+t,t,()=>T(50,50,t,t.length>2?30:t.length>1?46:64)]));
+const kk=()=>{const v=P(6,34);let s=G(v);[0,2,4].forEach(k=>{const f=p=>[50+(p[0]-50)*.78,50+(p[1]-50)*.78],A=f(v[k]),B=f(v[k+1]),m=t=>[A[0]+(B[0]-A[0])*t,A[1]+(B[1]-A[1])*t],u=m(.12),w=m(.88);s+=l(u[0],u[1],w[0],w[1])});return s};
+cat('অ্যারোমেটিক',[
+['benz','বেনজিন',()=>hx()],['tol','টলুইন',()=>hx()+sb('CH₃')],['phe','ফেনল',()=>hx()+sb('OH')],['ani','অ্যানিলিন',()=>hx()+sb('NH₂')],
+['nit','নাইট্রোবেনজিন',()=>hx()+sb('NO₂')],['bza','বেনজোয়িক অ্যাসিড',()=>hx()+sb('COOH')],['chl','ক্লোরোবেনজিন',()=>hx()+sb('Cl')],
+['pyr','পিরিডিন',()=>hx()+`<text x="50" y="31" font-size="14" text-anchor="middle" dominant-baseline="middle" fill="currentColor" stroke="#fff" stroke-width="5" paint-order="stroke">N</text>`],
+['nap','ন্যাফথালিন',()=>hx(32.7,50,20)+hx(67.3,50,20)],['ant','অ্যান্থ্রাসিন',()=>hx(22.3,50,16)+hx(50,50,16)+hx(77.7,50,16)]]);
+cat('অ্যালিফেটিক',[
+['met','মিথেন',()=>T(50,50,'C',18)+l(50,38,50,16)+l(50,62,50,84)+l(38,50,16,50)+l(62,50,84,50)+T(50,8,'H')+T(50,92,'H')+T(8,50,'H')+T(92,50,'H')],
+['pro','প্রোপেন',()=>Y('10,60 50,40 90,60')],['but','বিউটেন',()=>Y('8,62 36,42 64,62 92,42')],['hex','হেক্সেন',()=>Y('5,60 23,40 41,60 59,40 77,60 95,40')],
+['eto','ইথানল',()=>Y('10,65 40,45 70,65')+l(70,65,70,85)+T(70,94,'OH')],
+['aca','ইথানয়িক অ্যাসিড',()=>Y('10,65 40,45 66,62')+l(37,45,37,22)+l(43,45,43,22)+T(40,13,'O')+T(78,68,'OH')],
+['een','ইথিন',()=>l(30,45,70,45)+l(30,55,70,55)+l(30,45,15,30)+l(30,55,15,70)+l(70,45,85,30)+l(70,55,85,70)],
+['eyn','ইথাইন',()=>l(25,42,75,42)+l(25,50,75,50)+l(25,58,75,58)+l(25,50,8,50)+l(75,50,92,50)],
+['chx','সাইক্লোহেক্সেন',()=>hx(50,50,32,0)],['cpn','সাইক্লোপেন্টেন',()=>G(P(5,32))]]);
+cat('বর্তনী, আলো ও বল',[
+['res','রোধ',()=>D('M0 50H20L25 35L35 65L45 35L55 65L65 35L75 65L80 50H100')],
+['bat','ব্যাটারি',()=>l(0,50,40,50)+l(40,28,40,72)+l(55,40,55,60)+l(55,50,100,50)+T(30,30,'+',12)],
+['bul','বাল্ব',()=>C(50,50,20)+l(36,36,64,64)+l(64,36,36,64)+l(0,50,30,50)+l(70,50,100,50)],
+['swi','সুইচ',()=>l(0,60,25,60)+C(25,60,3)+l(25,60,70,35)+C(75,60,3)+l(75,60,100,60)],
+['cap','ধারক',()=>l(0,50,42,50)+l(42,25,42,75)+l(58,25,58,75)+l(58,50,100,50)],
+['cvx','উত্তল লেন্স',()=>D('M50 10Q80 50 50 90Q20 50 50 10')+lx+l(0,30,50,30)+l(50,30,95,50)+l(0,70,50,70)+l(50,70,95,50)],
+['ccv','অবতল লেন্স',()=>D('M35 10H65Q55 50 65 90H35Q45 50 35 10Z')+lx],
+['mir','দর্পণ',()=>D('M70 10Q40 50 70 90')+lx+l(70,10,78,4)+l(70,50,78,44)+l(70,90,78,84)],
+['spr','স্প্রিং',()=>Y('0,50 10,50 15,30 25,70 35,30 45,70 55,30 65,70 75,30 85,70 90,50 100,50')],
+['inc','নত তল',()=>G([[5,85],[95,85],[95,35]])+`<g transform="translate(55 57) rotate(-29)"><rect x="-12" y="-18" width="24" height="18"/></g>`],
+['pen','দোলক',()=>l(20,8,80,8)+l(50,8,70,65)+C(70,72,8)+l(50,8,50,90).replace('/>',' stroke-dasharray="4 3"/>')],
+['vec','ভেক্টর',()=>l(10,80,79,25)+'<polygon fill="currentColor" points="90,16 75,20 83,30"/>'+T(55,40,'F',14)],
+['mag','চুম্বক',()=>'<rect x="10" y="35" width="40" height="30" fill="#e53935" stroke="none"/><rect x="50" y="35" width="40" height="30" fill="#1e88e5" stroke="none"/>'+T(30,50,'N',16)+T(70,50,'S',16)],
+['wav','তরঙ্গ',()=>D('M0 50Q12.5 10 25 50T50 50T75 50T100 50')]]);
+cat('জ্যামিতি ও গ্রাফ',[
+['axs','স্থানাঙ্ক অক্ষ',()=>ax],
+['par','অধিবৃত্ত',()=>ax+D('M20 10Q50 110 80 10')],
+['sin','সাইন তরঙ্গ',()=>ax+D('M8 50Q28 5 50 50T92 50')],
+['tri','ত্রিভুজ',()=>G([[50,12],[10,85],[90,85]])],
+['rtr','সমকোণী ত্রিভুজ',()=>G([[15,85],[85,85],[15,25]])+Y('15,73 27,73 27,85')],
+['cir','বৃত্ত ও ব্যাসার্ধ',()=>C(50,50,38)+l(50,50,88,50)+C(50,50,1.5)+T(70,42,'r',13)],
+['ang','কোণ θ',()=>l(10,80,90,80)+l(10,80,70,25)+D('M40 80A30 30 0 0 0 32 60')+T(48,68,'θ',13)],
+['nl','সংখ্যারেখা',()=>l(5,50,95,50)+[0,1,2,3,4].map(k=>l(15+k*17.5,44,15+k*17.5,56)+T(15+k*17.5,68,k-2,10)).join('')],
+['cub','ঘনক',()=>'<rect x="15" y="35" width="45" height="45"/><rect x="35" y="15" width="45" height="45"/>'+l(15,35,35,15)+l(60,35,80,15)+l(15,80,35,60)+l(60,80,80,60)],
+['ven','ভেন চিত্র',()=>C(38,50,28)+C(62,50,28)]]);
+
+const dsh=(s,d='6 5')=>s.replace('/>',` stroke-dasharray="${d}"/>`),HD='<polygon fill="currentColor" points=';
+cat('রসায়ন: বন্ধন ও বলয়',[
+['b1','একক বন্ধন',()=>l(10,50,90,50),1],
+['b2','দ্বিবন্ধন',()=>l(10,44,90,44)+l(10,56,90,56),1],
+['b3','ত্রিবন্ধন',()=>l(10,38,90,38)+l(10,50,90,50)+l(10,62,90,62),1],
+['bw','ঘন তীর-বন্ধন',()=>HD+'"10,50 90,40 90,60"/>',1],
+['bd','ড্যাশ-বন্ধন',()=>[0,1,2,3,4,5].map(k=>l(14+k*13,48-k*1.6,14+k*13,52+k*1.6)).join(''),1],
+['bz','বিচ্ছিন্ন বন্ধন',()=>dsh(l(10,50,90,50)),1],
+['r3','৩-বলয়',()=>G(P(3,34)),1.2],['r4','৪-বলয়',()=>G(P(4,34,-45)),1.2],['r5','৫-বলয়',()=>G(P(5,34)),1.2],
+['r6','৬-বলয়',()=>G(P(6,34)),1.2],['r7','৭-বলয়',()=>G(P(7,34)),1.2],['r8','৮-বলয়',()=>G(P(8,34,-22.5)),1.2],
+['kek','কেকুলে বেনজিন',()=>kk(),1.2],['bzc','বৃত্তসহ বেনজিন',()=>hx(50,50,34),1.2]]);
+catT('রসায়ন: পরমাণু ও মূলক',['C','H','O','N','S','P','F','Cl','Br','I','OH','NH₂','COOH','CHO','NO₂','CH₃','SO₃H','CO','⊕','⊖','δ+','δ−','•','··']);
+catT('তীর ও চিহ্ন',['→','⇌','⇄','↔','←','↑','↓','Δ','hν','H⁺','OH⁻','e⁻']);
+catT('গ্রিক ও গণিত প্রতীক',['α','β','γ','δ','θ','λ','μ','π','σ','ω','Ω','∫','∑','√','∞','±','×','÷','≠','≈','≤','≥','∠','⊥','∥','°','²','³','ⁿ','₁','₂']);
+cat('আকৃতি ও যন্ত্র',[
+['sq','বর্গ',()=>'<rect x="15" y="15" width="70" height="70"/>'],
+['rr','গোল-কোণা বক্স',()=>'<rect x="10" y="25" width="80" height="50" rx="14"/>'],
+['dia','রম্বস',()=>G([[50,10],[92,50],[50,90],[8,50]])],
+['pg5','পঞ্চভুজ',()=>G(P(5,40))],['pg6','ষড়ভুজ',()=>G(P(6,40))],
+['star','তারা',()=>G(Array.from({length:10},(_,k)=>{const t=(-90+36*k)*Math.PI/180,r=k%2?18:42;return[50+r*Math.cos(t),50+r*Math.sin(t)]}))],
+['arc','চাপ',()=>D('M10 70A45 45 0 0 1 90 70')],
+['cur','বক্ররেখা',()=>D('M5 80C30 -10 70 110 95 20')],
+['cua','বাঁকা তীর',()=>D('M10 75Q50 -5 88 62')+HD+'"92,76 80,58 96,56"/>'],
+['bra','ব্রেস',()=>D('M60 8Q40 8 40 28V42Q40 50 28 50Q40 50 40 58V72Q40 92 60 92')],
+['da2','দ্বিমুখী তীর',()=>l(15,50,85,50)+G([[5,50],[19,43],[19,57]])+G([[95,50],[81,43],[81,57]])],
+['ray','রশ্মি',()=>l(5,50,82,50)+HD+'"95,50 80,43 80,57"/>'],
+['dl','বিন্দুরেখা',()=>dsh(l(5,50,95,50),'2 6')],
+['zz','জিগজ্যাগ',()=>Y('5,60 20,40 35,60 50,40 65,60 80,40 95,60')],
+['bkr','বিকার',()=>D('M25 15V80Q25 88 33 88H67Q75 88 75 80V15')+l(20,15,80,15)+l(25,55,75,55)],
+['fla','কনিক্যাল ফ্লাস্ক',()=>D('M42 10H58V38L85 82Q88 90 80 90H20Q12 90 15 82L42 38Z')],
+['tt','পরীক্ষানল',()=>D('M38 10V78Q38 90 50 90Q62 90 62 78V10')+l(33,10,67,10)],
+['thm','থার্মোমিটার',()=>D('M44 8H56V68Q66 74 66 82Q66 92 50 92Q34 92 34 82Q34 74 44 68Z')],
+['cel','কোষ',()=>C(50,50,40)+C(50,50,14)+C(50,50,4)],
+['bx','ফ্লোচার্ট বক্স',()=>'<rect x="8" y="28" width="84" height="44"/>'],
+['dot','বিন্দু',()=>'<circle cx="50" cy="50" r="6" fill="currentColor"/>']]);
+const cc=(t,x,y)=>C(50,50,22)+T(50,50,t,22)+l(0,50,28,50)+l(72,50,100,50);
+cat('পদার্থ: আরও যন্ত্র',[
+['amm','অ্যামিটার',()=>cc('A')],['vol','ভোল্টমিটার',()=>cc('V')],['gal','গ্যালভানোমিটার',()=>cc('G')],
+['ind','আবেশক',()=>D('M0 55H15A9 9 0 0 1 33 55A9 9 0 0 1 51 55A9 9 0 0 1 69 55A9 9 0 0 1 87 55H100')],
+['dio','ডায়োড',()=>l(0,50,35,50)+G([[35,30],[35,70],[65,50]])+l(65,30,65,70)+l(65,50,100,50)],
+['acs','AC উৎস',()=>C(50,50,22)+D('M36 50Q43 36 50 50T64 50')+l(0,50,28,50)+l(72,50,100,50)],
+['gnd','ভূ-সংযোগ',()=>l(50,10,50,50)+l(25,50,75,50)+l(34,62,66,62)+l(43,74,57,74)],
+['pri','প্রিজম',()=>G([[50,15],[15,80],[85,80]])+l(0,60,32,52)+l(32,52,62,52)+l(62,52,98,72)],
+['pul','কপিকল',()=>C(50,35,18)+C(50,35,3)+l(32,35,32,90)+l(68,35,68,70)+'<rect x="58" y="70" width="20" height="20"/>'],
+['cvm','উত্তল দর্পণ',()=>D('M40 10Q70 50 40 90')+lx+l(40,10,32,4)+l(40,50,32,44)+l(40,90,32,84)],
+['fie','ক্ষেত্ররেখা',()=>[25,50,75].map(y=>l(10,y,80,y)+G([[90,y],[78,y-5],[78,y+5]])).join('')]]);
+cat('গণিত: আরও আকৃতি',[
+['cyl','চোঙ',()=>'<ellipse cx="50" cy="22" rx="30" ry="10"/>'+l(20,22,20,78)+l(80,22,80,78)+D('M20 78A30 10 0 0 0 80 78')],
+['con','শঙ্কু',()=>l(50,10,20,78)+l(50,10,80,78)+D('M20 78A30 10 0 0 0 80 78')+dsh(D('M20 78A30 10 0 0 1 80 78'),'4 3')],
+['sph','গোলক',()=>C(50,50,38)+dsh('<ellipse cx="50" cy="50" rx="38" ry="12"/>','4 3')],
+['bar','বার চার্ট',()=>l(10,90,95,90)+l(10,90,10,10)+'<rect x="20" y="55" width="14" height="35"/><rect x="42" y="30" width="14" height="60"/><rect x="64" y="45" width="14" height="45"/>'],
+['pie','পাই চার্ট',()=>C(50,50,38)+l(50,50,88,50)+l(50,50,30,83)+l(50,50,22,25)],
+['pgm','সামান্তরিক',()=>G([[25,25],[95,25],[75,75],[5,75]])],
+['trp','ট্রাপিজিয়াম',()=>G([[30,25],[70,25],[92,75],[8,75]])],
+['grd','গ্রিড',()=>[0,1,2,3,4].map(k=>l(10+k*20,10,10+k*20,90)+l(10,10+k*20,90,10+k*20)).join('')],
+['chd','জ্যা',()=>C(50,50,38)+l(18,32,82,32)+l(50,50,50,32)+C(50,50,1.5)],
+['tan','স্পর্শক',()=>C(50,40,30)+l(5,70,95,70)+C(50,70,2)]]);
+catT('পদার্থ: রাশি ও একক',['F','m','g','v','a','t','E','V','I','R','Q','P','W','N','J','Hz','kg','m/s','m/s²','Ω']);
+catT('গণিত: সূত্র-চিহ্ন',['x','y','z','f(x)','dy/dx','sin','cos','tan','log','lim','%','e','i','∈','∪','∩','⊂','∅','ℝ','ℕ','⇒','∴']);
+
+cat('রসায়ন: কার্যকরী মূলক ও জৈব',[
+['alk','অ্যালকিন',()=>l(12,58,38,42)+l(38,42,62,58)+l(62,58,88,42)],
+['alky','অ্যালকাইন',()=>l(12,58,32,42)+l(32,42,68,58)+l(68,58,88,42)+l(32,48,68,64)],
+['carb','কার্বোনিল',()=>l(20,60,45,50)+l(45,50,45,22)+l(51,50,51,22)+T(48,14,'O')+l(51,50,80,50)],
+['alde','অ্যালডিহাইড',()=>l(15,60,42,45)+l(42,45,42,20)+T(42,12,'O')+l(42,45,68,45)+T(82,45,'H',12)],
+['keto','কিটোন',()=>l(12,62,40,45)+l(40,45,40,20)+T(40,12,'O')+l(40,45,68,62)+T(82,68,'R',12)],
+['ester','এস্টার',()=>l(8,60,35,45)+l(35,45,35,20)+T(35,12,'O')+l(35,45,60,45)+T(72,45,'O',12)+l(60,45,88,62)],
+['amide','অ্যামাইড',()=>l(10,60,38,45)+l(38,45,38,20)+T(38,12,'O')+l(38,45,65,45)+T(77,45,'NH₂',11)],
+['amine','অ্যামিন',()=>l(10,60,50,50)+T(65,50,'NH₂',13)+l(78,50,92,50)],
+['ohg','হাইড্রক্সিল',()=>T(50,45,'OH',24)+l(20,70,40,55)+l(60,55,80,70)],
+['cn','সায়ানো',()=>l(10,55,35,45)+T(52,45,'C',14)+l(60,45,78,45)+T(87,45,'N',14)],
+['nitro','নাইট্রো',()=>l(10,55,35,45)+T(50,45,'NO₂',14)+l(65,45,90,55)],
+['phenyl','ফেনাইল',()=>hx(45,50,25)+l(68,50,92,50)]
+]);
+cat('রসায়ন: অজৈব ও সমন্বয়',[
+['h2o','পানি H₂O',()=>T(50,50,'H₂O',32)],['co2','কার্বন ডাই-অক্সাইড',()=>T(50,50,'CO₂',27)],['nh3','অ্যামোনিয়া',()=>T(50,50,'NH₃',30)],['h2so4','সালফিউরিক অ্যাসিড',()=>T(50,50,'H₂SO₄',23)],['hno3','নাইট্রিক অ্যাসিড',()=>T(50,50,'HNO₃',24)],['naoh','সোডিয়াম হাইড্রক্সাইড',()=>T(50,50,'NaOH',24)],
+['coord','সমন্বয় বন্ধন',()=>T(50,38,'M',20)+l(35,50,65,50)+T(50,65,'←',20)],['ionic','আয়নিক বন্ধন',()=>T(35,50,'Na⁺',18)+l(52,50,72,50)+T(84,50,'Cl⁻',18)],['hbond','হাইড্রোজেন বন্ধন',()=>T(25,45,'H',18)+dsh(l(34,45,64,45),'3 3')+T(75,45,'O',18)],['lewis','লুইস ডট',()=>T(50,50,'Cl',24)+T(36,30,'••',12)+T(66,30,'••',12)+T(36,70,'••',12)+T(66,70,'••',12)]
+]);
+cat('রসায়ন: বিক্রিয়া ও ল্যাব',[
+['rxn','বিক্রিয়া',()=>l(10,50,88,50)+G([[88,50],[77,43],[77,57]])],['eq','সমতা বিক্রিয়া',()=>l(10,42,88,42)+G([[88,42],[77,35],[77,49]])+l(88,58,10,58)+G([[10,58],[21,51],[21,65]])],['cat','অনুঘটক',()=>T(50,28,'cat.',16)+l(20,55,80,55)],['heat','তাপ Δ',()=>T(50,35,'Δ',30)+l(25,65,75,65)],['dist','পাতন',()=>D('M38 12V40L20 78Q18 86 28 86H72Q82 86 80 78L62 40V12')+l(32,12,68,12)],['filter','ফিল্টার',()=>D('M20 20H80L58 48V78H42V48Z')+l(20,20,80,20)],['evap','বাষ্পীভবন',()=>l(15,78,85,78)+D('M25 68Q35 50 45 68T65 68T85 68')],['gas','গ্যাস সংগ্রহ',()=>D('M30 20V70Q30 82 50 82Q70 82 70 70V20')+l(30,20,70,20)+T(50,52,'gas',12)]
+]);
+cat('পদার্থ: মেকানিক্স ও গতি',[
+['motion','গতি',()=>l(10,70,88,70)+G([[88,70],[76,63],[76,77]])+l(25,55,25,30)+G([[25,25],[19,36],[31,36]])],['free','মুক্তদেহ চিত্র',()=>C(50,50,12)+l(50,38,50,15)+G([[50,10],[45,20],[55,20]])+l(38,50,15,50)+G([[10,50],[20,45],[20,55]])+l(62,50,85,50)+G([[90,50],[80,45],[80,55]])+l(50,62,50,85)+G([[50,90],[45,80],[55,80]])],['projectile','প্রক্ষেপণ',()=>D('M10 80Q45 5 90 45')+G([[90,45],[77,40],[83,53]])+l(10,80,90,80)],['inclined','ঢালু তল',()=>G([[10,80],[90,80],[90,35]])+l(35,80,35,55)+T(28,52,'N',13)+l(45,70,68,55)+G([[68,55],[58,55],[63,64]])],['torque','টর্ক',()=>l(15,55,85,55)+C(50,55,5)+D('M25 42A28 28 0 1 1 75 42')+G([[75,42],[64,43],[70,52]])],['collision','সংঘর্ষ',()=>G([[20,45],[40,35],[40,55]])+G([[80,45],[60,35],[60,55]])+l(40,45,60,45)],['pulley2','দ্বৈত কপিকল',()=>C(38,35,15)+C(62,35,15)+l(23,35,23,82)+l(77,35,77,70)+l(23,20,77,20)+l(50,20,50,65)+C(50,75,9)]
+]);
+cat('পদার্থ: তাপ, তরঙ্গ ও আধুনিক',[
+['thermo','তাপ প্রবাহ',()=>l(10,50,90,50)+G([[90,50],[78,42],[78,58]])+T(50,36,'Q',16)],['expansion','তাপীয় প্রসারণ',()=>l(20,50,80,50)+l(20,40,20,60)+l(80,35,80,65)+G([[80,50],[70,43],[70,57]])],['standing','স্থির তরঙ্গ',()=>D('M5 50Q15 15 25 50T45 50T65 50T85 50T105 50')],['sound','শব্দ তরঙ্গ',()=>D('M8 50Q18 25 28 50T48 50T68 50T88 50')],['emwave','EM তরঙ্গ',()=>D('M5 50Q12 30 19 50T33 50')+D('M25 50Q35 20 45 50T65 50')+D('M55 50Q68 30 81 50T107 50')],['photoelectric','ফটোইলেকট্রিক',()=>l(10,65,80,65)+l(25,55,25,35)+l(40,55,40,35)+l(55,55,55,35)+G([[75,25],[60,20],[64,32]])+T(50,78,'e⁻',13)],['atom','পরমাণু',()=>C(50,50,6)+D('M10 50Q50 10 90 50Q50 90 10 50')+D('M50 10Q90 50 50 90Q10 50 50 10')+C(22,50,3)+C(78,50,3)],['nucleus','নিউক্লিয়াস',()=>C(50,50,32)+C(42,45,5)+C(58,45,5)+C(50,60,5)]
+]);
+cat('গণিত: কনিক ও ফাংশন',[
+['quad','পরাবৃত্ত',()=>ax+D('M30 90Q50 10 70 90')],['ellipse','উপবৃত্ত',()=>ax+'<ellipse cx="50" cy="50" rx="38" ry="22"/>'],['hyper','অধিবৃত্ত',()=>ax+D('M20 15Q35 50 20 85')+D('M80 15Q65 50 80 85')],['step','ধাপ ফাংশন',()=>ax+l(20,70,40,70)+l(40,70,40,50)+l(40,50,60,50)+l(60,50,60,30)+l(60,30,80,30)],['piece','খণ্ডিত ফাংশন',()=>ax+l(15,70,45,50)+l(45,50,45,25)+l(45,25,80,25)],['vector2','ভেক্টর যোগ',()=>l(20,75,55,45)+G([[55,45],[44,46],[49,55]])+l(55,45,82,25)+G([[82,25],[72,27],[77,36]])],['slope','ঢাল',()=>l(15,75,85,25)+l(15,75,85,75)+l(85,75,85,25)+T(50,70,'Δx',12)+T(82,50,'Δy',12)]
+]);
+cat('গণিত: জ্যামিতি 2D/3D',[
+['kite','ঘুড়ি',()=>G([[50,10],[80,45],[50,90],[20,45]])],['oct','অষ্টভুজ',()=>G(P(8,35,-22.5))],['sector','বৃত্তখণ্ড',()=>D('M50 50L85 50A35 35 0 0 0 68 20Z')],['frustum','ছাঁটা শঙ্কু',()=>l(25,25,75,25)+l(15,80,85,80)+l(25,25,15,80)+l(75,25,85,80)],['prism3','ত্রিভুজ প্রিজম',()=>G([[20,65],[45,25],[70,65]])+G([[40,75],[65,35],[90,75]])+l(20,65,40,75)+l(45,25,65,35)+l(70,65,90,75)],['coordinate3','3D অক্ষ',()=>l(50,75,50,20)+l(50,75,88,55)+l(50,75,20,90)+T(88,52,'x',12)+T(52,18,'z',12)+T(18,92,'y',12)]
+]);
+
+// ---- আরও ডায়াগ্রাম: ফাংশন গ্রাফ · পরিসংখ্যান · পদার্থ গ্রাফ · ত্রিকোণমিতি ও জ্যামিতি ----
+const PF=(f,a,b,n=80)=>{let d='',pen=false,py=0;for(let k=0;k<=n;k++){const t=a+(b-a)*k/n,[X,Y]=f(t);if(!isFinite(X)||!isFinite(Y)||X<4||X>96||Y<4||Y>96){pen=false;continue}if(pen&&Math.abs(Y-py)>55)pen=false;d+=(pen?'L':'M')+X.toFixed(1)+' '+Y.toFixed(1);pen=true;py=Y}return d?D(d):''};
+const FN=(fn,a,b,sx,sy,ox=50,oy=50,n=90)=>PF(x=>[ox+x*sx,oy-fn(x)*sy],a,b,n);
+const dt=(x,y,r=1.8)=>`<circle cx="${x}" cy="${y}" r="${r}" fill="currentColor"/>`;
+const sh=pts=>`<polygon fill="currentColor" fill-opacity=".14" stroke="none" points="${pts.map(p=>p.map(v=>+v.toFixed(1)).join(',')).join(' ')}"/>`;
+const rc=(x,y,w,h,f)=>`<rect x="${x}" y="${y}" width="${w}" height="${h}"${f?' fill="currentColor" fill-opacity=".25"':''}/>`;
+const Ts=(x,y,t,s=11)=>`<text x="${x}" y="${y}" font-size="${s}" text-anchor="start" dominant-baseline="middle" fill="currentColor" stroke="none">${t}</text>`;
+const A2=(a='x',b='y')=>l(14,86,94,86)+l(14,86,14,6)+G([[94,86],[88,83],[88,89]])+G([[14,6],[11,12],[17,12]])+T(90,95,a,10)+T(6,10,b,10);
+const A3=()=>l(10,88,92,88)+l(10,88,10,8);
+const vl=x=>dsh(l(x,6,x,94),'3 3');
+const rad=(v)=>v.map((r,k)=>{const t=(-90+360/v.length*k)*Math.PI/180;return[50+r*Math.cos(t),50+r*Math.sin(t)]});
+
+cat('গণিত: ফাংশন গ্রাফ',[
+['f_abs','মডুলাস ফাংশন |x|',()=>ax+FN(Math.abs,-4,4,10,10)],
+['f_sqrt','বর্গমূল ফাংশন',()=>ax+FN(Math.sqrt,0,9,5,13)],
+['f_cube','ঘন ফাংশন x³',()=>ax+FN(x=>x*x*x,-2.2,2.2,17,4.2)],
+['f_exp','সূচকীয় ফাংশন',()=>ax+FN(Math.exp,-4,3,11,5.5)],
+['f_ln','লগারিদম ফাংশন',()=>ax+FN(Math.log,0.04,9,5,14)],
+['f_inv','বিপরীত ফাংশন (e^x ও ln x)',()=>ax+FN(Math.exp,-4,3,14,14)+FN(Math.log,0.02,7,14,14)+dsh(l(8,92,92,8),'4 3')],
+['f_sin','sin x গ্রাফ',()=>ax+FN(Math.sin,-5,5,8.5,25)],
+['f_cos','cos x গ্রাফ',()=>ax+FN(Math.cos,-5,5,8.5,25)],
+['f_tan','tan x গ্রাফ',()=>ax+[-1,1,3,-3].map(k=>vl(50+k*13.35)).join('')+FN(Math.tan,-5.2,5.2,8.5,10,50,50,300)],
+['f_rec','y = 1/x',()=>ax+FN(x=>1/x,-6,6,8,8,50,50,241)],
+['f_gauss','ঘণ্টাকার বক্ররেখা',()=>l(5,80,95,80)+l(50,90,50,5)+FN(x=>Math.exp(-x*x/2),-3.8,3.8,11,60,50,80,100)],
+['f_sig','সিগময়েড ফাংশন',()=>ax+FN(x=>1/(1+Math.exp(-x))-.5,-7,7,6.2,75)],
+['f_dn','নিম্নমুখী পরাবৃত্ত',()=>ax+FN(x=>4-x*x,-3.3,3.3,13,7.5)],
+['f_pos','ধনাত্মক ঢালের রেখা',()=>ax+FN(x=>.8*x+1.5,-5,5,9,9)],
+['f_neg','ঋণাত্মক ঢালের রেখা',()=>ax+FN(x=>-.8*x+1.5,-5,5,9,9)],
+['f_cub3','তিন বীজযুক্ত ঘন সমীকরণ',()=>ax+FN(x=>x*(x*x-4)/2,-2.7,2.7,15,8)+dt(20,50)+dt(50,50)+dt(80,50)],
+['f_circ','বৃত্তের সমীকরণ x²+y²=r²',()=>ax+C(50,50,30)+l(50,50,71,29)+T(65,36,'r',10)],
+['f_ell2','উপবৃত্ত ও দুই ফোকাস',()=>ax+'<ellipse cx="50" cy="50" rx="40" ry="24"/>'+dt(18,50)+dt(82,50)],
+['f_par2','পরাবৃত্ত, ফোকাস ও নিয়ামক',()=>PF(t=>[50+t,75-t*t/32],-30,30,60)+dt(50,67)+dsh(l(8,83,92,83))+dsh(l(50,75,50,10),'3 3')],
+['f_hyp2','অধিবৃত্ত ও অ্যাসিম্পটোট',()=>ax+PF(t=>[50+15*Math.cosh(t),50-20*Math.sinh(t)],-2.2,2.2)+PF(t=>[50-15*Math.cosh(t),50-20*Math.sinh(t)],-2.2,2.2)+dsh(l(15,96.7,85,3.3))+dsh(l(15,3.3,85,96.7))],
+['f_ineq','অসমতার অঞ্চল',()=>ax+l(10,85,90,15)+[0,1,2,3,4,5,6].map(k=>{const x=18+k*11,y=85-k*9.6;return l(x,y,x-6,y-6.8)}).join('')],
+['f_unit','একক বৃত্ত (sinθ, cosθ)',()=>ax+C(50,50,34)+l(50,50,74,26)+dsh(l(74,26,74,50))+dsh(l(74,26,50,26))+D('M62 50A12 12 0 0 0 58.5 41.5')+T(68,44,'θ',9)],
+['f_sumsin','তরঙ্গের যোগ sin x + sin 2x',()=>ax+FN(x=>Math.sin(x)+Math.sin(2*x),-5,5,8.5,14,50,50,200)],
+['f_lg','x, x², x³ তুলনা',()=>ax+FN(x=>x,-3.5,3.5,10,10)+FN(x=>x*x,-3.2,3.2,10,6)+FN(x=>x*x*x,-2.4,2.4,10,3)],
+['f_asym','অনুভূমিক ও উল্লম্ব অ্যাসিম্পটোট',()=>ax+dsh(l(70,6,70,94),'3 3')+dsh(l(5,32,95,32),'3 3')+FN(x=>1/x,.18,6,12,12,70-0,32)+FN(x=>1/x,-6,-.18,12,12,70,32)]
+]);
+
+cat('গণিত: পরিসংখ্যান চার্ট',[
+['s_hist','হিস্টোগ্রাম',()=>A3()+[20,38,60,48,30,14].map((h,k)=>rc(14+k*13,88-h,13,h)).join('')],
+['s_poly','ফ্রিকোয়েন্সি বহুভুজ',()=>A3()+Y('14,80 30,60 46,30 62,48 78,72 90,84')+[[14,80],[30,60],[46,30],[62,48],[78,72],[90,84]].map(p=>dt(p[0],p[1])).join('')],
+['s_ogive','ক্রমযোজিত রেখা (ওজিভ)',()=>A3()+FN(x=>1/(1+Math.exp(-x)),-5,5,7.5,70,51,88)],
+['s_scat','বিক্ষেপ চিত্র',()=>A3()+[[20,74],[28,62],[34,68],[42,52],[50,48],[58,40],[64,44],[72,30],[80,26]].map(p=>dt(p[0],p[1],2.2)).join('')+dsh(l(16,78,86,22))],
+['s_line','রেখা চার্ট',()=>A3()+Y('14,70 30,52 46,60 62,30 78,38 90,18')+[[14,70],[30,52],[46,60],[62,30],[78,38],[90,18]].map(p=>dt(p[0],p[1])).join('')],
+['s_box','বক্স-হুইসকার প্লট',()=>l(12,50,30,50)+rc(30,35,38,30)+l(48,35,48,65)+l(68,50,90,50)+l(12,42,12,58)+l(90,42,90,58)+l(8,80,92,80)+[12,30,48,68,90].map(x=>l(x,77,x,83)).join('')],
+['s_gbar','গুচ্ছ বার চার্ট',()=>A3()+[[30,22],[52,40],[26,48],[44,30]].map((p,k)=>rc(16+k*19,88-p[0],8,p[0])+rc(24+k*19,88-p[1],8,p[1],1)).join('')],
+['s_norm','স্বাভাবিক বণ্টন (±1σ, ±2σ)',()=>l(5,80,95,80)+FN(x=>Math.exp(-x*x/2),-3.8,3.8,11,60,50,80,100)+dsh(l(50,80,50,20),'3 3')+dsh(l(39,80,39,44),'3 3')+dsh(l(61,80,61,44),'3 3')+dsh(l(28,80,28,72),'3 3')+dsh(l(72,80,72,72),'3 3')],
+['s_donut','ডোনাট চার্ট',()=>C(50,50,38)+C(50,50,20)+l(50,12,50,30)+l(83,69,67,60)+l(17,69,33,60)],
+['s_area','এলাকা চার্ট',()=>A3()+sh([[10,88],[10,60],[30,45],[50,62],[70,30],[90,40],[90,88]])+Y('10,60 30,45 50,62 70,30 90,40')],
+['s_radar','রাডার চার্ট',()=>G(rad([38,38,38,38,38]))+G(rad([24,24,24,24,24]))+G(rad([10,10,10,10,10]))+rad([38,38,38,38,38]).map(p=>l(50,50,p[0],p[1])).join('')+sh(rad([34,22,36,18,28]))+G(rad([34,22,36,18,28]))],
+['s_venn3','তিনটি সেটের ভেন চিত্র',()=>C(40,40,25)+C(60,40,25)+C(50,60,25)],
+['s_tally','ট্যালি চিহ্ন',()=>[0,1].map(g=>[0,1,2,3].map(k=>l(12+g*44+k*7,18,12+g*44+k*7,44)).join('')+l(8+g*44,42,40+g*44,20)).join('')+[0,1,2].map(k=>l(12+k*7,62,12+k*7,88)).join('')],
+['s_stem','স্টেম-অ্যান্ড-লিফ',()=>l(34,12,34,88)+[['1','2 5 8'],['2','0 3 3 7'],['3','1 4 9'],['4','2 6']].map((r,k)=>Ts(18,22+k*20,r[0])+Ts(40,22+k*20,r[1])).join('')],
+['s_cum','ক্রমযোজিত বার (স্তূপিত)',()=>A3()+rc(16,58,16,30)+rc(16,38,16,20,1)+rc(40,48,16,40)+rc(40,24,16,24,1)+rc(64,66,16,22)+rc(64,50,16,16,1)],
+['s_pie2','পাই চার্ট (শতাংশসহ)',()=>C(50,50,38)+l(50,50,88,50)+l(50,50,50,12)+l(50,50,23,77)+T(70,30,'25%',9)+T(62,70,'50%',9)+T(30,38,'25%',9)]
+]);
+
+cat('পদার্থ: গ্রাফ',[
+['g_xt0','x–t সমবেগ',()=>A2('t','x')+l(14,86,88,26)],
+['g_xt2','x–t সমত্বরণ',()=>A2('t','x')+FN(t=>t*t,0,8.5,9,1,14,86)],
+['g_vt0','v–t সমবেগ',()=>A2('t','v')+l(14,40,88,40)],
+['g_vt1','v–t সমত্বরণ',()=>A2('t','v')+l(14,76,88,22)],
+['g_vtdec','v–t মন্দন',()=>A2('t','v')+l(14,24,84,80)],
+['g_vtarea','v–t লেখের ক্ষেত্রফল = সরণ',()=>A2('t','v')+sh([[14,86],[14,70],[78,28],[78,86]])+l(14,70,78,28)+dsh(l(78,28,78,86))+T(52,72,'S',11)],
+['g_at','a–t সমত্বরণ',()=>A2('t','a')+l(14,45,88,45)],
+['g_ke','গতিশক্তি–বেগ (KE–v)',()=>A2('v','KE')+FN(v=>v*v,0,8.5,9,1,14,86)],
+['g_ohm','ওহমের সূত্র V–I',()=>A2('I','V')+l(14,86,84,20)],
+['g_diode','ডায়োড I–V বৈশিষ্ট্য',()=>A2('V','I')+PF(t=>[14+t*3.2,86-(t<=15?0:Math.pow(t-15,1.6)*1.6)],0,24,60)],
+['g_iso','P–V সমতাপীয় (বয়েল)',()=>A2('V','P')+FN(v=>8/v,1,8.5,9,8,14,86)],
+['g_adia','সমতাপীয় ও রুদ্ধতাপ রেখা',()=>A2('V','P')+FN(v=>8/v,1,8.5,9,8,14,86)+dsh(FN(v=>8/Math.pow(v,1.4),1,8.5,9,8,14,86),'4 3')],
+['g_decay','তেজস্ক্রিয় ক্ষয় ও অর্ধায়ু',()=>A2('t','N')+FN(t=>Math.exp(-t/2.5),0,8,9,66,14,86)+dsh(l(14,53,30,53))+dsh(l(30,53,30,86))],
+['g_chg','ক্যাপাসিটর চার্জিং',()=>A2('t','V')+FN(t=>1-Math.exp(-t/2),0,8.5,9,64,14,86)],
+['g_shm','সরল ছন্দিত গতি x–t',()=>l(10,50,94,50)+l(14,90,14,6)+FN(Math.cos,0,9.5,8.4,34,14,50)],
+['g_pe','আলোক-তড়িৎ KE–f',()=>A2('f','KE')+l(40,86,88,26)+T(40,95,'f₀',9)],
+['g_res','অনুনাদ বক্ররেখা',()=>A2('f','A')+FN(f=>1/(1+Math.pow((f-5)*1.6,2)),0,9,8.6,66,14,86)+dsh(l(57,86,57,20))],
+['g_bb','কৃষ্ণ বস্তুর বিকিরণ',()=>A2('λ','I')+FN(x=>x*x*x/(Math.exp(x)-1),.05,9,8,22,14,86)+FN(x=>2.2*Math.pow(x*1.6,3)/(Math.exp(x*1.6)-1),.03,9,8,22,14,86)],
+['g_hooke','হুকের সূত্র F–x',()=>A2('x','F')+l(14,86,60,34)+D('M60 34Q72 28 84 30')+dt(60,34)],
+['g_ss','পীড়ন–বিকৃতি (σ–ε)',()=>A2('ε','σ')+D('M14 86L38 38Q46 20 62 20Q76 20 84 30L88 48')],
+['g_charles','চার্লসের সূত্র V–T',()=>l(10,86,94,86)+l(40,90,40,6)+l(22,86,88,24)+dt(22,86)+T(22,95,'−273',8)+T(90,95,'T',10)+T(32,10,'V',10)],
+['g_heat','তাপীয় রেখাচিত্র (দশা পরিবর্তন)',()=>A2('Q','T')+Y('14,78 26,62 40,62 56,42 72,42 86,24')],
+['g_bind','নিউক্লীয় বন্ধন শক্তি',()=>A2('A','B/A')+D('M14 84C18 40 28 24 40 22S70 22 90 32')+dt(40,22)],
+['g_beat','স্পন্দন (বীট)',()=>l(10,50,92,50)+FN(x=>Math.sin(x)+Math.sin(1.12*x),0,28,3.1,17,8,50,300)],
+['g_proj','প্রক্ষিপ্ত বস্তুর গতিপথ',()=>l(8,86,94,86)+D('M14 86Q50 -8 86 86')+l(14,86,32,62)+dsh(l(50,39,50,86))],
+['g_cool','নিউটনের শীতলীকরণ',()=>A2('t','T')+FN(t=>.2+.8*Math.exp(-t/2.6),0,8.5,9,66,14,86)+dsh(l(14,73,90,73))],
+['g_ph','চাপ–গভীরতা (P–h)',()=>A2('h','P')+l(14,70,86,18)],
+['g_lj','আন্তঃআণবিক স্থিতিশক্তি U–r',()=>l(10,60,94,60)+l(20,90,20,6)+FN(r=>4*(Math.pow(1/r,12)-Math.pow(1/r,6)),0.9,3.2,26,24,0,60,120)]
+]);
+
+cat('গণিত: ত্রিকোণমিতি ও জ্যামিতি',[
+['m_seg','রেখাংশ AB',()=>l(15,55,85,55)+dt(15,55)+dt(85,55)+T(15,40,'A',12)+T(85,40,'B',12)],
+['m_ray','রশ্মি',()=>l(15,55,88,55)+G([[92,55],[82,50],[82,60]])+dt(15,55)+T(15,40,'A',12)],
+['m_line','সরলরেখা',()=>l(12,55,88,55)+G([[8,55],[18,50],[18,60]])+G([[92,55],[82,50],[82,60]])],
+['m_lin','রৈখিক কোণ-জোড়',()=>l(10,70,90,70)+l(50,70,72,18)+D('M64 70A14 14 0 0 0 59.5 59.5')+D('M36 70A14 14 0 0 1 49.5 56.4')+T(72,62,'α',9)+T(34,60,'β',9)],
+['m_vert','বিপ্রতীপ কোণ',()=>l(12,25,88,75)+l(12,75,88,25)+T(50,38,'α',9)+T(50,62,'α',9)+T(30,50,'β',9)+T(70,50,'β',9)],
+['m_par','সমান্তরাল রেখা ও ছেদক',()=>l(8,35,92,35)+l(8,65,92,65)+l(25,92,75,8)+Y('84,32 88,35 84,38')+Y('84,62 88,65 84,68')+T(70,31,'α',9)+T(52,61,'α',9)],
+['t_rt','সমকোণী ত্রিভুজ (sin, cos, tan)',()=>G([[12,82],[88,82],[88,26]])+Y('78,82 78,72 88,72')+D('M30 82A18 18 0 0 0 26.5 71.3')+T(38,77,'θ',10)+T(50,92,'adj',9)+T(97,54,'opp',9)+T(42,47,'hyp',9)],
+['t_pyth','পিথাগোরাসের উপপাদ্য',()=>G([[38,52],[62,52],[38,34]])+rc(38,52,24,24)+rc(20,34,18,18)+G([[62,52],[38,34],[56,10],[80,28]])+Y('38,48 42,48 42,52')+T(50,64,'b²',9)+T(29,43,'a²',9)+T(68,28,'c²',9)],
+['t_eq','সমবাহু ত্রিভুজ',()=>G([[50,14],[12,80],[88,80]])+l(27.5,45,34.5,49)+l(65.5,49,72.5,45)+l(50,76,50,84)],
+['t_iso','সমদ্বিবাহু ত্রিভুজ',()=>G([[50,12],[22,84],[78,84]])+l(32.3,46.5,39.7,49.5)+l(60.3,49.5,67.7,46.5)],
+['t_rho','রম্বস',()=>G([[50,10],[85,50],[50,90],[15,50]])+dsh(l(50,10,50,90),'3 3')+dsh(l(15,50,85,50),'3 3')],
+['t_pent','সুষম পঞ্চভুজ',()=>G(P(5,38))],
+['t_hex','সুষম ষড়ভুজ',()=>G(P(6,38,0))],
+['t_sim','সদৃশ ত্রিভুজ',()=>G([[10,85],[85,85],[10,35]])+dsh(l(10,60,47.5,60))+Y('10,78 17,78 17,85')],
+['t_bis','কোণ সমদ্বিখণ্ডক',()=>l(12,80,90,80)+l(12,80,80,20)+dsh(l(12,80,81,54))+D('M30 80A18 18 0 0 0 28.8 73.6')+D('M34.4 71.5A24 24 0 0 0 30 64.1')],
+['t_perp','লম্ব সমদ্বিখণ্ডক',()=>l(12,70,88,70)+dsh(l(50,10,50,90))+l(31,66,31,74)+l(69,66,69,74)+Y('58,70 58,62 50,62')],
+['t_cent','ভরকেন্দ্র (মধ্যমা)',()=>G([[50,12],[12,84],[88,84]])+dsh(l(50,12,50,84))+dsh(l(12,84,69,48))+dsh(l(88,84,31,48))+dt(50,60)],
+['t_incirc','অন্তবৃত্ত',()=>G([[50,10],[10,85],[90,85]])+C(50,61,24)+dt(50,61)],
+['t_circum','পরিবৃত্ত',()=>C(50,50,38)+G([[50,12],[17,69],[83,69]])+dt(50,50)],
+['t_ins','অন্তর্লিখিত কোণ ও কেন্দ্রস্থ কোণ',()=>C(50,50,36)+l(50,50,19,68)+l(50,50,81,68)+l(50,14,19,68)+l(50,14,81,68)+dt(50,50)+T(50,29,'θ',9)+T(50,62,'2θ',9)],
+['t_tc','বহিঃস্পর্শী দুই বৃত্ত',()=>C(32,50,22)+C(76,50,22)+dt(54,50)],
+['t_ann','বলয় (অ্যানুলাস)',()=>C(50,50,38)+C(50,50,20)+dt(50,50)+l(50,50,77,23)+T(70,50,'r',9)],
+['t_cubd','কিউবয়েড (l, b, h)',()=>rc(12,40,50,40)+l(40,18,90,18)+l(90,18,90,58)+l(12,40,40,18)+l(62,40,90,18)+l(62,80,90,58)+dsh(l(40,58,90,58))+dsh(l(40,18,40,58))+dsh(l(12,80,40,58))+T(37,91,'l',10)+T(5,60,'h',10)+T(82,72,'b',10)],
+['t_pyr','চতুর্ভুজ ভিত্তির পিরামিড',()=>l(50,10,15,72)+l(50,10,65,72)+l(50,10,88,55)+dsh(l(50,10,38,55))+l(15,72,65,72)+l(65,72,88,55)+dsh(l(88,55,38,55))+dsh(l(38,55,15,72))],
+['t_tet','চতুস্তলক',()=>G([[50,10],[12,78],[88,78]])+l(50,10,58,56)+l(12,78,58,56)+l(88,78,58,56)],
+['t_hemi','অর্ধগোলক',()=>D('M12 60A38 38 0 0 1 88 60')+'<ellipse cx="50" cy="60" rx="38" ry="12"/>'+dt(50,60)+l(50,60,88,60)+T(70,53,'r',9)],
+['t_cylr','চোঙ (r ও h)',()=>'<ellipse cx="50" cy="22" rx="30" ry="10"/>'+l(20,22,20,78)+l(80,22,80,78)+D('M20 78A30 10 0 0 0 80 78')+dsh(D('M20 78A30 10 0 0 1 80 78'),'4 3')+l(50,22,80,22)+T(65,15,'r',9)+l(90,22,90,78)+T(96,50,'h',10)],
+['t_conr','শঙ্কু (r, h, l)',()=>l(50,10,18,80)+l(50,10,82,80)+D('M18 80A32 10 0 0 0 82 80')+dsh(D('M18 80A32 10 0 0 1 82 80'),'4 3')+dsh(l(50,10,50,80))+dsh(l(50,80,82,80))+T(66,73,'r',9)+T(44,45,'h',9)+T(75,40,'l',9)]
+]);
+
+const SUBJ=[['⚗️ রসায়ন',[4,0,1,5,6,8,13,14,15]],['⚡ পদার্থবিজ্ঞান',[2,22,9,11,6,8,16,17]],['📐 গণিত',[3,20,21,23,10,12,7,8,18,19]]];
+let items=[],sel=null,tool='sel',cur={c:'#111111',w:3,fs:28,fc:'#fff3b0',er:24},undo=[],redo=[],drag=null,ci=4,sj=0,snap=false;
+const save=()=>{undo.push(JSON.stringify(items));redo=[];if(undo.length>80)undo.shift()};
+const esc=t=>t.replace(/&/g,'&amp;').replace(/</g,'&lt;');
+const FF={s:"'Hind Siliguri','Noto Sans Bengali',system-ui,sans-serif",r:"'Noto Serif Bengali','Times New Roman',Georgia,serif",m:"'Courier New',monospace"};
+let _tc;const tw=(q,i)=>{_tc=_tc||document.createElement('canvas').getContext('2d');_tc.font=`${i.it?'italic ':''}${i.b?'bold ':''}${i.fs}px ${FF[i.ff||'s']}`;return _tc.measureText(q).width};
+function body(i){const{w,h}=i;switch(i.k){
+case'st':return S[i.id].f();
+case'pen':return`<path d="M${i.p.map(q=>q.join(' ')).join('L')}"/>`;
+case'line':case'arrow':case'darrow':{let s=l(0,0,w,h);if(i.k!=='line'){const a=Math.atan2(h,w),q=d=>[w-14*Math.cos(a+d),h-14*Math.sin(a+d)].join(',');s+=`<polygon fill="currentColor" stroke-dasharray="none" points="${w},${h} ${q(.4)} ${q(-.4)}"/>`;if(i.k==='darrow'){const r=d=>[14*Math.cos(a+d),14*Math.sin(a+d)].join(',');s+=`<polygon fill="currentColor" stroke-dasharray="none" points="0,0 ${r(.4)} ${r(-.4)}"/>`}}return s}
+case'triangle':{const x=Math.min(0,w),y=Math.min(0,h),W=Math.abs(w),H=Math.abs(h);return`<polygon points="${x+W/2},${y} ${x+W},${y+H} ${x},${y+H}"/>`}
+ case'diamond':{const x=Math.min(0,w),y=Math.min(0,h),W=Math.abs(w),H=Math.abs(h);return`<polygon points="${x+W/2},${y} ${x+W},${y+H/2} ${x+W/2},${y+H} ${x},${y+H/2}"/>`}
+ case'roundrect':return`<rect x="${Math.min(0,w)}" y="${Math.min(0,h)}" width="${Math.abs(w)}" height="${Math.abs(h)}" rx="${Math.min(14,Math.abs(w)/5,Math.abs(h)/5)}"/>`;
+ case'connector':{const d=`M0 0 L${w/2} 0 L${w/2} ${h} L${w} ${h}`,horizontal=Math.abs(w)>2,sgn=Math.sign(horizontal?w:h)||1,bx=horizontal?w-12*sgn:w+(sgn>0?5:-5),by=horizontal?h+(sgn>0?5:-5):h-12*sgn,cx=horizontal?w-12*sgn:w+(sgn>0?-5:5),cy=horizontal?h+(sgn>0?-5:5):h-12*sgn;return`<path d="${d}" fill="none"/><polygon fill="currentColor" stroke="none" points="${w},${h} ${bx},${by} ${cx},${cy}"/>`}
+ case'rect':return`<rect x="${Math.min(0,w)}" y="${Math.min(0,h)}" width="${Math.abs(w)}" height="${Math.abs(h)}"/>`;
+case'ell':return`<ellipse cx="${w/2}" cy="${h/2}" rx="${Math.abs(w/2)}" ry="${Math.abs(h/2)}"/>`;
+case'circle':{const W=Math.abs(w),H=Math.abs(h),x=Math.min(0,w),y=Math.min(0,h),r=Math.min(W,H)/2;return`<circle cx="${x+W/2}" cy="${y+H/2}" r="${r}"/>`}
+case'text':{const ls=String(i.t).split('\n'),fs=i.fs,lh=fs*(i.lh||1.25),W=Math.max(1,...ls.map(q=>tw(q,i))),al=i.al||'l',ax=al==='c'?W/2:al==='r'?W:0,an=al==='c'?'middle':al==='r'?'end':'start';
+ const bgr=i.hl?`<rect x="-6" y="-4" width="${W+12}" height="${lh*(ls.length-1)+fs*1.2+8}" rx="4" fill="${i.hl}" stroke="none"/>`:'';
+ return bgr+`<text font-family="${FF[i.ff||'s']}" font-size="${fs}" font-weight="${i.b?700:400}" font-style="${i.it?'italic':'normal'}" text-decoration="${i.u?'underline':'none'}" fill="currentColor" stroke="none" dominant-baseline="hanging" text-anchor="${an}">${ls.map((q,k)=>`<tspan x="${ax}" y="${k*lh}">${esc(q)||' '}</tspan>`).join('')}</text>`}
+case'img':return`<image href="${i.u}" width="${w}" height="${h}"/>`}}
+const emask=(i,n)=>`<mask id="dsm${n}" maskUnits="userSpaceOnUse" x="-20000" y="-20000" width="40000" height="40000"><rect x="-20000" y="-20000" width="40000" height="40000" fill="#fff" stroke="none"/>${i.er.map(q=>`<path d="M${q.p.map(a=>a.join(' ')).join('L')}" fill="none" stroke="#000" stroke-width="${q.w}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="none"/>`).join('')}</mask>`;
+const lpt=(i,q)=>{const r=(i.r||0)*Math.PI/180,c=Math.cos(r),s=Math.sin(r),dx=q.x-i.x,dy=q.y-i.y,sx=i.fx?-i.s:i.s;return[+((c*dx+s*dy)/sx).toFixed(2),+((-s*dx+c*dy)/i.s).toFixed(2)]};
+function eraseTo(a,b){const d=drag,rad=cur.er/2,x0=Math.min(a.x,b.x)-rad,x1=Math.max(a.x,b.x)+rad,y0=Math.min(a.y,b.y)-rad,y1=Math.max(a.y,b.y)+rad;d.n++;
+ for(const k in d.rs){const r=d.rs[k];if(r.x>x1||r.x+r.w<x0||r.y>y1||r.y+r.h<y0)continue;const i=items[+k];if(!i)continue;let st=d.cs[k];
+  if(!st||d.last[k]!==d.n-1){st={w:+(cur.er/Math.abs(i.s||1)).toFixed(2),p:[lpt(i,a)]};d.cs[k]=st;(i.er=i.er||[]).push(st)}
+  const q=lpt(i,b),z=st.p[st.p.length-1];if(q[0]===z[0]&&q[1]===z[1])q[0]+=.01;st.p.push(q);d.last[k]=d.n}}
+const ecur=p=>{const c=$('#ecur');if(!c)return;if(!p||tool!=='erase'){c.style.display='none';return}c.setAttribute('cx',p.x);c.setAttribute('cy',p.y);c.setAttribute('r',cur.er/2);c.style.display=''};
+function render(){
+ L.innerHTML=items.map((i,n)=>`<g data-i="${n}" transform="translate(${i.x} ${i.y}) rotate(${i.r}) scale(${i.fx?-i.s:i.s} ${i.s})" stroke="currentColor" stroke-width="${i.sw}" ${i.d?`stroke-dasharray="${i.sw*3} ${i.sw*2.2}"`:''} fill="${i.f&&i.k!=='text'?i.f:'none'}" stroke-linecap="round" stroke-linejoin="round" style="color:${i.c};opacity:${i.o==null?1:i.o}">${i.er&&i.er.length?emask(i,n)+`<g mask="url(#dsm${n})">${body(i)}</g>`:body(i)}</g>`).join('');
+ L.querySelectorAll('g[data-i]').forEach(g=>{const b=g.getBBox(),a2=`x="${b.x-4}" y="${b.y-4}" width="${b.width+8}" height="${b.height+8}"`,a=`x="${b.x-4}" y="${b.y-4}" width="${b.width+8}" height="${b.height+8}"`;
+  g.insertAdjacentHTML('afterbegin',`<rect class="hit" ${a} fill="transparent" stroke="none"/>`);
+  if(MS.size>1&&MS.has(items[+g.dataset.i]))g.insertAdjacentHTML('beforeend',`<rect class="sel" ${a2} fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 4"/>`);else if(+g.dataset.i===sel)g.insertAdjacentHTML('beforeend',`<rect class="sel" ${a} fill="none" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5 4"/><circle class="handle" cx="${b.x}" cy="${b.y}" r="5" fill="#fff" stroke="#2563eb" stroke-width="2"/><circle class="handle" cx="${b.x+b.width}" cy="${b.y}" r="5" fill="#fff" stroke="#2563eb" stroke-width="2"/><circle class="handle" cx="${b.x}" cy="${b.y+b.height}" r="5" fill="#fff" stroke="#2563eb" stroke-width="2"/><circle class="handle" cx="${b.x+b.width}" cy="${b.y+b.height}" r="5" fill="#fff" stroke="#2563eb" stroke-width="2"/>`)})}
+const pt=e=>{const p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;const q=p.matrixTransform(svg.getScreenCTM().inverse());return snap?{x:Math.round(q.x/12.5)*12.5,y:Math.round(q.y/12.5)*12.5}:q};
+let view={x:0,y:0,w:700,h:700},gesture=null;
+function applyView(){svg.setAttribute('viewBox',`${view.x} ${view.y} ${view.w} ${view.h}`)}
+function zoomAt(f,cx,cy){const nw=Math.max(120,Math.min(1600,view.w*f)),nh=nw;const kx=(cx-view.x)/view.w,ky=(cy-view.y)/view.h;view.x=cx-kx*nw;view.y=cy-ky*nh;view.w=nw;view.h=nh;applyView()}
+function localPt(e){return pt(e)}
+svg.onwheel=e=>{e.preventDefault();const p=localPt(e);zoomAt(e.deltaY>0?1.12:.89,p.x,p.y)};
+svg.onpointerdown=e=>{
+ if(!$('#tx').hidden)return;
+ const p=localPt(e), target=e.target, handle=target.closest('.handle');
+ if(e.pointerType==='touch' && e.isPrimary===false)return;
+ if(tool==='sel'){
+   if(handle && sel!=null && !items[sel].lk){save();const i=items[sel];gesture={type:'resize',start:p,scale:i.s};svg.setPointerCapture(e.pointerId);return}
+   const g=target.closest('g[data-i]');
+   if(g){const it0=items[+g.dataset.i];if(e.shiftKey||e.ctrlKey||e.metaKey||multi){toggleMs(it0);lastTap={i:-1,t:0};render();return}if(MS.size>1&&MS.has(it0)){save();drag={m:4,sx:p.x,sy:p.y,o:[...MS].filter(q=>!q.lk).map(q=>[q,q.x,q.y])};svg.setPointerCapture(e.pointerId);return}MS.clear();sel=+g.dataset.i;const nw=performance.now();if(items[sel].k==='text'&&lastTap.i===sel&&nw-lastTap.t<420){lastTap={i:-1,t:0};render();editT(items[sel]);return}lastTap={i:sel,t:nw};if(it0.lk){render();return}save();drag={m:1,ox:p.x-items[sel].x,oy:p.y-items[sel].y};svg.setPointerCapture(e.pointerId);render();return}
+   if(multi){sel=null;MS.clear();mq={x:p.x,y:p.y,w:0,h:0};drag={m:5,sx:p.x,sy:p.y};svg.setPointerCapture(e.pointerId);render();return}drag={m:3,sx:p.x,sy:p.y,vx:view.x,vy:view.y};svg.setPointerCapture(e.pointerId);svg.classList.add('dragging');return
+ }
+ if(tool==='text'){const sn=JSON.stringify(items);items.push(Object.assign({k:'text',t:'',x:p.x,y:p.y,r:0,s:1,c:cur.c,sw:1,fs:cur.fs},cur.ts||{}));sel=items.length-1;tool='sel';ui();render();openTx(sel,sn);return}
+ if(tool==='erase'){save();const m=svg.getScreenCTM(),rs={};L.querySelectorAll('g[data-i]').forEach(g=>{const it=items[+g.dataset.i];if(!it||it.lk)return;const r=g.getBoundingClientRect();rs[g.dataset.i]={x:(r.left-m.e)/m.a,y:(r.top-m.f)/m.d,w:r.width/m.a,h:r.height/m.d}});drag={m:6,rs,lp:p,cs:{},last:{},n:0};svg.setPointerCapture(e.pointerId);eraseTo(p,p);ecur(p);render();return}
+ save();const it={k:tool,x:p.x,y:p.y,r:0,s:1,c:cur.c,sw:cur.w,w:0,h:0};
+ if(tool==='pen'){it.x=0;it.y=0;it.p=[[p.x,p.y]]}
+ items.push(it);sel=items.length-1;drag={m:2,sx:p.x,sy:p.y};svg.setPointerCapture(e.pointerId);render()};
+svg.onpointermove=e=>{if(gesture?.type==='resize'&&sel!=null){const p=localPt(e),i=items[sel],d0=Math.max(8,Math.hypot(gesture.start.x-(i.x+50),gesture.start.y-(i.y+50))),d1=Math.max(8,Math.hypot(p.x-(i.x+50),p.y-(i.y+50)));i.s=Math.max(.2,Math.min(8,gesture.scale*d1/d0));render();return}if(!drag)return;const p=localPt(e);
+ if(drag.m===1){const i=items[sel];i.x=p.x-drag.ox;i.y=p.y-drag.oy}
+ else if(drag.m===4){const dx=p.x-drag.sx,dy=p.y-drag.sy;drag.o.forEach(([q,x,y])=>{q.x=x+dx;q.y=y+dy})}
+ else if(drag.m===5){mq={x:Math.min(p.x,drag.sx),y:Math.min(p.y,drag.sy),w:Math.abs(p.x-drag.sx),h:Math.abs(p.y-drag.sy)}}
+ else if(drag.m===3){const dx=p.x-drag.sx,dy=p.y-drag.sy;view.x=drag.vx-dx;view.y=drag.vy-dy;applyView()}
+ else if(drag.m===6){const q=drag.lp;ecur(p);if(Math.hypot(p.x-q.x,p.y-q.y)>=Math.max(1,cur.er/8)){eraseTo(q,p);drag.lp=p}}
+ else{const i=items[items.length-1];if(i.k==='pen')i.p.push([p.x,p.y]);else{i.w=p.x-drag.sx;i.h=p.y-drag.sy}}
+ render()};
+svg.onpointerup=svg.onpointercancel=()=>{gesture=null;if(drag&&drag.m===5)finishMq();if(drag&&drag.m===2){const i=items[items.length-1];if(i.k!=='pen'&&Math.abs(i.w)+Math.abs(i.h)<4)items.pop();if(i.k==='pen'&&i.p.length<2)items.pop()}drag=null;svg.classList.remove('dragging');render()};
+svg.addEventListener('pointermove',e=>{if(tool==='erase'&&e.pointerType!=='touch')ecur(pt(e))});
+svg.addEventListener('pointerleave',()=>ecur(null));
+svg.addEventListener('pointerup',e=>{if(e.pointerType==='touch')ecur(null)});
+// two-finger pinch zoom
+svg.addEventListener('touchstart',e=>{if(e.touches.length===2){const a=e.touches[0],b=e.touches[1];gesture={type:'pinch',dist:Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY)}}},{passive:false});
+svg.addEventListener('touchmove',e=>{if(e.touches.length===2&&gesture?.type==='pinch'){e.preventDefault();const a=e.touches[0],b=e.touches[1],d=Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY),m=(a.clientX+b.clientX)/2,n=(a.clientY+b.clientY)/2;const p=svg.createSVGPoint();p.x=m;p.y=n;const q=p.matrixTransform(svg.getScreenCTM().inverse());zoomAt(gesture.dist/d,q.x,q.y);gesture.dist=d}},{passive:false});
+
+const TL=[['sel','☝ নির্বাচন'],['pen','✏️ কলম'],['erase','🧽 ইরেজার'],['line','／ রেখা'],['arrow','→ তীর'],['darrow','↔ দ্বিমুখী'],['connector','⤴ কৌণিক সংযোগ'],['rect','▭ আয়তক্ষেত্র'],['roundrect','▢ গোল-কোণা বক্স আঁকুন'],['triangle','△ ত্রিভুজ আঁকুন'],['diamond','◇ হীরা আঁকুন'],['ell','◯ উপবৃত্ত'],['circle','● বৃত্ত আঁকুন'],['text','T লেখা']];
+function ui(){
+ $('#tl').innerHTML=`<input id="find" placeholder="${tr('🔎 ডায়াগ্রাম খুঁজুন...')}" style="min-width:180px">`+TL.map(([k,n])=>`<button data-t="${k}" class="${tool===k?'on':''}">${tr(n)}</button>`).join('')+`<label class="b">${tr('🖼 ডায়াগ্রাম আপলোড')}<input type="file" id="up" accept="image/*" hidden></label>`+(tool==='erase'?`<label class="b" id="erl" title="${tr('ইরেজারের আকার')}">🧽 ${tr('ইরেজারের আকার')} <input type="range" id="ers" min="4" max="120" value="${cur.er}" style="width:110px;vertical-align:middle"></label>`:'');
+ svg.classList.toggle('erasing',tool==='erase');ecur(null);
+ if($('#ers'))$('#ers').oninput=e=>{cur.er=+e.target.value;const c=$('#ecur'),v=view;c.setAttribute('r',cur.er/2);c.setAttribute('cx',v.x+v.w/2);c.setAttribute('cy',v.y+v.h/2);c.style.display='';clearTimeout(window._et);window._et=setTimeout(()=>ecur(null),700)};
+ $('#tl').querySelectorAll('[data-t]').forEach(b=>b.onclick=()=>{tool=b.dataset.t;if(tool!=='sel')sel=null;ui();render()});
+ $('#up').onchange=up;
+ $('#find').oninput=e=>{const q=e.target.value.toLowerCase();$('#st').querySelectorAll('.st').forEach(b=>b.style.display=(S[b.dataset.id].n+' '+tr(S[b.dataset.id].n)+' '+b.dataset.id).toLowerCase().includes(q)?'flex':'none')};
+ $('#sj').innerHTML=SUBJ.map(([n],k)=>`<button data-s="${k}" class="${sj===k?'on':''}">${tr(n)}</button>`).join('');
+ $('#sj').querySelectorAll('button').forEach(b=>b.onclick=()=>{sj=+b.dataset.s;ci=SUBJ[sj][1][0];ui()});
+ $('#tb').innerHTML=SUBJ[sj][1].map(k=>`<button data-c="${k}" class="${ci===k?'on':''}">${tr(CATS[k][0])}</button>`).join('');
+ $('#tb').querySelectorAll('button').forEach(b=>b.onclick=()=>{ci=+b.dataset.c;ui()});
+ $('#st').innerHTML=CATS[ci][1].map(id=>`<button class="st" data-id="${id}"><svg viewBox="-10 -10 120 120" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">${S[id].f()}</svg>${tr(S[id].n)}</button>`).join('');
+ $('#st').querySelectorAll('.st').forEach(b=>b.onclick=()=>{const id=b.dataset.id;save();if(id.startsWith('t:'))items.push({k:'text',t:id.slice(2),x:view.x+view.w/2-30,y:view.y+view.h/2-30,r:0,s:1,c:cur.c,sw:1,fs:44});else{const sc=S[id].s||2;items.push({k:'st',id,x:view.x+view.w/2-50*sc,y:view.y+view.h/2-50*sc,r:0,s:sc,c:cur.c,sw:cur.w/sc})}sel=items.length-1;tool='sel';ui();render()})}
+function up(e){const f=e.target.files[0];if(!f)return;const r=new FileReader();
+ r.onload=()=>{const im=new Image();im.onload=()=>{const k=Math.min(1,420/Math.max(im.width,im.height));save();items.push({k:'img',u:r.result,x:view.x+view.w/2-im.width*k/2,y:view.y+view.h/2-im.height*k/2,w:im.width*k,h:im.height*k,r:0,s:1,c:'#000',sw:1});sel=items.length-1;tool='sel';ui();render()};im.src=r.result};
+ r.readAsDataURL(f)}
+const mod=fn=>()=>{const t=targets();if(!t.length)return;save();t.forEach(fn);render()};
+$('#ro').onclick=mod(i=>i.r=((i.r||0)+90)%360);
+$('#du').onclick=()=>{const t=targets();if(!t.length)return;save();const c=t.map(q=>{const i=JSON.parse(JSON.stringify(q));i.x+=20;i.y+=20;i.lk=false;items.push(i);return i});MS.clear();c.forEach(q=>MS.add(q));sel=items.length-1;if(c.length===1)MS.clear();render()};
+$('#de').onclick=()=>{const t=targets();if(!t.length)return;save();const z=new Set(t);items=items.filter(q=>!z.has(q));sel=null;MS.clear();render()};
+$('#un').onclick=()=>{if(undo.length){redo.push(JSON.stringify(items));items=JSON.parse(undo.pop());sel=null;render()}};
+$('#rd').onclick=()=>{if(redo.length){undo.push(JSON.stringify(items));items=JSON.parse(redo.pop());sel=null;render()}};
+$('#cl').onclick=()=>{if(items.length&&confirm(tr('সব মুছে ফেলবেন?'))){save();items=[];sel=null;render()}};
+$('#col').oninput=e=>{cur.c=e.target.value;if(sel!=null){targets().forEach(q=>q.c=cur.c);render()}};
+$('#wd').oninput=e=>{cur.w=+e.target.value;if(sel!=null){targets().forEach(i=>{if(i.k==='img'||i.k==='text')return;i.sw=i.k==='st'?cur.w/i.s:cur.w});render()}};
+const sendUse=u=>parent.postMessage({type:'diagram-studio:use',dataUrl:u,items:JSON.stringify(proj())},location.origin);
+function expPrep(){
+ const b=contentBox();if(!b){msg('আগে কিছু আঁকুন');return null}
+ const c=svg.cloneNode(true);c.querySelectorAll('.hit,.sel,.handle,#gridr,#ecur').forEach(e=>e.remove());
+ const pad=Math.max(16,Math.max(b.width,b.height)*.04),vx=b.x-pad,vy=b.y-pad,vw=b.width+pad*2,vh=b.height+pad*2;
+ const k=Math.min(2400/Math.max(vw,vh),6),W=Math.round(vw*k),H=Math.round(vh*k);
+ c.setAttribute('viewBox',`${vx} ${vy} ${vw} ${vh}`);c.setAttribute('width',W);c.setAttribute('height',H);
+ const r=c.querySelector('#bgr');if(r){if(bgt)r.remove();else{r.setAttribute('x',vx);r.setAttribute('y',vy);r.setAttribute('width',vw);r.setAttribute('height',vh);r.setAttribute('fill',bgc)}}
+ return{c,W,H,u:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(new XMLSerializer().serializeToString(c))}}
+function exp(type){
+ const x=expPrep();if(!x)return;
+ if(type==='svg')return show(x.u,'diagram.svg');
+ const im=new Image();im.onload=()=>{const cv=document.createElement('canvas');cv.width=x.W;cv.height=x.H;const g=cv.getContext('2d');if(!bgt){g.fillStyle=bgc;g.fillRect(0,0,x.W,x.H)}g.imageSmoothingQuality='high';g.drawImage(im,0,0,x.W,x.H);const png=cv.toDataURL('image/png');if(type==='use')return sendUse(png);show(png,'diagram.png')};im.onerror=()=>msg('ছবি বানানো যায়নি');im.src=x.u}
+function show(u,n){ov.innerHTML=`<div><img src="${u}" alt="${tr('ডায়াগ্রাম')}"><p>${tr('ছবিটি দীর্ঘক্ষণ চেপে ধরে (কম্পিউটারে ডান-ক্লিক করে) সংরক্ষণ করুন।')}</p><a href="${u}" download="${n}">${tr('⬇ ডাউনলোড')}</a> &nbsp; <button onclick="ov.hidden=true">${tr('বন্ধ করুন')}</button>${EMB&&n.endsWith('.png')?' &nbsp; <button id="useq" class="on">✅ '+tr(UQT)+'</button>':''}</div>`;ov.hidden=false;const uq=$('#useq');if(uq)uq.onclick=()=>sendUse(u)}
+const editT=i=>{if(!i||i.k!=='text')return;openTx(items.indexOf(i),JSON.stringify(items))};
+
+$('#sn').onclick=e=>{snap=!snap;e.currentTarget.classList.toggle('on',snap)};
+svg.ondblclick=e=>{const g=e.target.closest('g[data-i]');if(g)editT(items[+g.dataset.i])};
+$('#ep').onclick=()=>exp('png');
+// ---- MCQ সাইটে এম্বেড থাকলে: আগের ডায়াগ্রাম লোড (সম্পাদনা) ও এক-ক্লিকে প্রশ্নে যুক্ত ----
+if(EMB){const b=$('#uq2');b.hidden=false;if(TGT)b.textContent='✅ '+UQT;b.onclick=()=>exp('use');
+ addEventListener('message',e=>{if(e.origin!==location.origin||e.source!==parent)return;const d=e.data;if(!d||d.type!=='diagram-studio:load'||typeof d.items!=='string')return;
+  try{const a=JSON.parse(d.items);if(Array.isArray(a)){loadProj(a)}}catch(_){}});
+ parent.postMessage({type:'diagram-studio:ready'},location.origin)}
+
+
+// ---- নতুন অপশন: লেখার আকার, ভরাট, ডট রেখা, উল্টান, সামনে/পেছনে, ফিট, জাল দেখানো ----
+$('#fc').oninput=e=>{cur.fc=e.target.value;let ch=false;targets().forEach(i=>{if(i.f){i.f=cur.fc;ch=true}});if(ch)render()};
+$('#fl').onclick=mod(i=>{if(i.k==='text'||i.k==='img'||i.k==='line'||i.k==='arrow'||i.k==='darrow'||i.k==='connector'||i.k==='pen')return;i.f=i.f?'':cur.fc});
+$('#ds').onclick=mod(i=>{if(i.k==='text'||i.k==='img')return;i.d=!i.d});
+$('#fx').onclick=mod(i=>{if(i.k==='text')return;i.fx=!i.fx});
+$('#fr').onclick=()=>{const t=targets();if(!t.length)return;save();const pr=items[sel],z=new Set(t);items=items.filter(q=>!z.has(q)).concat(items.filter(q=>z.has(q)));sel=items.indexOf(pr);render()};
+$('#bk').onclick=()=>{const t=targets();if(!t.length)return;save();const pr=items[sel],z=new Set(t);items=items.filter(q=>z.has(q)).concat(items.filter(q=>!z.has(q)));sel=items.indexOf(pr);render()};
+function contentBox(){sel=null;MS.clear();mq=null;render();const b=L.getBBox();return b&&b.width>0&&b.height>0?b:null}
+$('#ft').onclick=()=>{const b=contentBox();if(!b){view={x:0,y:0,w:700,h:700};return applyView()}const m=Math.max(b.width,b.height)*1.12+20;view={x:b.x+b.width/2-m/2,y:b.y+b.height/2-m/2,w:Math.max(120,m),h:Math.max(120,m)};applyView()};
+$('#gv').onclick=e=>{const r=$('#gridr'),on=r.style.display==='none';r.style.display=on?'':'none';e.currentTarget.classList.toggle('on',on)};
+// ---- জেনারেটর: যৌগ, গ্রাফ ----
+const msg=t=>$('#msg').textContent=tr(t)||'';
+function addImg(u,w,h,m=300){const k=Math.min(1,m/Math.max(w,h));save();items.push({k:'img',u,x:view.x+view.w/2-w*k/2,y:view.y+view.h/2-h*k/2,w:w*k,h:h*k,r:0,s:1,c:'#000',sw:1});sel=items.length-1;tool='sel';ui();render()}
+const loadImg=u=>new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok(im);im.onerror=no;im.src=u});
+const b2u=b=>new Promise(ok=>{const f=new FileReader();f.onload=()=>ok(f.result);f.readAsDataURL(b)});
+$('#gm').onclick=async()=>{const q=$('#smi').value.trim();if(!q)return;msg('লোড হচ্ছে...');
+ for(const kind of['name','smiles']){try{const r=await fetch(`https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/${kind}/${encodeURIComponent(q)}/PNG?image_size=400x400`);
+  if(!r.ok)continue;const u=await b2u(await r.blob()),im=await loadImg(u);addImg(u,im.width,im.height);return msg('✓ আঁকা হয়েছে')}catch(e){}}
+ msg('পাওয়া যায়নি (ইংরেজি নাম/SMILES ও ইন্টারনেট লাগবে)')};
+const RX_PRESETS={water:['2H₂ + O₂','Δ','','2H₂O'],neutral:['HCl + NaOH','','','NaCl + H₂O'],photo:['6CO₂ + 6H₂O',lang==='en'?'Sunlight / chlorophyll':'সূর্যালোক / ক্লোরোফিল','','C₆H₁₂O₆ + 6O₂']};
+$('#rxtog').onclick=e=>{const panel=$('#rxp');panel.hidden=!panel.hidden;e.currentTarget.classList.toggle('on',!panel.hidden);e.currentTarget.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)$('#rx-left').focus()};
+document.querySelectorAll('[data-rx]').forEach(b=>b.onclick=()=>{const v=RX_PRESETS[b.dataset.rx];if(!v)return;['#rx-left','#rx-above','#rx-below','#rx-right'].forEach((id,n)=>$(id).value=n===1&&b.dataset.rx==='photo'&&lang==='en'?'Sunlight / chlorophyll':v[n]);$('#rx-arrow').value='→'});
+$('#rx-add').onclick=async()=>{const left=$('#rx-left').value.trim(),right=$('#rx-right').value.trim(),above=$('#rx-above').value.trim(),below=$('#rx-below').value.trim(),arrow=$('#rx-arrow').value;if(!left||!right){msg('দুই পাশে বিক্রিয়ক/উৎপাদ লিখুন।');return}
+ const ew=t=>String(t).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])),lw=Math.max(150,Array.from(left).length*16),rw=Math.max(150,Array.from(right).length*16),aw=Math.max(130,Array.from(above+' '+below).length*8+24),pad=32,W=pad+lw+34+aw+34+rw+pad,H=150,y=82,ax1=pad+lw+34,ax2=ax1+aw,cy=y;let reaction='';
+ if(arrow==='→'){reaction=`<line x1="${ax1}" y1="${cy}" x2="${ax2-12}" y2="${cy}" stroke="#173b34" stroke-width="3"/><polygon points="${ax2},${cy} ${ax2-14},${cy-8} ${ax2-14},${cy+8}" fill="#173b34"/>`}else{reaction=`<line x1="${ax1+12}" y1="${cy-5}" x2="${ax2-12}" y2="${cy-5}" stroke="#173b34" stroke-width="2.5"/><polygon points="${ax2},${cy-5} ${ax2-12},${cy-12} ${ax2-12},${cy+2}" fill="#173b34"/><line x1="${ax2-12}" y1="${cy+5}" x2="${ax1+12}" y2="${cy+5}" stroke="#173b34" stroke-width="2.5"/><polygon points="${ax1},${cy+5} ${ax1+12},${cy-2} ${ax1+12},${cy+12}" fill="#173b34"/>`}
+ const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}"><rect width="100%" height="100%" fill="#fff"/><g font-family="Hind Siliguri, sans-serif" fill="#173b34" text-anchor="middle"><text x="${pad+lw/2}" y="${y+8}" font-size="26">${ew(left)}</text><text x="${W-pad-rw/2}" y="${y+8}" font-size="26">${ew(right)}</text>${above?`<text x="${(ax1+ax2)/2}" y="${y-28}" font-size="17">${ew(above)}</text>`:''}${below?`<text x="${(ax1+ax2)/2}" y="${y+34}" font-size="16">${ew(below)}</text>`:''}${reaction}</g></svg>`;try{const pic=await loadImg('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg)),scale=2,cv=document.createElement('canvas');cv.width=W*scale;cv.height=H*scale;const cx=cv.getContext('2d');cx.fillStyle='#fff';cx.fillRect(0,0,cv.width,cv.height);cx.drawImage(pic,0,0,cv.width,cv.height);addImg(cv.toDataURL('image/png'),cv.width,cv.height,850);msg('✓ বিক্রিয়া চিত্র যোগ হয়েছে')}catch(_){msg('ছবি বানানো যায়নি')}};
+Object.assign(EN,{'সমীকরণের লেখা দেখান':'Show equation label','গ্রাফের ওপরে সমীকরণের লেখা (যেমন y = ln(x)) দেখাবে — ডিফল্টে বন্ধ':'Shows the equation text (e.g. y = ln(x)) on the graph — off by default','অপশনে যুক্ত করুন':'Add to option','রেখার ছেদ':'Intersecting lines','সমান্তরাল রেখা':'Parallel lines','মডুলাস':'Modulus |x|','বর্গমূল':'Square root','ঘনমূল':'Cube root','চতুর্ঘাত':'Quartic','সূচক ও লগ (বিপরীত)':'Exp & log (inverses)','সূচকীয় ক্ষয়':'Exponential decay','সিগময়েড':'Sigmoid','ঘণ্টাকার (বেল)':'Bell curve','উইচ অব অ্যাগনেসি':'Witch of Agnesi','ব্যস্ত ত্রিকোণমিতি':'Inverse trig','বিস্তার ও পর্যায়কাল':'Amplitude & period','অবমন্দিত দোলন':'Damped oscillation','বর্গ তরঙ্গ':'Square wave','ধাপ (floor)':'Step (floor)','করাত তরঙ্গ':'Sawtooth wave','ওহমের সূত্র V–I':"Ohm's law V–I",'বয়েলের সূত্র P–V':"Boyle's law P–V",'বিপরীত বর্গ সূত্র':'Inverse-square law','প্রক্ষেপক পথ':'Projectile path','x–t (সমত্বরণ)':'x–t (uniform acceleration)','v–t (সমত্বরণ)':'v–t (uniform acceleration)','পার্শ্ব পরাবৃত্ত':'Sideways parabola','আয়তাকার অধিবৃত্ত':'Rectangular hyperbola','দুই বৃত্তের ছেদ':'Two intersecting circles','সমকেন্দ্রিক বৃত্ত':'Concentric circles','উপবৃত্ত (প্যারামেট্রিক)':'Ellipse (parametric)','অ্যাস্ট্রয়েড':'Astroid','সাইক্লয়েড':'Cycloid','হৃদয়':'Heart','লেমনিস্কেট':'Lemniscate','লগ সর্পিল':'Log spiral','চার পাপড়ি':'Four-petal rose','লিমাসন':'Limaçon','পোলার বৃত্ত':'Polar circle'});
+Object.assign(EN,{"মডুলাস ফাংশন |x|": "Modulus function |x|", "বর্গমূল ফাংশন": "Square-root function", "ঘন ফাংশন x³": "Cubic function x³", "সূচকীয় ফাংশন": "Exponential function", "লগারিদম ফাংশন": "Logarithm function", "বিপরীত ফাংশন (e^x ও ln x)": "Inverse functions (e^x & ln x)", "sin x গ্রাফ": "sin x graph", "cos x গ্রাফ": "cos x graph", "tan x গ্রাফ": "tan x graph", "y = 1/x": "y = 1/x", "ঘণ্টাকার বক্ররেখা": "Bell curve", "সিগময়েড ফাংশন": "Sigmoid function", "নিম্নমুখী পরাবৃত্ত": "Downward parabola", "ধনাত্মক ঢালের রেখা": "Positive-slope line", "ঋণাত্মক ঢালের রেখা": "Negative-slope line", "তিন বীজযুক্ত ঘন সমীকরণ": "Cubic with three roots", "বৃত্তের সমীকরণ x²+y²=r²": "Circle x²+y²=r²", "উপবৃত্ত ও দুই ফোকাস": "Ellipse & two foci", "পরাবৃত্ত, ফোকাস ও নিয়ামক": "Parabola, focus & directrix", "অধিবৃত্ত ও অ্যাসিম্পটোট": "Hyperbola & asymptotes", "অসমতার অঞ্চল": "Inequality region", "একক বৃত্ত (sinθ, cosθ)": "Unit circle (sinθ, cosθ)", "তরঙ্গের যোগ sin x + sin 2x": "Wave sum sin x + sin 2x", "x, x², x³ তুলনা": "Compare x, x², x³", "অনুভূমিক ও উল্লম্ব অ্যাসিম্পটোট": "Horizontal & vertical asymptotes", "হিস্টোগ্রাম": "Histogram", "ফ্রিকোয়েন্সি বহুভুজ": "Frequency polygon", "ক্রমযোজিত রেখা (ওজিভ)": "Cumulative curve (ogive)", "বিক্ষেপ চিত্র": "Scatter plot", "রেখা চার্ট": "Line chart", "বক্স-হুইসকার প্লট": "Box-and-whisker plot", "গুচ্ছ বার চার্ট": "Grouped bar chart", "স্বাভাবিক বণ্টন (±1σ, ±2σ)": "Normal distribution (±1σ, ±2σ)", "ডোনাট চার্ট": "Donut chart", "এলাকা চার্ট": "Area chart", "রাডার চার্ট": "Radar chart", "তিনটি সেটের ভেন চিত্র": "Three-set Venn diagram", "ট্যালি চিহ্ন": "Tally marks", "স্টেম-অ্যান্ড-লিফ": "Stem-and-leaf", "ক্রমযোজিত বার (স্তূপিত)": "Stacked bar chart", "পাই চার্ট (শতাংশসহ)": "Pie chart (with %)", "x–t সমবেগ": "x–t uniform velocity", "x–t সমত্বরণ": "x–t uniform acceleration", "v–t সমবেগ": "v–t uniform velocity", "v–t সমত্বরণ": "v–t uniform acceleration", "v–t মন্দন": "v–t deceleration", "v–t লেখের ক্ষেত্রফল = সরণ": "Area under v–t = displacement", "a–t সমত্বরণ": "a–t constant acceleration", "গতিশক্তি–বেগ (KE–v)": "Kinetic energy–speed (KE–v)", "ওহমের সূত্র V–I": "Ohm's law V–I", "ডায়োড I–V বৈশিষ্ট্য": "Diode I–V characteristic", "P–V সমতাপীয় (বয়েল)": "P–V isotherm (Boyle)", "সমতাপীয় ও রুদ্ধতাপ রেখা": "Isothermal & adiabatic curves", "তেজস্ক্রিয় ক্ষয় ও অর্ধায়ু": "Radioactive decay & half-life", "ক্যাপাসিটর চার্জিং": "Capacitor charging", "সরল ছন্দিত গতি x–t": "Simple harmonic motion x–t", "আলোক-তড়িৎ KE–f": "Photoelectric KE–f", "অনুনাদ বক্ররেখা": "Resonance curve", "কৃষ্ণ বস্তুর বিকিরণ": "Black-body radiation", "হুকের সূত্র F–x": "Hooke's law F–x", "পীড়ন–বিকৃতি (σ–ε)": "Stress–strain (σ–ε)", "চার্লসের সূত্র V–T": "Charles's law V–T", "তাপীয় রেখাচিত্র (দশা পরিবর্তন)": "Heating curve (phase change)", "নিউক্লীয় বন্ধন শক্তি": "Nuclear binding energy", "স্পন্দন (বীট)": "Beats", "প্রক্ষিপ্ত বস্তুর গতিপথ": "Projectile trajectory", "নিউটনের শীতলীকরণ": "Newton's cooling", "চাপ–গভীরতা (P–h)": "Pressure–depth (P–h)", "আন্তঃআণবিক স্থিতিশক্তি U–r": "Intermolecular potential U–r", "রেখাংশ AB": "Line segment AB", "রশ্মি": "Ray", "সরলরেখা": "Straight line", "রৈখিক কোণ-জোড়": "Linear pair of angles", "বিপ্রতীপ কোণ": "Vertically opposite angles", "সমান্তরাল রেখা ও ছেদক": "Parallel lines & transversal", "সমকোণী ত্রিভুজ (sin, cos, tan)": "Right triangle (sin, cos, tan)", "পিথাগোরাসের উপপাদ্য": "Pythagoras theorem", "সমবাহু ত্রিভুজ": "Equilateral triangle", "সমদ্বিবাহু ত্রিভুজ": "Isosceles triangle", "রম্বস": "Rhombus", "সুষম পঞ্চভুজ": "Regular pentagon", "সুষম ষড়ভুজ": "Regular hexagon", "সদৃশ ত্রিভুজ": "Similar triangles", "কোণ সমদ্বিখণ্ডক": "Angle bisector", "লম্ব সমদ্বিখণ্ডক": "Perpendicular bisector", "ভরকেন্দ্র (মধ্যমা)": "Centroid (medians)", "অন্তবৃত্ত": "Incircle", "পরিবৃত্ত": "Circumcircle", "অন্তর্লিখিত কোণ ও কেন্দ্রস্থ কোণ": "Inscribed & central angle", "বহিঃস্পর্শী দুই বৃত্ত": "Externally tangent circles", "বলয় (অ্যানুলাস)": "Annulus (ring)", "কিউবয়েড (l, b, h)": "Cuboid (l, b, h)", "চতুর্ভুজ ভিত্তির পিরামিড": "Square-based pyramid", "চতুস্তলক": "Tetrahedron", "অর্ধগোলক": "Hemisphere", "চোঙ (r ও h)": "Cylinder (r & h)", "শঙ্কু (r, h, l)": "Cone (r, h, l)", "গণিত: ফাংশন গ্রাফ": "Maths: function graphs", "গণিত: পরিসংখ্যান চার্ট": "Maths: statistics charts", "পদার্থ: গ্রাফ": "Physics: graphs", "গণিত: ত্রিকোণমিতি ও জ্যামিতি": "Maths: trig & geometry", "সূচকের তুলনা": "Compare exponentials", "লগের তুলনা": "Compare logarithms", "দ্বিঘাতের স্থানান্তর": "Quadratic shifts", "মডুলাস স্থানান্তর": "Shifted modulus", "অ্যাসিম্পটোটসহ ভগ্নাংশ": "Rational with asymptotes", "sin x / x": "sin x / x", "তাপ ক্ষয় (নিউটন)": "Cooling (Newton)", "অর্ধায়ু": "Half-life", "ক্যাপাসিটর চার্জ": "Capacitor charge", "সরল ছন্দিত গতি": "Simple harmonic motion", "তরঙ্গ সংযোজন": "Wave superposition", "ডায়োড বৈশিষ্ট্য": "Diode characteristic", "আলোক-তড়িৎ": "Photoelectric effect", "অনুনাদ": "Resonance", "লেনার্ড-জোন্স": "Lennard-Jones", "সরল পেন্ডুলাম দশা": "Pendulum phase plot", "ডিম্বাকার কার্ভ": "Tilted ellipse", "গোলাপ ৫ পাপড়ি": "5-petal rose", "গোলাপ ৮ পাপড়ি": "8-petal rose", "প্রজাপতি কার্ভ": "Butterfly curve", "ডেকার্ত পাতা": "Folium of Descartes", "ক্যাসিনি কার্ভ": "Cassini oval", "হাইপোসাইক্লয়েড": "Hypocycloid", "এপিসাইক্লয়েড": "Epicycloid", "স্পিরোগ্রাফ": "Spirograph", "ত্রিমুখী লিসাজু": "Lissajous 3:4", "অসীম (∞)": "Infinity (∞)"});
+Object.assign(EN,{'🧽 ইরেজার':'🧽 Eraser','ইরেজারের আকার':'Eraser size'});
+// ---- গ্রাফ: একাধিক সমীকরণ (y=f(x), x=g(y), অন্তর্নিহিত, পোলার, প্যারামেট্রিক), সেটিংস, প্রিসেট, আঁকা গ্রাফ পরে আপডেট ----
+const GE=(()=>{
+                                                  
+                                                                                  
+                                                                                          
+
+class EquationGraphError extends Error {}
+
+const FUNCTIONS                                     = {
+  sin: { arity: 1, evaluate: ([value]) => Math.sin(value) },
+  cos: { arity: 1, evaluate: ([value]) => Math.cos(value) },
+  tan: { arity: 1, evaluate: ([value]) => Math.tan(value) },
+  asin: { arity: 1, evaluate: ([value]) => Math.asin(value) },
+  acos: { arity: 1, evaluate: ([value]) => Math.acos(value) },
+  atan: { arity: 1, evaluate: ([value]) => Math.atan(value) },
+  sinh: { arity: 1, evaluate: ([value]) => Math.sinh(value) },
+  cosh: { arity: 1, evaluate: ([value]) => Math.cosh(value) },
+  tanh: { arity: 1, evaluate: ([value]) => Math.tanh(value) },
+  sqrt: { arity: 1, evaluate: ([value]) => Math.sqrt(value) },
+  abs: { arity: 1, evaluate: ([value]) => Math.abs(value) },
+  ln: { arity: 1, evaluate: ([value]) => Math.log(value) },
+  log: { arity: 1, evaluate: ([value]) => Math.log10(value) },
+  log10: { arity: 1, evaluate: ([value]) => Math.log10(value) },
+  exp: { arity: 1, evaluate: ([value]) => Math.exp(value) },
+  floor: { arity: 1, evaluate: ([value]) => Math.floor(value) },
+  ceil: { arity: 1, evaluate: ([value]) => Math.ceil(value) },
+  round: { arity: 1, evaluate: ([value]) => Math.round(value) },
+  sign: { arity: 1, evaluate: ([value]) => Math.sign(value) },
+  min: { arity: 2, evaluate: ([left, right]) => Math.min(left, right) },
+  max: { arity: 2, evaluate: ([left, right]) => Math.max(left, right) },
+  pow: { arity: 2, evaluate: ([left, right]) => Math.pow(left, right) },
+  atan2: { arity: 2, evaluate: ([left, right]) => Math.atan2(left, right) },
+  cbrt: { arity: 1, evaluate: ([value]) => Math.cbrt(value) },
+  sec: { arity: 1, evaluate: ([value]) => 1 / Math.cos(value) },
+  csc: { arity: 1, evaluate: ([value]) => 1 / Math.sin(value) },
+  arcsin: { arity: 1, evaluate: ([value]) => Math.asin(value) },
+  arccos: { arity: 1, evaluate: ([value]) => Math.acos(value) },
+  arctan: { arity: 1, evaluate: ([value]) => Math.atan(value) },
+  cosec: { arity: 1, evaluate: ([value]) => 1 / Math.sin(value) },
+  cot: { arity: 1, evaluate: ([value]) => 1 / Math.tan(value) },
+  log2: { arity: 1, evaluate: ([value]) => Math.log2(value) },
+  mod: { arity: 2, evaluate: ([left, right]) => ((left % right) + right) % right },
+};
+
+const CONSTANTS                         = {
+  pi: Math.PI,
+  tau: Math.PI * 2,
+  e: Math.E,
+};
+
+function preNorm(src) {
+  let t = String(src).replace(/[০-৯]/g, (c) => '০১২৩৪৫৬৭৮৯'.indexOf(c));
+  const SUPM = { '⁰': '0', '¹': '1', '²': '2', '³': '3', '⁴': '4', '⁵': '5', '⁶': '6', '⁷': '7', '⁸': '8', '⁹': '9', '⁻': '-' };
+  t = t.replace(/[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+/g, (m) => '^(' + [...m].map((c) => SUPM[c]).join('') + ')');
+  let out = '', prev = '', depth = 0;
+  for (const ch of t) {
+    if (ch === '|') {
+      if (depth > 0 && /[0-9a-zA-Z)._]/.test(prev)) { depth--; out += ')'; prev = ')'; }
+      else { depth++; out += 'abs('; prev = '('; }
+    } else { out += ch; if (!/\s/.test(ch)) prev = ch; }
+  }
+  return out;
+}
+
+const KNOWN_WORDS = new Set([...Object.keys(FUNCTIONS), ...Object.keys(CONSTANTS), 'x', 'y', 't', 'theta']);
+function splitWord(w) {
+  if (!/^[a-z]+$/.test(w) || KNOWN_WORDS.has(w)) return [w];
+  const n = w.length, dp = new Array(n + 1).fill(null);
+  dp[n] = [];
+  for (let i = n - 1; i >= 0; i--) {
+    let best = null;
+    for (let j = n; j > i; j--) {
+      const p = w.slice(i, j);
+      if (KNOWN_WORDS.has(p) && dp[j]) { const c = [p, ...dp[j]]; if (!best || c.length < best.length) best = c; }
+    }
+    dp[i] = best;
+  }
+  return dp[0] || [w];
+}
+const TRIG_FNS = new Set(['sin', 'cos', 'tan', 'cot', 'sec', 'csc', 'sinh', 'cosh', 'tanh']);
+const INV_FNS = { sin: 'asin', cos: 'acos', tan: 'atan' };
+
+function parseExpression(source        , allowedVariables             )            {
+  const normalized = preNorm(source)
+    .trim()
+    .toLowerCase()
+    .replace(/[−–—]/g, '-')
+    .replace(/[×·]/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/π/g, 'pi')
+    .replace(/τ/g, 'tau')
+    .replace(/θ/g, 't')
+    .replace(/²/g, '^2')
+    .replace(/³/g, '^3')
+    .replace(/√/g, 'sqrt ')
+    .replace(/\*\*/g, '^');
+  const tokens = (normalized.match(/(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?|[a-z]+|[()+\-*/%^,]/g) || []).flatMap(splitWord);
+  if (!normalized.trim() || tokens.join('') !== normalized.replace(/\s+/g, '')) {
+    throw new EquationGraphError('সূত্র বোঝা যায়নি — সমীকরণটি আবার দেখুন।');
+  }
+
+  let index = 0;
+  const peek = () => tokens[index];
+  const consume = () => tokens[index++];
+  const expect = (expected        ) => {
+    if (consume() !== expected) throw new EquationGraphError('সূত্র বোঝা যায়নি — বন্ধনী বা ফাংশনটি পরীক্ষা করুন।');
+  };
+
+  const parsePrimary = ()            => {
+    let token = consume();
+    if (!token) throw new EquationGraphError('সমীকরণের একটি অংশ অসম্পূর্ণ।');
+    if (token === '(') {
+      const inside = parseAdditive();
+      expect(')');
+      return inside;
+    }
+    if (/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/.test(token)) {
+      const value = Number(token);
+      return () => value;
+    }
+    if (/^[a-z]+$/.test(token)) {
+      if (token === 'theta') token = 't';
+      if (token === 'x' || token === 'y' || token === 't') {
+        if (!allowedVariables.has(token)) {
+          throw new EquationGraphError(`এই রূপে ${token} ব্যবহার করা যাবে না।`);
+        }
+        // t shares the first argument slot with x so polar / parametric curves reuse the same evaluator type.
+        return token === 'y' ? (_x, y) => y : (x) => x;
+      }
+      if (Object.hasOwn(CONSTANTS, token)) return () => CONSTANTS[token];
+      if (!Object.hasOwn(FUNCTIONS, token)) {
+        throw new EquationGraphError(`“${token}” ফাংশনটি সমর্থিত নয়।`);
+      }
+
+      let powN = null;
+      if (TRIG_FNS.has(token) && peek() === '^') {
+        let k = index + 1, paren = false, neg = false;
+        if (tokens[k] === '(') { paren = true; k++; }
+        if (tokens[k] === '-') { neg = true; k++; }
+        if (/^\d+$/.test(tokens[k] || '') && (!paren || tokens[k + 1] === ')')) {
+          const n = (neg ? -1 : 1) * Number(tokens[k]);
+          index = k + 1 + (paren ? 1 : 0);
+          if (n === -1 && INV_FNS[token]) token = INV_FNS[token]; else powN = n;
+        }
+      }
+      const definition = FUNCTIONS[token];
+      let args             ;
+      if (peek() === '(') {
+        consume();
+        args = [];
+        if (peek() !== ')') {
+          while (true) {
+            args.push(parseAdditive());
+            if (peek() !== ',') break;
+            consume();
+          }
+        }
+        expect(')');
+      } else {
+        args = [parseUnary()];
+      }
+      if (args.length !== definition.arity) {
+        throw new EquationGraphError(`${token} ফাংশনে ${definition.arity}টি মান দিতে হবে।`);
+      }
+      return powN === null || powN === 1 ? (x, y) => definition.evaluate(args.map((arg) => arg(x, y))) : (x, y) => Math.pow(definition.evaluate(args.map((arg) => arg(x, y))), powN);
+    }
+    throw new EquationGraphError('সূত্র বোঝা যায়নি — সংখ্যা, x, y, বন্ধনী বা ফাংশন ব্যবহার করুন।');
+  };
+
+  const parsePower = ()            => {
+    const base = parsePrimary();
+    if (peek() !== '^') return base;
+    consume();
+    const exponent = parseUnary();
+    return (x, y) => Math.pow(base(x, y), exponent(x, y));
+  };
+
+  const parseUnary = ()            => {
+    if (peek() === '+') {
+      consume();
+      return parseUnary();
+    }
+    if (peek() === '-') {
+      consume();
+      const value = parseUnary();
+      return (x, y) => -value(x, y);
+    }
+    return parsePower();
+  };
+
+  const canStartImplicitProduct = (token                    ) =>
+    !!token && (/^(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/.test(token) || /^[a-z]+$/.test(token) || token === '(');
+
+  const parseProduct = ()            => {
+    let left = parseUnary();
+    while (true) {
+      const token = peek();
+      if (token === '*' || token === '/' || token === '%') {
+        consume();
+        const right = parseUnary();
+        const operator = token;
+        const previous = left;
+        left = operator === '*'
+          ? (x, y) => previous(x, y) * right(x, y)
+          : operator === '/'
+            ? (x, y) => previous(x, y) / right(x, y)
+            : (x, y) => previous(x, y) % right(x, y);
+      } else if (canStartImplicitProduct(token)) {
+        const right = parseUnary();
+        const previous = left;
+        left = (x, y) => previous(x, y) * right(x, y);
+      } else {
+        return left;
+      }
+    }
+  };
+
+  const parseAdditive = ()            => {
+    let left = parseProduct();
+    while (peek() === '+' || peek() === '-') {
+      const operator = consume();
+      const right = parseProduct();
+      const previous = left;
+      left = operator === '+'
+        ? (x, y) => previous(x, y) + right(x, y)
+        : (x, y) => previous(x, y) - right(x, y);
+    }
+    return left;
+  };
+
+  const expression = parseAdditive();
+  if (index !== tokens.length) throw new EquationGraphError('সূত্র বোঝা যায়নি — অপারেটর বা বন্ধনী পরীক্ষা করুন।');
+  return expression;
+}
+
+                            
+                                                             
+                                                                                                               
+                               
+                                                   
+  
+
+            
+                                                     
+                                                                          
+                                                   
+                                                                   
+                              
+                              
+
+const COLORS = ['#147a68', '#d9534f', '#2f6fb5', '#e08a1e', '#7b52ab', '#2e7d32'];
+const MAX_CURVES = COLORS.length;
+const NO_GRAPH = 'এই পরিসরে গ্রাফ দেখা যাচ্ছে না — সমীকরণ বা পরিসর বদলে দেখুন।';
+
+function splitTopLevel(source        , separator        ) {
+  const parts           = [];
+  let depth = 0;
+  let current = '';
+  for (const char of source) {
+    if (char === '(') depth++;
+    if (char === ')') depth--;
+    if (char === separator && depth === 0) { parts.push(current); current = ''; } else current += char;
+  }
+  parts.push(current);
+  return parts;
+}
+
+function parseCurve(source        )        {
+  const equation = source.trim().replace(/[−–—]/g, '-').replace(/²/g, '^2').replace(/³/g, '^3');
+  if (!equation) throw new EquationGraphError('আগে একটি সমীকরণ লিখুন।');
+  const label = equation.replace(/\s+/g, ' ');
+
+  if (equation.startsWith('(') && equation.endsWith(')') && !equation.includes('=')) {
+    const parts = splitTopLevel(equation.slice(1, -1), ',');
+    if (parts.length === 2) {
+      const vars = new Set(['t']);
+      return { kind: 'param', fx: parseExpression(parts[0], vars), fy: parseExpression(parts[1], vars), label };
+    }
+  }
+
+  const equals = equation.match(/=/g) || [];
+  if (equals.length > 1) throw new EquationGraphError('একটি সমীকরণে একটি “=” চিহ্ন ব্যবহার করুন।');
+  if (!equals.length) return { kind: 'y', fn: parseExpression(equation, new Set(['x'])), label };
+
+  const [leftSource, rightSource] = equation.split('=');
+  if (!leftSource.trim() || !rightSource.trim()) throw new EquationGraphError('সমীকরণের দুই পাশে মান লিখুন।');
+  const leftLabel = leftSource.replace(/\s+/g, '').toLowerCase().replace(/θ|theta/g, 't');
+  if (['y', 'f(x)', 'y(x)'].includes(leftLabel)) return { kind: 'y', fn: parseExpression(rightSource, new Set(['x'])), label };
+  if (['x', 'g(y)', 'x(y)'].includes(leftLabel)) return { kind: 'x', fn: parseExpression(rightSource, new Set(['y'])), label };
+  if (['r', 'r(t)', 'ρ'].includes(leftLabel)) return { kind: 'polar', fn: parseExpression(rightSource, new Set(['t'])), label };
+  return {
+    kind: 'implicit',
+    left: parseExpression(leftSource, new Set(['x', 'y'])),
+    right: parseExpression(rightSource, new Set(['x', 'y'])),
+    label,
+  };
+}
+
+const PLOT = { left: 44, right: 390, top: 22, bottom: 356 };
+const mapX = (value        , [min, max]       ) => PLOT.left + (value - min) / (max - min) * (PLOT.right - PLOT.left);
+const mapY = (value        , [min, max]       ) => PLOT.bottom - (value - min) / (max - min) * (PLOT.bottom - PLOT.top);
+const formatTick = (value        ) => String(Number(value.toFixed(3))).replace('-', '−');
+const xml = (value        ) => value.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c] || c);
+
+function tickStep(min        , max        ) {
+  const raw = (max - min) / 5;
+  const power = Math.pow(10, Math.floor(Math.log10(raw)));
+  const unit = raw / power;
+  return (unit <= 1 ? 1 : unit <= 2 ? 2 : unit <= 5 ? 5 : 10) * power;
+}
+
+function getTicks([min, max]       ) {
+  const step = tickStep(min, max);
+  const first = Math.ceil(min / step) * step;
+  const ticks           = [];
+  for (let value = first, count = 0; value <= max + step * 1e-8 && count < 30; value += step, count++) {
+    ticks.push(Number(value.toPrecision(8)));
+  }
+  return ticks;
+}
+
+function axisMarkup(xView       , yView       , showGrid         ) {
+  const xTicks = getTicks(xView);
+  const yTicks = getTicks(yView);
+  const grid = showGrid ? [
+    ...xTicks.map((value) => `<line x1="${mapX(value, xView)}" y1="${PLOT.top}" x2="${mapX(value, xView)}" y2="${PLOT.bottom}"/>`),
+    ...yTicks.map((value) => `<line x1="${PLOT.left}" y1="${mapY(value, yView)}" x2="${PLOT.right}" y2="${mapY(value, yView)}"/>`),
+  ].join('') : '';
+  const yAxis = xView[0] <= 0 && xView[1] >= 0 ? `<line x1="${mapX(0, xView)}" y1="${PLOT.top}" x2="${mapX(0, xView)}" y2="${PLOT.bottom}"/>` : '';
+  const xAxis = yView[0] <= 0 && yView[1] >= 0 ? `<line x1="${PLOT.left}" y1="${mapY(0, yView)}" x2="${PLOT.right}" y2="${mapY(0, yView)}"/>` : '';
+  const frame = showGrid ? '' : `<rect x="${PLOT.left}" y="${PLOT.top}" width="${PLOT.right - PLOT.left}" height="${PLOT.bottom - PLOT.top}" fill="none" stroke="#d3ddd8" stroke-width="1"/>`;
+  const labels = [
+    ...xTicks.map((value) => `<text x="${mapX(value, xView)}" y="${PLOT.bottom + 15}" text-anchor="middle">${formatTick(value)}</text>`),
+    ...yTicks.map((value) => `<text x="${PLOT.left - 7}" y="${mapY(value, yView) + 3}" text-anchor="end">${formatTick(value)}</text>`),
+  ].join('');
+  return `<g fill="none" stroke="#e0e8e5" stroke-width="1">${grid}</g>${frame}<g fill="none" stroke="#52665f" stroke-width="1.5">${yAxis}${xAxis}</g><g fill="#667a73" stroke="none" font-family="sans-serif" font-size="9">${labels}<text x="${PLOT.right - 3}" y="${PLOT.bottom + 31}" text-anchor="end">x</text><text x="${PLOT.left - 22}" y="${PLOT.top + 5}">y</text></g>`;
+}
+
+function legendMarkup(curves         ) {
+  const labels = curves.map((curve) => curve.label.length > 30 ? `${curve.label.slice(0, 29)}…` : curve.label);
+  const width = Math.min(300, Math.max(...labels.map((label) => label.length)) * 5.4 + 34);
+  const rows = labels.map((label, index) => {
+    const y = PLOT.top + 14 + index * 14;
+    return `<line x1="${PLOT.right - width + 6}" y1="${y - 3}" x2="${PLOT.right - width + 22}" y2="${y - 3}" stroke="${COLORS[index]}" stroke-width="2.5" stroke-linecap="round"/><text x="${PLOT.right - width + 27}" y="${y}">${xml(label)}</text>`;
+  }).join('');
+  return `<g><rect x="${PLOT.right - width}" y="${PLOT.top + 3}" width="${width - 4}" height="${labels.length * 14 + 8}" rx="4" fill="white" fill-opacity=".88" stroke="#d3ddd8"/><g fill="#34504a" font-family="sans-serif" font-size="9">${rows}</g></g>`;
+}
+
+function safeEvaluate(fn           , x        , y        ) {
+  try {
+    const value = fn(x, y);
+    return Number.isFinite(value) && Math.abs(value) < 1e12 ? value : Number.NaN;
+  } catch {
+    return Number.NaN;
+  }
+}
+
+function fitRange(values          )        {
+  const sorted = values.filter((value) => Number.isFinite(value) && Math.abs(value) < 1e12).sort((a, b) => a - b);
+  if (!sorted.length) throw new EquationGraphError(NO_GRAPH);
+  let min = sorted[Math.floor((sorted.length - 1) * .02)];
+  let max = sorted[Math.ceil((sorted.length - 1) * .98)];
+  if (min === max) {
+    const padding = Math.max(Math.abs(min) * .08, 1);
+    min -= padding;
+    max += padding;
+  } else {
+    const padding = Math.max((max - min) * .08, Math.max(Math.abs(min), Math.abs(max)) * .025, .1);
+    min -= padding;
+    max += padding;
+  }
+  if (min > 0 && min < .5) min = 0;
+  if (max < 0 && max > -.5) max = 0;
+  return [min, max];
+}
+
+/** Turns a list of points (NaN = gap) into SVG path data, breaking the line at gaps and large jumps (asymptotes). */
+function tracePath(points         , xView       , yView       , jump            ) {
+  const span = jump === 'x' ? xView[1] - xView[0] : yView[1] - yView[0];
+  let pathData = '';
+  let previous                = null;
+  let drawing = false;
+  for (const [x, y] of points) {
+    const inRange = Number.isFinite(x) && Number.isFinite(y) && (jump === 'y'
+      ? y >= yView[0] && y <= yView[1]
+      : jump === 'x' ? x >= xView[0] && x <= xView[1] : Math.abs(x) < 1e6 && Math.abs(y) < 1e6);
+    if (!inRange) { drawing = false; previous = null; continue; }
+    const value = jump === 'x' ? x : y;
+    const broke = jump !== undefined && previous !== null && Math.abs(value - previous) > span * .42;
+    pathData += `${drawing && !broke ? 'L' : 'M'}${mapX(x, xView).toFixed(2)} ${mapY(y, yView).toFixed(2)} `;
+    drawing = true;
+    previous = value;
+  }
+  return pathData;
+}
+
+function marchingSquares(left           , right           , xDomain       , yDomain       , xView       , yView       ) {
+  const spanX = xDomain[1] - xDomain[0];
+  const spanY = yDomain[1] - yDomain[0];
+  const stepsX = Math.max(80, Math.min(320, Math.round(Math.sqrt(spanX * spanX / (spanX * spanY)) * 260)));
+  const stepsY = Math.max(80, Math.min(320, Math.round(Math.sqrt(spanY * spanY / (spanX * spanY)) * 260)));
+  const width = stepsX + 1;
+  const values = new Float64Array(width * (stepsY + 1));
+  const at = (column        ) => xDomain[0] + column / stepsX * spanX;
+  const atY = (row        ) => yDomain[1] - row / stepsY * spanY;
+  for (let row = 0; row <= stepsY; row++) {
+    for (let column = 0; column <= stepsX; column++) {
+      values[row * width + column] = safeEvaluate(left, at(column), atY(row)) - safeEvaluate(right, at(column), atY(row));
+    }
+  }
+  let pathData = '';
+                                                    
+  const interpolate = (a        , b        ) => {
+    const amount = Math.max(0, Math.min(1, a.v / (a.v - b.v)));
+    return { x: a.x + (b.x - a.x) * amount, y: a.y + (b.y - a.y) * amount };
+  };
+  const segment = (a                          , b                          ) => {
+    pathData += `M${mapX(a.x, xView).toFixed(2)} ${mapY(a.y, yView).toFixed(2)}L${mapX(b.x, xView).toFixed(2)} ${mapY(b.y, yView).toFixed(2)} `;
+  };
+  for (let row = 0; row < stepsY; row++) {
+    for (let column = 0; column < stepsX; column++) {
+      const corners           = [
+        { x: at(column), y: atY(row), v: values[row * width + column] },
+        { x: at(column + 1), y: atY(row), v: values[row * width + column + 1] },
+        { x: at(column + 1), y: atY(row + 1), v: values[(row + 1) * width + column + 1] },
+        { x: at(column), y: atY(row + 1), v: values[(row + 1) * width + column] },
+      ];
+      const crossings = ([[0, 1], [1, 2], [2, 3], [3, 0]]                           ).flatMap(([start, end]) => {
+        const a = corners[start], b = corners[end];
+        if (!Number.isFinite(a.v) || !Number.isFinite(b.v) || (a.v < 0) === (b.v < 0)) return [];
+        return [interpolate(a, b)];
+      });
+      if (crossings.length === 2) segment(crossings[0], crossings[1]);
+      else if (crossings.length === 4) {
+        const centerPositive = (corners[0].v + corners[1].v + corners[2].v + corners[3].v) / 4 >= 0;
+        if (centerPositive === corners[0].v >= 0) { segment(crossings[0], crossings[1]); segment(crossings[2], crossings[3]); }
+        else { segment(crossings[0], crossings[3]); segment(crossings[1], crossings[2]); }
+      }
+    }
+  }
+  return pathData;
+}
+
+function resolveBounds(min                    , max                    , fallback        , axis        )                    {
+  if (min === undefined && max === undefined) return undefined;
+  const lo = min ?? -fallback;
+  const hi = max ?? fallback;
+  if (!Number.isFinite(lo) || !Number.isFinite(hi) || lo >= hi || Math.abs(lo) > 1e6 || Math.abs(hi) > 1e6) {
+    throw new EquationGraphError(`${axis}-এর সীমা ঠিক নেই — ছোট মান আগে, বড় মান পরে দিন।`);
+  }
+  return [lo, hi];
+}
+
+function parameterValue(source                    , fallback        ) {
+  if (!source || !source.trim()) return fallback;
+  const value = safeEvaluate(parseExpression(source, new Set()), 0, 0);
+  if (!Number.isFinite(value)) throw new EquationGraphError('t-এর সীমা বোঝা যায়নি — যেমন 0 বা 2pi লিখুন।');
+  return value;
+}
+
+function splitEquations(source        ) {
+  const list = source.split(/[;\n]+/).map((part) => part.trim()).filter(Boolean);
+  if (!list.length) throw new EquationGraphError('আগে একটি সমীকরণ লিখুন।');
+  if (list.length > MAX_CURVES) throw new EquationGraphError(`একসাথে সর্বোচ্চ ${MAX_CURVES}টি সমীকরণ দেওয়া যাবে।`);
+  return list;
+}
+
+function render(curves         , range        , options              ) {
+  const userX = resolveBounds(options.xMin, options.xMax, range, 'x');
+  const userY = resolveBounds(options.yMin, options.yMax, range, 'y');
+  const domainX        = userX ?? [-range, range];
+  const domainY        = userY ?? [-range, range];
+  const tMin = parameterValue(options.tMin, 0);
+  const tMax = parameterValue(options.tMax, Math.PI * 2);
+  if (tMax <= tMin) throw new EquationGraphError('t-এর শেষ মান শুরুর মানের চেয়ে বড় হতে হবে।');
+
+                                                   
+  const sampled            = [];
+  const implicitCurves                                              = [];
+  for (const curve of curves) {
+    if (curve.kind === 'y' || curve.kind === 'x') {
+      const [lo, hi] = curve.kind === 'y' ? domainX : domainY;
+      const points = Array.from({ length: 801 }, (_, index)        => {
+        const input = lo + index / 800 * (hi - lo);
+        return curve.kind === 'y' ? [input, safeEvaluate(curve.fn, input, 0)] : [safeEvaluate(curve.fn, 0, input), input];
+      });
+      sampled.push({ curve, points });
+    } else if (curve.kind === 'polar') {
+      const points = Array.from({ length: 1441 }, (_, index)        => {
+        const t = tMin + index / 1440 * (tMax - tMin);
+        const r = safeEvaluate(curve.fn, t, 0);
+        return [r * Math.cos(t), r * Math.sin(t)];
+      });
+      sampled.push({ curve, points });
+    } else if (curve.kind === 'param') {
+      const points = Array.from({ length: 1441 }, (_, index)        => {
+        const t = tMin + index / 1440 * (tMax - tMin);
+        return [safeEvaluate(curve.fx, t, 0), safeEvaluate(curve.fy, t, 0)];
+      });
+      sampled.push({ curve, points });
+    } else implicitCurves.push(curve);
+  }
+
+  const kinds = new Set(curves.map((curve) => curve.kind));
+  const only = (...allowed                      ) => [...kinds].every((kind) => allowed.includes(kind));
+  const allPoints = sampled.flatMap((entry) => entry.points);
+  let xView = userX;
+  let yView = userY;
+  if (only('polar', 'param')) {
+    const finite = allPoints.filter(([x, y]) => Number.isFinite(x) && Number.isFinite(y) && Math.abs(x) < 1e6 && Math.abs(y) < 1e6);
+    if (!finite.length) throw new EquationGraphError(NO_GRAPH);
+    const xs = finite.map(([x]) => x), ys = finite.map(([, y]) => y);
+    const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
+    const half = Math.max((maxX - minX) / 2, (maxY - minY) / 2, .5) * 1.12;
+    xView = xView ?? [(minX + maxX) / 2 - half, (minX + maxX) / 2 + half];
+    yView = yView ?? [(minY + maxY) / 2 - half, (minY + maxY) / 2 + half];
+  } else {
+    if (!xView) xView = only('x') ? fitRange(allPoints.map(([x]) => x)) : domainX;
+    if (!yView) yView = only('y') ? fitRange(allPoints.map(([, y]) => y)) : domainY;
+  }
+  const finalX = xView         , finalY = yView         ;
+
+  const paths           = [];
+  curves.forEach((curve, index) => {
+    let pathData = '';
+    if (curve.kind === 'implicit') pathData = marchingSquares(curve.left, curve.right, finalX, finalY, finalX, finalY);
+    else {
+      const entry = sampled.find((item) => item.curve === curve) ;
+      pathData = tracePath(entry.points, finalX, finalY, curve.kind === 'y' ? 'y' : curve.kind === 'x' ? 'x' : undefined);
+    }
+    if (pathData) paths.push(`<path d="${pathData}" clip-path="url(#plot)" fill="none" stroke="${COLORS[index]}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`);
+  });
+  if (!paths.length) throw new EquationGraphError(NO_GRAPH);
+
+  const showLegend = options.legend ?? curves.length > 1;
+  const title = options.title?.trim() ? `<text x="${(PLOT.left + PLOT.right) / 2}" y="14" text-anchor="middle" font-family="Hind Siliguri, sans-serif" font-size="12" font-weight="700" fill="#2a4a42">${xml(options.title.trim().slice(0, 60))}</text>` : '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="white"/><defs><clipPath id="plot"><rect x="${PLOT.left}" y="${PLOT.top}" width="${PLOT.right - PLOT.left}" height="${PLOT.bottom - PLOT.top}"/></clipPath></defs>${axisMarkup(finalX, finalY, options.grid ?? true)}${paths.join('')}${showLegend ? legendMarkup(curves) : ''}${title}</svg>`;
+}
+
+function createEquationSvg(source        , requestedRange        , options               = {}) {
+  if (!Number.isFinite(requestedRange) || requestedRange < 0.1 || requestedRange > 1000) {
+    throw new EquationGraphError('পরিসর ০.১ থেকে ১০০০-এর মধ্যে দিন।');
+  }
+  try {
+    return render(splitEquations(source).map(parseCurve), requestedRange, options);
+  } catch (error) {
+    if (error instanceof EquationGraphError) throw error;
+    throw new EquationGraphError('সমীকরণ থেকে গ্রাফ তৈরি হয়নি — সূত্রটি পরীক্ষা করুন।');
+  }
+}
+
+/** Ready-made examples shown as one-tap chips under the graph field. */
+const GRAPH_PRESETS                                                                            = [
+  { label: 'রেখা', equation: 'y = 2x + 1' },
+  { label: 'পরাবৃত্ত', equation: 'y = x^2 - 4' },
+  { label: 'ঘন', equation: 'y = x^3 - 3x' },
+  { label: 'sin ও cos', equation: 'y = sin(x); y = cos(x)', range: 7 },
+  { label: 'tan', equation: 'y = tan(x)', range: 6 },
+  { label: 'চক্রবৃদ্ধি', equation: 'y = e^x', range: 4 },
+  { label: 'লগ', equation: 'y = ln(x)', range: 8 },
+  { label: 'অধিবৃত্ত', equation: 'y = 1/x', range: 6 },
+  { label: 'বৃত্ত', equation: 'x^2 + y^2 = 25' },
+  { label: 'উপবৃত্ত', equation: 'x^2/16 + y^2/9 = 1', range: 6 },
+  { label: 'হাইপারবোলা', equation: 'x^2/4 - y^2/9 = 1', range: 8 },
+  { label: 'কার্ডিওয়েড', equation: 'r = 1 + cos(t)', tMax: '2pi' },
+  { label: 'সর্পিল', equation: 'r = t', tMax: '6pi' },
+  { label: 'গোলাপ', equation: 'r = cos(3t)', tMax: '2pi' },
+  { label: 'লিসাজু', equation: '(sin(3t), sin(2t))', tMax: '2pi' },
+  { label: 'রেখার ছেদ', equation: 'y = x; y = -x + 4', range: 6 },
+  { label: 'সমান্তরাল রেখা', equation: 'y = 2x + 1; y = 2x - 3', range: 6 },
+  { label: 'মডুলাস', equation: 'y = abs(x)', range: 6 },
+  { label: 'বর্গমূল', equation: 'y = sqrt(x)', range: 9 },
+  { label: 'ঘনমূল', equation: 'y = cbrt(x)', range: 8 },
+  { label: 'চতুর্ঘাত', equation: 'y = x^4 - 5x^2 + 4', range: 3 },
+  { label: 'সূচক ও লগ (বিপরীত)', equation: 'y = 2^x; y = log2(x); y = x', range: 6 },
+  { label: 'সূচকীয় ক্ষয়', equation: 'y = e^(-x)', range: 4 },
+  { label: 'সিগময়েড', equation: 'y = 1/(1 + e^(-x))', range: 6 },
+  { label: 'ঘণ্টাকার (বেল)', equation: 'y = e^(-x^2/2)', range: 4 },
+  { label: 'উইচ অব অ্যাগনেসি', equation: 'y = 8/(x^2 + 4)', range: 6 },
+  { label: 'tanh', equation: 'y = tanh(x)', range: 4 },
+  { label: 'ব্যস্ত ত্রিকোণমিতি', equation: 'y = asin(x); y = acos(x); y = atan(x)', range: 2 },
+  { label: 'sec', equation: 'y = sec(x)', range: 7 },
+  { label: 'cot', equation: 'y = cot(x)', range: 6 },
+  { label: 'বিস্তার ও পর্যায়কাল', equation: 'y = 2sin(x); y = sin(2x)', range: 7 },
+  { label: 'অবমন্দিত দোলন', equation: 'y = e^(-x/4)*sin(3x)', range: 14, o: { xMin: 0, xMax: 14, yMin: -1.2, yMax: 1.2 } },
+  { label: 'বর্গ তরঙ্গ', equation: 'y = sign(sin(x))', range: 10 },
+  { label: 'ধাপ (floor)', equation: 'y = floor(x)', range: 5 },
+  { label: 'করাত তরঙ্গ', equation: 'y = x - floor(x)', range: 5 },
+  { label: 'ওহমের সূত্র V–I', equation: 'y = 2x', range: 10, o: { xMin: 0, xMax: 10, yMin: 0, yMax: 20, title: 'V–I' } },
+  { label: 'বয়েলের সূত্র P–V', equation: 'y = 6/x', range: 10, o: { xMin: 0, xMax: 10, yMin: 0, yMax: 10, title: 'P–V' } },
+  { label: 'বিপরীত বর্গ সূত্র', equation: 'y = 1/x^2', range: 5, o: { xMin: 0, xMax: 5, yMin: 0, yMax: 5 } },
+  { label: 'প্রক্ষেপক পথ', equation: 'y = x - 0.1x^2', range: 10, o: { xMin: 0, xMax: 10, yMin: 0, yMax: 3 } },
+  { label: 'x–t (সমত্বরণ)', equation: 'y = 0.5x^2', range: 8, o: { xMin: 0, xMax: 8, yMin: 0, yMax: 32, title: 'x–t' } },
+  { label: 'v–t (সমত্বরণ)', equation: 'y = 2x', range: 8, o: { xMin: 0, xMax: 8, yMin: 0, yMax: 16, title: 'v–t' } },
+  { label: 'পার্শ্ব পরাবৃত্ত', equation: 'y^2 = 4x', range: 8 },
+  { label: 'আয়তাকার অধিবৃত্ত', equation: 'x*y = 4', range: 8 },
+  { label: 'দুই বৃত্তের ছেদ', equation: 'x^2 + y^2 = 16; (x - 3)^2 + y^2 = 16', range: 8 },
+  { label: 'সমকেন্দ্রিক বৃত্ত', equation: 'x^2 + y^2 = 4; x^2 + y^2 = 16; x^2 + y^2 = 36', range: 8 },
+  { label: 'উপবৃত্ত (প্যারামেট্রিক)', equation: '(4cos(t), 3sin(t))', tMax: '2pi', range: 6 },
+  { label: 'অ্যাস্ট্রয়েড', equation: '(cos(t)^3, sin(t)^3)', tMax: '2pi', range: 1.5 },
+  { label: 'সাইক্লয়েড', equation: '(t - sin(t), 1 - cos(t))', tMax: '4pi', range: 14 },
+  { label: 'হৃদয়', equation: '(16sin(t)^3, 13cos(t) - 5cos(2t) - 2cos(3t) - cos(4t))', tMax: '2pi', range: 20 },
+  { label: 'লেমনিস্কেট', equation: '(cos(t)/(1 + sin(t)^2), sin(t)cos(t)/(1 + sin(t)^2))', tMax: '2pi', range: 1.5 },
+  { label: 'লগ সর্পিল', equation: 'r = e^(0.2t)', tMax: '4pi', range: 10 },
+  { label: 'চার পাপড়ি', equation: 'r = cos(2t)', tMax: '2pi', range: 1.5 },
+  { label: 'লিমাসন', equation: 'r = 1 + 2cos(t)', tMax: '2pi', range: 3.5 },
+  { label: 'পোলার বৃত্ত', equation: 'r = 3', tMax: '2pi', range: 4 },
+  { label: 'x, x², x³ তুলনা', equation: 'y = x; y = x^2; y = x^3', range: 3 },
+  { label: 'সূচকের তুলনা', equation: 'y = 2^x; y = e^x; y = 3^x', range: 3 },
+  { label: 'লগের তুলনা', equation: 'y = log2(x); y = ln(x); y = log(x)', range: 8 },
+  { label: 'দ্বিঘাতের স্থানান্তর', equation: 'y = x^2; y = (x - 2)^2; y = x^2 + 2', range: 6 },
+  { label: 'নিম্নমুখী পরাবৃত্ত', equation: 'y = -x^2 + 4x', range: 6 },
+  { label: 'মডুলাস স্থানান্তর', equation: 'y = abs(x - 2) + 1', range: 6 },
+  { label: 'অ্যাসিম্পটোটসহ ভগ্নাংশ', equation: 'y = (x^2 - 1)/(x - 2)', range: 8 },
+  { label: 'sin x / x', equation: 'y = sin(x)/x', range: 20 },
+  { label: 'তাপ ক্ষয় (নিউটন)', equation: 'y = 20 + 80*e^(-x/5)', range: 20, o: { xMin: 0, xMax: 20, yMin: 0, yMax: 100 } },
+  { label: 'অর্ধায়ু', equation: 'y = 100*(1/2)^x', range: 6, o: { xMin: 0, xMax: 6, yMin: 0, yMax: 100 } },
+  { label: 'ক্যাপাসিটর চার্জ', equation: 'y = 10*(1 - e^(-x))', range: 6, o: { xMin: 0, xMax: 6, yMin: 0, yMax: 11 } },
+  { label: 'সরল ছন্দিত গতি', equation: 'y = 3cos(2x)', range: 7 },
+  { label: 'স্পন্দন (বীট)', equation: 'y = sin(x) + sin(1.2x)', range: 30 },
+  { label: 'তরঙ্গ সংযোজন', equation: 'y = sin(x); y = sin(2x); y = sin(x) + sin(2x)', range: 7 },
+  { label: 'ডায়োড বৈশিষ্ট্য', equation: 'y = max(0, x - 0.7)*3', range: 4, o: { xMin: -2, xMax: 4, yMin: -1, yMax: 8 } },
+  { label: 'আলোক-তড়িৎ', equation: 'y = max(0, 2x - 4)', range: 8, o: { xMin: 0, xMax: 8, yMin: -1, yMax: 10 } },
+  { label: 'অনুনাদ', equation: 'y = 1/(1 + (3*(x - 5))^2)', range: 10, o: { xMin: 0, xMax: 10, yMin: 0, yMax: 1.2 } },
+  { label: 'কৃষ্ণ বস্তুর বিকিরণ', equation: 'y = x^3/(e^x - 1)', range: 10, o: { xMin: 0, xMax: 10, yMin: 0, yMax: 1.6 } },
+  { label: 'লেনার্ড-জোন্স', equation: 'y = 4*((1/x)^12 - (1/x)^6)', range: 3.2, o: { xMin: 0.9, xMax: 3.2, yMin: -1.5, yMax: 3 } },
+  { label: 'সরল পেন্ডুলাম দশা', equation: '(sin(t), cos(t)*sin(t))', tMax: '2pi', range: 1.5 },
+  { label: 'ডিম্বাকার কার্ভ', equation: 'x^2 + y^2 + x*y = 12', range: 6 },
+  { label: 'গোলাপ ৫ পাপড়ি', equation: 'r = sin(5t)', tMax: '2pi', range: 1.5 },
+  { label: 'গোলাপ ৮ পাপড়ি', equation: 'r = cos(4t)', tMax: '2pi', range: 1.5 },
+  { label: 'প্রজাপতি কার্ভ', equation: 'r = e^sin(t) - 2cos(4t) + sin((2t - pi)/24)^5', tMax: '24pi', range: 5 },
+  { label: 'ডেকার্ত পাতা', equation: 'x^3 + y^3 = 3*x*y', range: 3 },
+  { label: 'ক্যাসিনি কার্ভ', equation: '(x^2 + y^2)^2 - 2*(x^2 - y^2) = 0.5', range: 2.5 },
+  { label: 'হাইপোসাইক্লয়েড', equation: '(2cos(t) + cos(2t), 2sin(t) - sin(2t))', tMax: '2pi', range: 4 },
+  { label: 'এপিসাইক্লয়েড', equation: '(5cos(t) - cos(5t), 5sin(t) - sin(5t))', tMax: '2pi', range: 7 },
+  { label: 'স্পিরোগ্রাফ', equation: '(4cos(t) + 2cos(4t), 4sin(t) - 2sin(4t))', tMax: '2pi', range: 7 },
+  { label: 'ত্রিমুখী লিসাজু', equation: '(sin(3t + pi/2), sin(4t))', tMax: '2pi', range: 1.5 },
+  { label: 'অসীম (∞)', equation: '(cos(t)/(1 + sin(t)^2), sin(t)*cos(t)/(1 + sin(t)^2))', tMax: '2pi', range: 1.2 },
+];
+
+return {createEquationSvg,GRAPH_PRESETS}})();
+const gF=['xMin','xMax','yMin','yMax','tMin','tMax'];
+function gspec(){const o={};
+ ['xMin','xMax','yMin','yMax'].forEach(k=>{const t=$('#g_'+k).value.trim();if(t!==''&&isFinite(+t))o[k]=+t});
+ ['tMin','tMax'].forEach(k=>{const t=$('#g_'+k).value.trim();if(t)o[k]=t});
+ o.grid=$('#g_grid').checked;o.legend=$('#g_legend').checked;const ti=$('#g_title').value.trim();if(ti)o.title=ti;
+ const rv=$('#g_r').value.trim();return{q:$('#gq').value,r:rv===''?10:+rv,o}}
+function gfill(sp){$('#gq').value=sp.q||'';$('#g_r').value=sp.r||10;const o=sp.o||{};
+ gF.forEach(k=>$('#g_'+k).value=o[k]===undefined?'':o[k]);$('#g_grid').checked=o.grid!==false;$('#g_legend').checked=o.legend===true;$('#g_title').value=o.title||''}
+const gurl=sp=>'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(GE.createEquationSvg(sp.q,sp.r,sp.o));
+function gshow(on,focus){$('#gp').hidden=!on;$('#gtog').classList.toggle('on',on);$('#gtog').setAttribute('aria-expanded',String(on));if(on&&focus)$('#gq').focus()}
+$('#gtog').onclick=()=>gshow($('#gp').hidden,true);
+$('#gs').onclick=()=>{$('#go').hidden=!$('#go').hidden;$('#gs').classList.toggle('on',!$('#go').hidden)};
+$('#gd').onclick=()=>{try{const sp=gspec(),u=gurl(sp);addImg(u,400,400,420);items[items.length-1].g=sp;gsync();msg('✓ গ্রাফ আঁকা হয়েছে')}catch(e){msg(e&&e.message||'গ্রাফ আঁকা যায়নি')}};
+$('#gu').onclick=()=>{const i=items[sel];if(!i||!i.g)return;try{const sp=gspec(),u=gurl(sp);save();i.u=u;i.g=sp;render();msg('✓ গ্রাফ আপডেট হয়েছে')}catch(e){msg(e&&e.message||'গ্রাফ আপডেট করা যায়নি')}};
+$('#gq').onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();(items[sel]&&items[sel].g&&!$('#gu').hidden?$('#gu'):$('#gd')).click()}};
+$('#gpre').innerHTML=GE.GRAPH_PRESETS.map((p,k)=>`<button class="chip" data-p="${k}" title="${p.equation.replace(/"/g,'&quot;')}">${tr(p.label)}</button>`).join('');
+$('#gpre').querySelectorAll('[data-p]').forEach(b=>b.onclick=()=>{const p=GE.GRAPH_PRESETS[+b.dataset.p];
+ gfill({q:p.equation,r:p.range||10,o:Object.assign({tMax:p.tMax,grid:$('#g_grid').checked,legend:false},p.o||{},{title:$('#g_title').value.trim()||(p.o&&p.o.title)||''})});
+ (items[sel]&&items[sel].g?$('#gu'):$('#gd')).click()});
+// নির্বাচিত আইটেম গ্রাফ হলে প্যানেলে তার সেটিংস ভরে দেয় ও "আপডেট" বাটন দেখায়
+let gLast=null;
+function gsync(){const i=items[sel],has=!!(i&&i.g&&MS.size<2);$('#gu').hidden=!has;if(has){if(gLast!==i){gLast=i;gfill(i.g);if($('#gp').hidden)gshow(true,false)}}else gLast=null}
+{const r0=render;render=()=>{prune();r0();if(mq)L.insertAdjacentHTML('beforeend',`<rect class="sel" x="${mq.x}" y="${mq.y}" width="${mq.w}" height="${mq.h}" fill="rgba(37,99,235,.08)" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="4 3"/>`);gsync();psync();autosave()}}
+$('#smi').onkeydown=e=>{if(e.key==='Enter')$('#gm').click()};
+// ================= v11: লেখা সম্পাদক · ব্যাকগ্রাউন্ড · নির্বাচিত বস্তুর সেটিং · গাইড · জুম · SVG · অটোসেভ =================
+Object.assign(EN,{
+'গাইড':'Guide','সব অপশনের ব্যাখ্যা':'Explanation of every option',
+'শেষ কাজ ফিরিয়ে নিন (Ctrl+Z)':'Undo last action (Ctrl+Z)','আবার করুন (Ctrl+Y)':'Redo (Ctrl+Y)','জুম কমান':'Zoom out','জুম বাড়ান':'Zoom in',
+'ব্যাকগ্রাউন্ড':'Background','ক্যানভাসের ব্যাকগ্রাউন্ড রং':'Canvas background colour','ছবি (PNG) হিসেবে নিন':'Get as image (PNG)','ভেক্টর ছবি (SVG) হিসেবে নিন':'Get as vector image (SVG)','ক্যানভাস খালি করুন':'Clear the canvas',
+'ব্যাকগ্রাউন্ড রং':'Background colour','নিজের পছন্দের রং':'Pick your own colour','ছবিতে কোনো ব্যাকগ্রাউন্ড থাকবে না (PNG স্বচ্ছ হবে)':'No background in the image (PNG becomes transparent)','স্বচ্ছ':'Transparent',
+'লাইন / লেখার রং':'Line / text colour','লাইনের মোটা':'Line thickness',
+'নির্বাচিত বস্তুর আকার':'Size of the selected item','আকার':'Size','ঘোরানো (ডিগ্রি)':'Rotation (degrees)','ঘূর্ণন':'Rotate','৯০° ঘোরান':'Rotate 90°','স্বচ্ছতা':'Opacity',
+'সামনে আনুন':'Bring to front','পেছনে পাঠান':'Send to back','কপি (Ctrl+D)':'Duplicate (Ctrl+D)','মুছুন (Delete)':'Delete (Del)','লেখা বদলান':'Edit text',
+'লেখা সম্পাদনা':'Text editor','ঠিক আছে':'OK','বাতিল':'Cancel','লেখা লিখুন (যেমন: F = ma, H₂O, ∫f(x)dx, √x) — নতুন লাইনের জন্য Enter':'Type text (e.g. F = ma, H₂O, ∫f(x)dx, √x) — press Enter for a new line',
+'ফন্ট':'Font','সাধারণ (Sans)':'Normal (Sans)','সেরিফ (Serif)':'Serif','মনোস্পেস (Mono)':'Monospace (Mono)','বোল্ড':'Bold','ইটালিক':'Italic','আন্ডারলাইন':'Underline',
+'বাম':'Left','মাঝে':'Centre','ডান':'Right','লাইন ফাঁক':'Line spacing','লেখার রং':'Text colour','লেখার পেছনে রঙিন ব্যাকগ্রাউন্ড':'Coloured background behind the text','হাইলাইট':'Highlight',
+'নির্বাচিত অংশ নিচে (H₂O)':'Selected part as subscript (H₂O)','নির্বাচিত অংশ উপরে (x²)':'Selected part as superscript (x²)','নির্বাচিত অংশ সাধারণ করুন':'Make the selected part normal','চিহ্ন ও গ্রিক অক্ষর':'Symbols & Greek letters','x₂ নিচে':'x₂ Subscript','x² উপরে':'x² Superscript','Aa সাধারণ':'Aa Normal'
+});
+
+let lastTap={i:-1,t:0};
+// ---- ব্যাকগ্রাউন্ড ----
+let bgc='#ffffff',bgt=false;
+const lum=c=>{const n=parseInt(c.slice(1),16);return(.299*(n>>16)+.587*(n>>8&255)+.114*(n&255))/255};
+const BGS=['#ffffff','#fffbea','#eaf4ff','#eafaf1','#fdecef','#f1f5f9','#1f2937','#0b132b'];
+$('#bgs').innerHTML=BGS.map(c=>`<button class="sw" data-c="${c}" style="background:${c}" aria-label="${c}"></button>`).join('');
+function applyBg(){
+ $('#bgr').setAttribute('fill',bgt?'none':bgc);
+ $('#cv').style.background=bgt?'repeating-conic-gradient(#d9dfdd 0% 25%,#fff 0% 50%) 0 0/16px 16px':bgc;
+ $('#bgc').value=bgc;$('#bgt').checked=bgt;
+ $('#bgs').querySelectorAll('.sw').forEach(b=>b.classList.toggle('on',!bgt&&b.dataset.c===bgc))}
+function setBg(c,t){
+ bgc=c;bgt=t;const dark=!t&&lum(c)<.45;
+ if(dark&&cur.c==='#111111'){cur.c='#ffffff';$('#col').value=cur.c}else if(!dark&&cur.c==='#ffffff'){cur.c='#111111';$('#col').value=cur.c}
+ applyBg()}
+$('#bgs').onclick=e=>{const b=e.target.closest('.sw');if(b)setBg(b.dataset.c,false)};
+$('#bgc').oninput=e=>setBg(e.target.value,false);
+$('#bgt').onchange=e=>setBg(bgc,e.target.checked);
+$('#bgb').onclick=e=>{const p=$('#bgp');p.hidden=!p.hidden;e.currentTarget.classList.toggle('on',!p.hidden)};
+
+// ---- প্রকল্প সংরক্ষণ/লোড (ব্যাকগ্রাউন্ডসহ) ও অটোসেভ ----
+const proj=()=>[{k:'bgset',x:0,y:0,c:bgc,t:bgt?1:0}].concat(items);
+// 🔒 বাইরে থেকে (DB/autosave/postMessage) আসা আইটেম SVG/HTML স্ট্রিংয়ে বসে — তাই প্রতিটি ফিল্ড whitelist করে পরিষ্কার করা হয় (XSS রোধ)
+const _KINDS=['st','pen','line','arrow','darrow','connector','rect','roundrect','triangle','diamond','ell','circle','text','img'];
+const _HEX=/^#[0-9a-f]{3,8}$/i,_IMG=/^data:image\/(png|jpe?g|gif|webp);base64,[A-Za-z0-9+\/=]+$/;
+const _num=(v,d)=>{v=+v;return isFinite(v)?v:d};
+const _col=(v,d)=>typeof v==='string'&&_HEX.test(v)?v:d;
+const _pts=a=>Array.isArray(a)?a.filter(q=>Array.isArray(q)&&q.length>=2&&isFinite(q[0])&&isFinite(q[1])).map(q=>[+q[0],+q[1]]):[];
+function cleanItem(i){
+ if(!_KINDS.includes(i.k))return null;
+ const o={k:i.k,x:_num(i.x,0),y:_num(i.y,0),r:_num(i.r,0),s:_num(i.s,1)||1,sw:_num(i.sw,1),c:_col(i.c,'#000000'),w:_num(i.w,0),h:_num(i.h,0)};
+ if(i.o!=null)o.o=Math.max(0,Math.min(1,_num(i.o,1)));
+ if(i.lk)o.lk=true;if(i.fx)o.fx=true;if(i.d)o.d=true;
+ if(i.f)o.f=_col(i.f,'');
+ if(i.k==='st'){if(typeof i.id!=='string'||!Object.prototype.hasOwnProperty.call(S,i.id))return null;o.id=i.id}
+ if(i.k==='pen'){o.p=_pts(i.p);if(o.p.length<1)return null}
+ if(i.k==='img'){if(typeof i.u!=='string'||!_IMG.test(i.u))return null;o.u=i.u}
+ if(i.k==='text'){o.t=String(i.t==null?'':i.t).slice(0,5000);o.fs=Math.max(4,Math.min(400,_num(i.fs,20)));o.lh=_num(i.lh,1.25);o.ff=Object.prototype.hasOwnProperty.call(FF,i.ff)?i.ff:'s';o.al=['l','c','r'].includes(i.al)?i.al:'l';if(i.b)o.b=true;if(i.it)o.it=true;if(i.u)o.u=true;if(i.hl)o.hl=_col(i.hl,'')}
+ if(Array.isArray(i.er))o.er=i.er.filter(q=>q&&Array.isArray(q.p)).map(q=>({w:Math.max(.1,Math.min(2000,_num(q.w,10))),p:_pts(q.p)})).filter(q=>q.p.length>0);
+ return o}
+function loadProj(a){
+ const g=a.find(i=>i&&i.k==='bgset');
+ bgc=g&&/^#[0-9a-f]{6}$/i.test(g.c)?g.c:'#ffffff';bgt=!!(g&&g.t);applyBg();
+ items=a.filter(i=>i&&typeof i==='object'&&typeof i.k==='string'&&i.k!=='bgset'&&isFinite(i.x)&&isFinite(i.y)).map(cleanItem).filter(Boolean);
+ undo=[];redo=[];sel=null;render()}
+let _at;const autosave=()=>{if(EMB)return;clearTimeout(_at);_at=setTimeout(()=>{try{localStorage.setItem('ds-auto',JSON.stringify(proj()))}catch(_){}},500)};
+function restoreAuto(){if(EMB)return;try{const a=JSON.parse(localStorage.getItem('ds-auto')||'null');if(Array.isArray(a))loadProj(a)}catch(_){}}
+
+// ---- নির্বাচিত বস্তুর সেটিং-বার ----
+const setv=(id,v)=>{const e=$(id);if(e&&document.activeElement!==e)e.value=v};
+function psync(){
+ const i=items[sel],ob=$('#ob');ob.hidden=!i;if(!i){$('#al').hidden=true;return}
+ const t=i.k==='text',im=i.k==='img',ln=['line','arrow','darrow','connector','pen'].includes(i.k);
+ $('#te').hidden=!t;$('#fl').hidden=$('#fcl').hidden=t||im||ln;$('#ds').hidden=t||im;$('#fx').hidden=t;
+ setv('#sz',i.s);const r=((Math.round(i.r||0)%360)+360)%360;setv('#rt',r);$('#rtv').textContent=r+'°';setv('#op',Math.round((i.o==null?1:i.o)*100));
+ if(!im){cur.c=i.c;setv('#col',i.c)}
+ if(!t&&!im){cur.w=Math.max(1,Math.min(12,Math.round(i.k==='st'?i.sw*i.s:i.sw)));setv('#wd',cur.w)}
+ if(i.f)setv('#fc',i.f);
+ $('#fl').classList.toggle('on',!!i.f);$('#ds').classList.toggle('on',!!i.d);$('#fx').classList.toggle('on',!!i.fx);
+ const grp=MS.size>1;$('#al').hidden=!grp;['#sz','#rt'].forEach(q=>$(q).closest('label').hidden=grp);$('#lk').classList.toggle('on',!!i.lk);if(grp)$('#te').hidden=true}
+const sld=(id,fn)=>{const e=$(id);let st=false;e.oninput=()=>{const i=items[sel];if(!i)return;if(!st){save();st=true}targets().forEach(q=>fn(q,+e.value));render()};e.onchange=()=>{st=false}};
+sld('#sz',(i,v)=>{i.s=v});sld('#rt',(i,v)=>{i.r=v});sld('#op',(i,v)=>{i.o=v/100});
+$('#te').onclick=()=>editT(items[sel]);
+$('#zi').onclick=()=>zoomAt(.8,view.x+view.w/2,view.y+view.h/2);
+$('#zo').onclick=()=>zoomAt(1.25,view.x+view.w/2,view.y+view.h/2);
+$('#es').onclick=()=>exp('svg');
+
+// ---- লেখা সম্পাদক ----
+const SUB={'0':'₀','1':'₁','2':'₂','3':'₃','4':'₄','5':'₅','6':'₆','7':'₇','8':'₈','9':'₉','+':'₊','-':'₋','=':'₌','(':'₍',')':'₎','a':'ₐ','e':'ₑ','o':'ₒ','x':'ₓ','h':'ₕ','k':'ₖ','l':'ₗ','m':'ₘ','n':'ₙ','p':'ₚ','s':'ₛ','t':'ₜ'};
+const SUP={'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹','+':'⁺','-':'⁻','=':'⁼','(':'⁽',')':'⁾','a':'ᵃ','b':'ᵇ','c':'ᶜ','d':'ᵈ','e':'ᵉ','f':'ᶠ','g':'ᵍ','h':'ʰ','i':'ⁱ','j':'ʲ','k':'ᵏ','l':'ˡ','m':'ᵐ','n':'ⁿ','o':'ᵒ','p':'ᵖ','r':'ʳ','s':'ˢ','t':'ᵗ','u':'ᵘ','v':'ᵛ','w':'ʷ','x':'ˣ','y':'ʸ','z':'ᶻ'};
+const inv=m=>Object.fromEntries(Object.entries(m).map(([k,v])=>[v,k])),SUBR=inv(SUB),SUPR=inv(SUP);
+const SYM=['α','β','γ','δ','ε','θ','λ','μ','π','ρ','σ','τ','φ','ω','Δ','Σ','Ω','±','×','÷','√','∞','≈','≠','≤','≥','∫','∑','∂','∝','∴','°','′','″','→','←','↑','↓','⇌','⟶','·','½','Å','µ'];
+const txt=$('#tx_t');let txi=null,txs=null;
+$('#tx_y').innerHTML=SYM.map(c=>`<button type="button">${c}</button>`).join('');
+function openTx(idx,snap){
+ const i=items[idx];if(!i||i.k!=='text')return;
+ txi=idx;txs=snap;txt.value=i.t||'';$('#tx').hidden=false;txsync();
+ setTimeout(()=>{txt.focus();txt.setSelectionRange(txt.value.length,txt.value.length)},60)}
+function txsync(){
+ const i=items[txi];if(!i)return;
+ $('#tx_f').value=i.ff||'s';$('#tx_s').value=i.fs;$('#tx_sv').textContent=Math.round(i.fs);
+ $('#tx_b').classList.toggle('on',!!i.b);$('#tx_i').classList.toggle('on',!!i.it);$('#tx_u').classList.toggle('on',!!i.u);
+ document.querySelectorAll('#tx [data-al]').forEach(b=>b.classList.toggle('on',(i.al||'l')===b.dataset.al));
+ $('#tx_l').value=String(i.lh||1.25);$('#tx_c').value=i.c;$('#tx_hc').checked=!!i.hl;if(i.hl)$('#tx_h').value=i.hl;txpv()}
+function txpv(){const i=items[txi],v=$('#tx_pv');if(!i)return;v.style.background=bgt?'#fff':bgc;
+ v.innerHTML=`<g stroke="currentColor" fill="none" style="color:${i.c}">${body(i)}</g>`;
+ const b=v.firstChild.getBBox();if(b.width>0){const p=8;v.setAttribute('viewBox',`${b.x-p} ${b.y-p} ${b.width+2*p} ${b.height+2*p}`)}}
+const txu=fn=>{const i=items[txi];if(!i)return;fn(i);render();txsync()};
+txt.oninput=()=>{const i=items[txi];if(!i)return;i.t=txt.value;render();txpv()};
+$('#tx_f').onchange=e=>txu(i=>{i.ff=e.target.value});
+$('#tx_s').oninput=e=>txu(i=>{i.fs=+e.target.value;cur.fs=i.fs});
+$('#tx_b').onclick=()=>txu(i=>{i.b=!i.b});$('#tx_i').onclick=()=>txu(i=>{i.it=!i.it});$('#tx_u').onclick=()=>txu(i=>{i.u=!i.u});
+document.querySelectorAll('#tx [data-al]').forEach(b=>b.onclick=()=>txu(i=>{i.al=b.dataset.al}));
+$('#tx_l').onchange=e=>txu(i=>{i.lh=+e.target.value});
+$('#tx_c').oninput=e=>txu(i=>{i.c=e.target.value});
+$('#tx_hc').onchange=e=>txu(i=>{i.hl=e.target.checked?$('#tx_h').value:''});
+$('#tx_h').oninput=e=>txu(i=>{i.hl=e.target.value});
+function conv(kind){
+ const a0=txt.selectionStart,b0=txt.selectionEnd;let a=a0;if(a===b0)a=Math.max(0,a-1);if(a===b0)return;
+ let out='';for(const ch of txt.value.slice(a,b0)){const n=SUBR[ch]||SUPR[ch]||ch;out+=kind==='n'?n:((kind==='b'?SUB:SUP)[n]||ch)}
+ txt.setRangeText(out,a,b0,a0===b0?'end':'select');txt.dispatchEvent(new Event('input'));txt.focus()}
+$('#tx_sb').onclick=()=>conv('b');$('#tx_sp').onclick=()=>conv('p');$('#tx_nm').onclick=()=>conv('n');
+$('#tx_y').onclick=e=>{const b=e.target.closest('button');if(!b)return;txt.setRangeText(b.textContent,txt.selectionStart,txt.selectionEnd,'end');txt.dispatchEvent(new Event('input'));txt.focus()};
+$('#tx').addEventListener('mousedown',e=>{if(e.target.closest('button'))e.preventDefault()});
+function closeTx(ok){
+ const i=items[txi];
+ if(ok&&i){
+  if(!String(i.t).trim()){items.splice(txi,1);sel=null}
+  else{cur.ts={ff:i.ff,b:i.b,it:i.it,u:i.u,al:i.al,lh:i.lh,hl:i.hl};cur.fs=i.fs}
+  if(txs!==JSON.stringify(items)){undo.push(txs);if(undo.length>80)undo.shift();redo=[]}
+ }else{items=JSON.parse(txs);sel=null}
+ txi=null;txs=null;$('#tx').hidden=true;render()}
+$('#tx_ok').onclick=()=>closeTx(true);$('#tx_no').onclick=()=>closeTx(false);
+txt.onkeydown=e=>{if(e.key==='Enter'&&(e.ctrlKey||e.metaKey)){e.preventDefault();closeTx(true)}};
+document.addEventListener('keydown',e=>{if(e.key!=='Escape')return;if(!$('#tx').hidden)closeTx(false);else if(!$('#gdv').hidden)$('#gdv').hidden=true});
+
+// ---- গাইড (বাংলা + English) ----
+const GUIDE=[
+{bn:['১. শুরুর ধাপ',[
+ 'উপরে <b>বিষয়</b> (রসায়ন / পদার্থবিজ্ঞান / গণিত) বেছে নিন, তারপর <b>ক্যাটাগরি</b> থেকে নিচের তালিকার যেকোনো ডায়াগ্রামে ট্যাপ করুন — সেটি ক্যানভাসে বসে যাবে।',
+ 'বসানো ডায়াগ্রাম <b>টেনে সরান</b>; কোণার গোল বিন্দু টেনে <b>ছোট-বড়</b> করুন। কিছু নির্বাচন করলে আলাদা সেটিং-বার দেখা যায়।',
+ 'শেষে <b>PNG / SVG</b> নিন, অথবা MCQ সাইটের ভেতর থেকে খুললে <b>✅ প্রশ্নে/অপশনে যুক্ত করুন</b> চাপুন।']],
+ en:['1. Getting started',[
+ 'Pick a <b>subject</b> at the top (Chemistry / Physics / Maths), then a <b>category</b>, then tap any diagram in the list below — it is placed on the canvas.',
+ '<b>Drag</b> a placed diagram to move it; drag a round corner handle to <b>resize</b>. Selecting an item shows an extra settings bar.',
+ 'Finally get a <b>PNG / SVG</b>, or, when opened from the MCQ site, press <b>✅ Add to question/option</b>.']]},
+{bn:['২. আঁকার টুল',[
+ '<b>☝ নির্বাচন</b> — বস্তু ধরে সরান/সম্পাদনা করুন; খালি জায়গা টেনে পর্দা সরান।',
+ '<b>🧽 ইরেজার</b> — যেকোনো ডায়াগ্রাম, আকৃতি, কলমের দাগ, লেখা বা ছবির যে অংশের ওপর দিয়ে টানবেন সেটুকু মুছে যাবে (শর্টকাট: <kbd>E</kbd>)। স্লাইডার দিয়ে ইরেজারের আকার বদলান; ভুল হলে <b>↶ আগে</b> চাপুন। মোছা অংশ বস্তুর সাথে সরে, ঘোরে ও ছোট-বড় হয়; তালা দেওয়া বস্তু মোছে না।',
+ '<b>✏️ কলম</b> — হাতে আঁকা। <b>／ রেখা</b>, <b>→ তীর</b>, <b>↔ দ্বিমুখী তীর</b> — টেনে আঁকুন।',
+ '<b>▭ আয়তক্ষেত্র</b>, <b>◯ উপবৃত্ত</b> — টেনে আঁকুন (ভরাট করা যায়)।',
+ '<b>T লেখা</b> — যেখানে ক্লিক/ট্যাপ করবেন সেখানে লেখা সম্পাদক খুলবে (৫ নম্বর অংশ দেখুন)।',
+ '<b>🖼 ডায়াগ্রাম আপলোড</b> — নিজের ছবি যোগ করুন; পরে ছোট-বড়, ঘোরানো বা স্বচ্ছতা বদলানো যায়।']],
+ en:['2. Drawing tools',[
+ '<b>☝ Select</b> — grab items to move/edit them; drag an empty area to pan the view.',
+ '<b>🧽 Eraser</b> — drag over any part of any diagram, shape, pen stroke, text or image to rub it out (shortcut: <kbd>E</kbd>). Change the size with the slider; use <b>↶ Undo</b> for mistakes. Erased parts move, rotate and scale with the item; locked items are not erased.',
+ '<b>✏️ Pen</b> — freehand. <b>／ Line</b>, <b>→ Arrow</b>, <b>↔ Double arrow</b> — drag to draw.',
+ '<b>▭ Rectangle</b>, <b>◯ Ellipse</b> — drag to draw (can be filled).',
+ '<b>T Text</b> — click/tap where you want text; the text editor opens (see section 5).',
+ '<b>🖼 Upload image</b> — add your own picture; you can later resize, rotate or change its opacity.']]},
+{bn:['৩. নির্বাচিত বস্তু সম্পাদনা',[
+ 'বস্তুতে ক্লিক/ট্যাপ করলে নীল ডটেড বক্স আসে এবং <b>সেটিং-বার</b> দেখা যায়। <kbd>Esc</kbd> চাপলে বা অন্য টুল বেছে নিলে নির্বাচন সরে যায়।',
+ '<b>আকার</b> — স্লাইডার বা কোণার বিন্দু টেনে। <b>ঘূর্ণন</b> — স্লাইডারে ০–৩৫৯°; <b>⟳ 90°</b> বাটনে ৯০° করে ঘোরে।',
+ '<b>স্বচ্ছতা</b> — ১০–১০০%। <b>রং</b> ও <b>মোটা</b> — লাইনের রং ও পুরুত্ব।',
+ '<b>🎨 ভরাট</b> — বন্ধ আকৃতি ও চিহ্ন রং দিয়ে ভরে (পাশের রং-বাটনে ভরাটের রং)। রেখা, কলম, লেখা ও ছবিতে ভরাট নেই।',
+ '<b>┄ ডট রেখা</b> — রেখা ডটেড/সলিড। <b>⇋ উল্টান</b> — আয়নার মতো উল্টে দেয়।',
+ '<b>⬆ সামনে / ⬇ পেছনে</b> — স্তর (কোনটা ওপরে থাকবে)। <b>⧉ কপি</b> — একই বস্তুর কপি। <b>🗑 মুছুন</b> — বস্তু মোছে।',
+ '<b>🔒 লক</b> — চালু করলে বস্তুটি টেনে সরানো বা ছোট-বড় করা যায় না (যেমন পেছনের ছবি ভুলে সরে যাওয়া ঠেকাতে)। আবার চাপলে খুলে যায়।']],
+ en:['3. Editing a selected item',[
+ 'Click/tap an item to get a blue dashed box and the <b>settings bar</b>. Press <kbd>Esc</kbd> or pick another tool to deselect.',
+ '<b>Size</b> — slider or drag a corner handle. <b>Rotate</b> — slider 0–359°; the <b>⟳ 90°</b> button turns it by 90° each press.',
+ '<b>Opacity</b> — 10–100%. <b>Colour</b> and <b>Thickness</b> — line colour and width.',
+ '<b>🎨 Fill</b> — fills closed shapes and symbols (choose the fill colour with the colour button beside it). Lines, pen, text and images cannot be filled.',
+ '<b>┄ Dotted</b> — dotted/solid line. <b>⇋ Flip</b> — mirror image.',
+ '<b>⬆ Front / ⬇ Back</b> — layer order. <b>⧉ Duplicate</b> — copy of the item. <b>🗑 Delete</b> — removes it.',
+ '<b>🔒 Lock</b> — when on, the item cannot be dragged or resized (e.g. to stop a background picture moving by accident). Press again to unlock.']]},
+{bn:['৪. একাধিক বস্তু ও সাজানো',[
+ '<b>☑ বহু-নির্বাচন</b> চালু করে বস্তুতে ট্যাপ/ক্লিক করলে সেটি নির্বাচনে যোগ হয়, আবার ট্যাপ করলে বাদ যায়। এই অবস্থায় ফাঁকা জায়গায় টেনে <b>বক্স দিয়ে</b> অনেকগুলো একসাথে নির্বাচন করা যায়। কম্পিউটারে <kbd>Shift</kbd>/<kbd>Ctrl</kbd> চেপে ক্লিক করলেও একই কাজ হয়।',
+ '<b>সব নির্বাচন</b> (বা <kbd>Ctrl</kbd>+<kbd>A</kbd>) — সব বস্তু একসাথে ধরে।',
+ 'নির্বাচিত দলকে একসাথে <b>টেনে সরানো</b>, <kbd>←↑→↓</kbd> দিয়ে সরানো, কপি, মোছা, সামনে/পেছনে আনা এবং রং, স্বচ্ছতা, ভরাট, ডট রেখা, উল্টানো বদলানো যায়। দলে <b>⟳ 90°</b> ও <b>⇋ উল্টান</b> পুরো দলকে কেন্দ্র ধরে একসাথে ঘোরায়/উল্টায়; আকার ও ঘূর্ণনের স্লাইডার দেখায় না।',
+ '২টি বা বেশি নির্বাচন করলে <b>সাজান</b> সারি আসে: <b>বাম / মাঝ / ডান</b> (সারিবদ্ধ), <b>উপর / মাঝ / নিচ</b>, এবং <b>সমান ফাঁক</b> (অনুভূমিক বা উল্লম্ব) — তাতে বস্তুগুলোর মাঝের দূরত্ব সমান হয়ে যায়। লক করা বস্তু নড়ে না।']],
+ en:['4. Multiple items & aligning',[
+ 'Turn on <b>☑ Multi-select</b>, then tap/click items to add them to the selection and tap again to remove. While it is on, drag on empty space to select several with a <b>selection box</b>. On a computer, <kbd>Shift</kbd>/<kbd>Ctrl</kbd>+click does the same.',
+ '<b>Select all</b> (or <kbd>Ctrl</kbd>+<kbd>A</kbd>) — selects every item.',
+ 'The selected group can be <b>dragged together</b>, nudged with <kbd>←↑→↓</kbd>, duplicated, deleted, brought to front/back, and you can change colour, opacity, fill, dotted line and flip. For a group, <b>⟳ 90°</b> and <b>⇋ Flip</b> turn/mirror the whole group around its centre; the size and rotation sliders are hidden.',
+ 'With 2 or more selected the <b>Align</b> row appears: <b>Left / Middle / Right</b>, <b>Top / Middle / Bottom</b>, and <b>Even gaps</b> (horizontal or vertical) which spaces the items equally. Locked items do not move.']]},
+{bn:['৫. লেখা সম্পাদক',[
+ 'লেখা যোগ করতে <b>T লেখা</b> টুল বেছে ক্যানভাসে ক্লিক করুন। আগের লেখা বদলাতে লেখায় <b>ডাবল-ক্লিক</b> করুন, অথবা লেখা নির্বাচন করে <b>✎ লেখা বদলান</b> চাপুন (মোবাইলে এটাই সহজ)।',
+ '<b>একাধিক লাইন</b> — Enter চাপলে নতুন লাইন। <b>ফন্ট</b> — Sans / Serif / Mono। <b>আকার</b> — ১২–১৬০।',
+ '<b>B / I / U</b> — বোল্ড, ইটালিক, আন্ডারলাইন। <b>বাম / মাঝে / ডান</b> — লাইন সাজানো। <b>লাইন ফাঁক</b> — ১.০ থেকে ২.০।',
+ '<b>রং</b> — লেখার রং। <b>হাইলাইট</b> — লেখার পেছনে রঙিন ব্যাকগ্রাউন্ড।',
+ '<b>x₂ নিচে / x² উপরে</b> — লেখার অংশ সিলেক্ট করে চাপুন (যেমন H2O-তে ২ সিলেক্ট করে ‘নিচে’)। কিছু সিলেক্ট না থাকলে কার্সরের ঠিক আগের অক্ষর বদলায়। <b>Aa সাধারণ</b> — আবার স্বাভাবিক করে। সংখ্যা, + − = ( ) এবং অনেক ইংরেজি অক্ষর সমর্থিত।',
+ '<b>চিহ্নের সারি</b> — α β π Δ Ω ± × ÷ √ ∞ ≤ ≥ ∫ → ⇌ ইত্যাদি ট্যাপ করলে কার্সরের জায়গায় বসে।',
+ '<b>✓ ঠিক আছে</b> (বা <kbd>Ctrl</kbd>+<kbd>Enter</kbd>) সংরক্ষণ করে; <b>✕ বাতিল</b> (বা <kbd>Esc</kbd>) আগের অবস্থায় ফেরায়। শেষ ব্যবহৃত ফন্ট/স্টাইল পরের নতুন লেখায় আপনাআপনি আসে।']],
+ en:['5. Text editor',[
+ 'To add text pick the <b>T Text</b> tool and click the canvas. To change existing text <b>double-click</b> it, or select it and press <b>✎ Edit text</b> (easiest on mobile).',
+ '<b>Multiple lines</b> — press Enter for a new line. <b>Font</b> — Sans / Serif / Mono. <b>Size</b> — 12–160.',
+ '<b>B / I / U</b> — bold, italic, underline. <b>Left / Centre / Right</b> — alignment. <b>Line spacing</b> — 1.0 to 2.0.',
+ '<b>Colour</b> — text colour. <b>Highlight</b> — coloured background behind the text.',
+ '<b>x₂ Subscript / x² Superscript</b> — select part of the text and press it (e.g. select the 2 in H2O and press Subscript). With nothing selected, the character just before the cursor is changed. <b>Aa Normal</b> reverts it. Digits, + − = ( ) and many Latin letters are supported.',
+ '<b>Symbol row</b> — tap α β π Δ Ω ± × ÷ √ ∞ ≤ ≥ ∫ → ⇌ etc. to insert at the cursor.',
+ '<b>✓ OK</b> (or <kbd>Ctrl</kbd>+<kbd>Enter</kbd>) saves; <b>✕ Cancel</b> (or <kbd>Esc</kbd>) reverts. The last font/style you used is applied to the next new text automatically.']]},
+{bn:['৬. রং ও ব্যাকগ্রাউন্ড',[
+ '<b>রং</b> ও <b>মোটা</b> (সেটিং-বারের উপরের সারি) — কিছু নির্বাচন না থাকলে পরের আঁকা বস্তুর রং/পুরুত্ব ঠিক করে; নির্বাচন থাকলে সেই বস্তু বদলায়।',
+ '<b>🖼 ব্যাকগ্রাউন্ড</b> — প্রিসেট রং বা নিজের পছন্দের রং বেছে ক্যানভাস ও ছবির ব্যাকগ্রাউন্ড বদলান। <b>স্বচ্ছ</b> টিক দিলে ছবির ব্যাকগ্রাউন্ড থাকে না (PNG স্বচ্ছ)।',
+ 'গাঢ় ব্যাকগ্রাউন্ডে গেলে নতুন আঁকার ডিফল্ট রং কালো থেকে সাদা হয়ে যায় (আগের বস্তুর রং নিজে বদলাতে হবে)।',
+ 'ব্যাকগ্রাউন্ড রং সংরক্ষিত প্রকল্পের সাথে থাকে, তাই পরে সম্পাদনা করলে একই ব্যাকগ্রাউন্ড ফিরে আসে।']],
+ en:['6. Colour & background',[
+ '<b>Colour</b> and <b>Thickness</b> (top row of the settings) — with nothing selected they set the colour/width of the next thing you draw; with an item selected they change that item.',
+ '<b>🖼 Background</b> — choose a preset or your own colour to change the canvas and image background. Tick <b>Transparent</b> for an image with no background (transparent PNG).',
+ 'Switching to a dark background turns the default drawing colour from black to white (existing items keep their colour — change them yourself).',
+ 'The background colour is stored with the saved project, so editing later restores it.']]},
+{bn:['৭. জাল (গ্রিড) ও স্ন্যাপ',[
+ '<b>▦ জাল</b> — স্ক্রিনে জাল দেখায়/লুকায়। জাল <b>কখনও ছবিতে যায় না</b>।',
+ '<b>🧲 জালে বসান</b> — চালু থাকলে আঁকা ও সরানোর সময় বস্তু জালের ঘরে বসে যায়; সোজা ও সুন্দর ডায়াগ্রামের জন্য কাজে লাগে।']],
+ en:['7. Grid & snap',[
+ '<b>▦ Grid</b> — shows/hides the grid on screen. The grid is <b>never included in the image</b>.',
+ '<b>🧲 Snap to grid</b> — when on, items snap to grid squares while drawing and moving; handy for neat, straight diagrams.']]},
+{bn:['৮. জুম ও পর্দা সরানো',[
+ '<b>🔍− / 🔍＋</b> বাটন, মাউস হুইল বা দুই আঙুলে পিঞ্চ করে জুম করুন।',
+ '<b>☝ নির্বাচন</b> টুলে খালি জায়গা টেনে পর্দা সরান। <b>⤢ ফিট</b> — পুরো ডায়াগ্রাম এক নজরে দেখায়।',
+ 'নির্বাচিত বস্তুকে <kbd>←↑→↓</kbd> দিয়ে ৪ একক, <kbd>Shift</kbd> সহ ২০ একক সরানো যায়।']],
+ en:['8. Zoom & panning',[
+ 'Zoom with the <b>🔍− / 🔍＋</b> buttons, the mouse wheel, or a two-finger pinch.',
+ 'With the <b>☝ Select</b> tool, drag an empty area to pan. <b>⤢ Fit</b> shows the whole diagram at a glance.',
+ 'Move the selected item with <kbd>←↑→↓</kbd> (4 units), or with <kbd>Shift</kbd> (20 units).']]},
+{bn:['৯. ডায়াগ্রাম লাইব্রেরি ও খোঁজা',[
+ 'বিষয় → ক্যাটাগরি বেছে তালিকা থেকে ট্যাপ করলে ডায়াগ্রাম ক্যানভাসের মাঝে বসে; এরপর যেকোনো বস্তুর মতো সম্পাদনা করা যায়।',
+ '<b>🔎 খুঁজুন</b> বক্সে বাংলা বা ইংরেজি নাম লিখলে বর্তমান ক্যাটাগরির মধ্যে ফিল্টার হয়।',
+ 'গ্রিক অক্ষর ও গণিত প্রতীকগুলো লেখা হিসেবে বসে, তাই পরে রং, আকার বদলানো যায়।']],
+ en:['9. Diagram library & search',[
+ 'Choose subject → category and tap an item; it is placed in the middle of the canvas and can be edited like any other item.',
+ 'Type a Bengali or English name in the <b>🔎 search</b> box to filter within the current category.',
+ 'Greek letters and maths symbols are inserted as text, so colour and size can be changed afterwards.']]},
+{bn:['১০. যৌগ আঁকা (রসায়ন)',[
+ '<b>🧪 যৌগের নাম/SMILES</b> বক্সে ইংরেজি নাম (যেমন aspirin) বা SMILES (যেমন CCO) লিখে <b>যৌগ আঁকুন</b> চাপুন।',
+ 'এর জন্য <b>ইন্টারনেট</b> লাগে (PubChem থেকে ছবি আসে)। ছবিটি একটি ছবি-বস্তু হিসেবে বসে — ছোট-বড়, ঘোরানো যায়, কিন্তু রেখা আলাদা করে বদলানো যায় না।']],
+ en:['10. Drawing compounds (Chemistry)',[
+ 'Type an English name (e.g. aspirin) or a SMILES string (e.g. CCO) in the <b>🧪 Compound name/SMILES</b> box and press <b>Draw compound</b>.',
+ 'This needs the <b>internet</b> (the picture comes from PubChem). It is added as an image item — you can resize/rotate it, but not edit its individual lines.']]},
+{bn:['১১. গ্রাফ ও সমীকরণ',[
+ '<b>📈 গ্রাফ</b> বাটনে প্যানেল খুলুন, সমীকরণ লিখে <b>গ্রাফ আঁকুন</b> চাপুন (<kbd>Ctrl</kbd>+<kbd>Enter</kbd>-ও চলে)। একসাথে সর্বোচ্চ ৬টি সমীকরণ — <b>;</b> বা নতুন লাইন দিয়ে আলাদা করুন; প্রত্যেকটির আলাদা রং।',
+ 'ধরন: <b>y = f(x)</b> (y = sin(x)/x), <b>x = g(y)</b> (x = y^2), অন্তর্নিহিত (x^2 + y^2 = 25), পোলার <b>r = f(t)</b> (r = 1 + cos(t)), প্যারামেট্রিক <b>(fx(t), fy(t))</b> ((sin(3t), sin(2t))) ।',
+ 'ফাংশন: sin cos tan cot sec csc asin acos atan sinh cosh tanh sqrt cbrt abs ln log log2 log10 exp floor ceil round sign min max pow atan2 mod; ধ্রুবক pi, tau, e; <b>2x</b>, <b>3sin(x)</b> লেখা যায়। এছাড়া <b>|x|</b> (মডুলাস), <b>sin²(x)</b> বা <b>sin^2(x)</b>, <b>sinx</b>, <b>xy</b> এবং বাংলা অঙ্ক (যেমন ২x + ৩) চলে।',
+ '<b>পরিসর ±</b> — অক্ষের সীমা (০.১ থেকে ১০০০)। <b>⚙ সেটিংস</b> — শিরোনাম, x/y-এর আলাদা সীমা, t-এর সীমা (0, 2pi, 6pi…), গ্রিড, সমীকরণের লেখা দেখানো।',
+ 'নিচের <b>প্রিসেট চিপ</b> ট্যাপ করলে পরিচিত গ্রাফ (রেখা, পরাবৃত্ত, sin, বৃত্ত, কার্ডিওয়েড ইত্যাদি) এক ট্যাপে আঁকা হয়।',
+ 'আঁকা গ্রাফ নির্বাচন করলে প্যানেলে তার সমীকরণ ফিরে আসে; বদলে <b>↻ নির্বাচিত গ্রাফ আপডেট</b> চাপুন।']],
+ en:['11. Graphs & equations',[
+ 'Open the panel with the <b>📈 Graph</b> button, type equation(s) and press <b>Draw graph</b> (<kbd>Ctrl</kbd>+<kbd>Enter</kbd> works too). Up to 6 at once — separate with <b>;</b> or a new line; each gets its own colour.',
+ 'Forms: <b>y = f(x)</b> (y = sin(x)/x), <b>x = g(y)</b> (x = y^2), implicit (x^2 + y^2 = 25), polar <b>r = f(t)</b> (r = 1 + cos(t)), parametric <b>(fx(t), fy(t))</b> ((sin(3t), sin(2t))).',
+ 'Functions: sin cos tan cot sec csc asin acos atan sinh cosh tanh sqrt cbrt abs ln log log2 log10 exp floor ceil round sign min max pow atan2 mod; constants pi, tau, e; you can write <b>2x</b> and <b>3sin(x)</b>. Also <b>|x|</b> (modulus), <b>sin²(x)</b> or <b>sin^2(x)</b>, <b>sinx</b>, <b>xy</b> and Bengali digits (e.g. ২x + ৩) work.',
+ '<b>Range ±</b> — axis limits (0.1 to 1000). <b>⚙ Settings</b> — title, separate x/y limits, t limits (0, 2pi, 6pi…), grid, show equation label.',
+ 'Tap a <b>preset chip</b> below to draw a well-known graph (line, parabola, sin, circle, cardioid, etc.) in one tap.',
+ 'Selecting a drawn graph loads its equations back into the panel; change them and press <b>↻ Update selected graph</b>.']]},
+{bn:['১২. সংরক্ষণ ও ব্যবহার',[
+ '<b>PNG</b> — চারপাশের ফাঁকা অংশ ছেঁটে উচ্চ রেজোলিউশনের ছবি দেয়। <b>SVG</b> — ভেক্টর ছবি, ছাপা বা বড় করার জন্য ভালো। ছবি খুললে <b>⬇ ডাউনলোড</b> চাপুন, বা ছবিটি চেপে ধরে সংরক্ষণ করুন।',
+ '<b>✅ প্রশ্নে/অপশনে যুক্ত করুন</b> (শুধু MCQ সাইটের ভেতরে) — ছবি প্রশ্ন বা অপশনে বসে এবং সম্পাদনাযোগ্য প্রকল্পটিও সাথে সংরক্ষিত হয়; পরে আবার খুললে আগের সব বস্তু ও ব্যাকগ্রাউন্ড ফিরে আসে। প্রশ্নে যুক্ত করার সময় সাইট স্বচ্ছ অংশে সাদা বসাতে পারে — তাই পরীক্ষার প্রশ্নে সাদা ব্যাকগ্রাউন্ডই নিরাপদ।',
+ 'সাইটের বাইরে আলাদা খুললে আপনার কাজ এই ব্রাউজারে <b>আপনাআপনি সংরক্ষিত</b> থাকে এবং আবার খুললে ফিরে আসে।',
+ '<b>💾 সংরক্ষণ</b> — পুরো প্রকল্প (সব বস্তু ও ব্যাকগ্রাউন্ডসহ) একটি <b>.json ফাইল</b> হিসেবে ডাউনলোড করে; <b>📂 খুলুন</b> দিয়ে সেই ফাইল আবার খুলে কাজ চালিয়ে যাওয়া যায় (খোলার আগের অবস্থায় ↶ আগে দিয়ে ফেরা যায়)।',
+ '<b>🗑 সব মুছুন</b> — পুরো ক্যানভাস খালি করে (নিশ্চিত করতে বলে)। ভুল হলে <b>↶ আগে</b> দিয়ে ফেরানো যায়।']],
+ en:['12. Saving & using',[
+ '<b>PNG</b> — crops the empty margins and gives a high-resolution image. <b>SVG</b> — vector image, good for printing or enlarging. When the image opens press <b>⬇ Download</b>, or long-press the image to save it.',
+ '<b>✅ Add to question/option</b> (only inside the MCQ site) — the image is placed in the question or option and the editable project is saved with it; reopening restores every item and the background. When adding to a question the site may fill transparent areas with white, so a white background is the safe choice for exam questions.',
+ 'When opened on its own, your work is <b>auto-saved</b> in this browser and restored next time.',
+ '<b>💾 Save</b> — downloads the whole project (all items and the background) as a <b>.json file</b>; <b>📂 Open</b> loads such a file so you can carry on (↶ Undo returns to the state before opening).',
+ '<b>🗑 Clear all</b> — empties the whole canvas (asks to confirm). If it was a mistake, use <b>↶ Undo</b>.']]},
+{bn:['১৩. কীবোর্ড শর্টকাট',[
+ '<kbd>Delete</kbd>/<kbd>Backspace</kbd> — নির্বাচিত বস্তু মোছা। <kbd>Ctrl</kbd>+<kbd>Z</kbd> — আগে; <kbd>Ctrl</kbd>+<kbd>Y</kbd> বা <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> — পরে। <kbd>Ctrl</kbd>+<kbd>D</kbd> — কপি। <kbd>Ctrl</kbd>+<kbd>A</kbd> — সব নির্বাচন; <kbd>Shift</kbd>+ক্লিক — একাধিক নির্বাচন।',
+ '<kbd>←↑→↓</kbd> — সরানো (<kbd>Shift</kbd> সহ বেশি)। <kbd>Esc</kbd> — নির্বাচন বাতিল / সম্পাদক বা গাইড বন্ধ। লেখা সম্পাদকে <kbd>Ctrl</kbd>+<kbd>Enter</kbd> — ঠিক আছে।']],
+ en:['13. Keyboard shortcuts',[
+ '<kbd>Delete</kbd>/<kbd>Backspace</kbd> — delete the selected item. <kbd>Ctrl</kbd>+<kbd>Z</kbd> — undo; <kbd>Ctrl</kbd>+<kbd>Y</kbd> or <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> — redo. <kbd>Ctrl</kbd>+<kbd>D</kbd> — duplicate. <kbd>Ctrl</kbd>+<kbd>A</kbd> — select all; <kbd>Shift</kbd>+click — multi-select.',
+ '<kbd>←↑→↓</kbd> — nudge (more with <kbd>Shift</kbd>). <kbd>Esc</kbd> — deselect / close the editor or guide. In the text editor <kbd>Ctrl</kbd>+<kbd>Enter</kbd> — OK.']]},
+{bn:['১৪. পরামর্শ',[
+ 'পর্দার লেখা ও ছবিতে লেখার ফন্ট সামান্য আলাদা দেখাতে পারে, কারণ ছবি বানানোর সময় ডিভাইসের ফন্ট ব্যবহার হয়। বাংলা লেখা ঠিক দেখাতে ডিভাইসে বাংলা ফন্ট থাকা দরকার (প্রায় সব ফোন/কম্পিউটারে থাকে)।',
+ 'ভাষা বদলাতে উপরের <b>English / বাংলা</b> বাটন চাপুন; এই গাইডেও বাংলা/English ট্যাব আছে।',
+ 'কিছু ঠিক না লাগলে আগে <b>↶ আগে</b> চেষ্টা করুন, না হলে <b>⤢ ফিট</b> দিয়ে দেখুন বস্তুটি পর্দার বাইরে চলে গেছে কিনা।']],
+ en:['14. Tips',[
+ 'On-screen text and the text in the exported image can look slightly different, because the device font is used when the image is built. Bengali text needs a Bengali-capable font on the device (almost all phones/computers have one).',
+ 'Switch language with the <b>English / বাংলা</b> button at the top; this guide also has Bengali/English tabs.',
+ 'If something looks wrong try <b>↶ Undo</b> first, then <b>⤢ Fit</b> to check whether an item moved off-screen.']]}
+];
+let gl=lang;
+function renderGuide(){
+ $('#gt').textContent=gl==='en'?'📖 Guide — every option explained':'📖 গাইড — সব অপশনের ব্যাখ্যা';
+ document.querySelectorAll('#gdv [data-gl]').forEach(b=>b.classList.toggle('on',b.dataset.gl===gl));
+ $('#gcn').innerHTML=GUIDE.map(g=>{const[t,it]=g[gl];return`<h3>${t}</h3><ul>${it.map(x=>`<li>${x}</li>`).join('')}</ul>`}).join('')}
+$('#hb').onclick=()=>{gl=lang;renderGuide();$('#gdv').hidden=false;$('#gcn').scrollTop=0};
+document.querySelectorAll('#gdv [data-gl]').forEach(b=>b.onclick=()=>{gl=b.dataset.gl;renderGuide();$('#gcn').scrollTop=0});
+$('#gx').onclick=()=>{$('#gdv').hidden=true};
+$('#gdv').onclick=e=>{if(e.target.id==='gd')$('#gdv').hidden=true};
+
+// ================= v12: একাধিক বস্তু নির্বাচন · সাজানো (align) · লক · প্রকল্প ফাইল সেভ/খোলা =================
+Object.assign(EN,{
+'বহু-নির্বাচন':'Multi-select','সব নির্বাচন':'Select all','একাধিক বস্তু নির্বাচন: ট্যাপ/ক্লিকে যোগ-বাদ, ফাঁকা জায়গায় টেনে বক্স নির্বাচন':'Multi-select: tap/click to add or remove, drag on empty space for a selection box','সব বস্তু নির্বাচন (Ctrl+A)':'Select every item (Ctrl+A)',
+'সংরক্ষণ':'Save','খুলুন':'Open','প্রকল্প ফাইল (.json) হিসেবে সংরক্ষণ':'Save the project as a file (.json)','সংরক্ষিত প্রকল্প ফাইল খুলুন':'Open a saved project file',
+'লক':'Lock','টেনে সরানো ও ছোট-বড় করা বন্ধ/চালু':'Lock/unlock dragging and resizing','সাজান':'Align',
+'বামে সারিবদ্ধ':'Align left','অনুভূমিক মাঝে':'Centre horizontally','ডানে সারিবদ্ধ':'Align right','উপরে সারিবদ্ধ':'Align top','উল্লম্ব মাঝে':'Centre vertically','নিচে সারিবদ্ধ':'Align bottom','অনুভূমিকভাবে সমান ফাঁক':'Distribute horizontally','উল্লম্বভাবে সমান ফাঁক':'Distribute vertically',
+'উপর':'Top','নিচ':'Bottom','মাঝ':'Middle','সমান ফাঁক':'Even gaps','ফাইলটি পড়া যায়নি':'Could not read the file','✓ প্রকল্প খোলা হয়েছে':'✓ Project opened'
+});
+const MS=new Set();let multi=false,mq=null;
+const targets=()=>MS.size>1?[...MS]:(sel!=null&&items[sel]?[items[sel]]:[]);
+function prune(){[...MS].forEach(q=>{if(!items.includes(q))MS.delete(q)});if(MS.size<2||sel==null||tool!=='sel')MS.clear()}
+function toggleMs(it){
+ if(!MS.size&&items[sel]===it){sel=null;return}
+ if(!MS.size&&sel!=null&&items[sel])MS.add(items[sel]);
+ if(MS.has(it))MS.delete(it);else MS.add(it);
+ if(MS.size===0)sel=null;else if(MS.size===1){sel=items.indexOf([...MS][0]);MS.clear()}else sel=items.indexOf(it)}
+function selAll(){if(tool!=='sel'){tool='sel';ui()}MS.clear();items.forEach(q=>MS.add(q));if(items.length===1){sel=0;MS.clear()}else if(items.length>1)sel=items.length-1;else sel=null;render()}
+function finishMq(){
+ const q=mq;mq=null;if(!q||q.w+q.h<4)return;
+ const m=svg.getScreenCTM(),x0=q.x*m.a+m.e,y0=q.y*m.d+m.f,x1=(q.x+q.w)*m.a+m.e,y1=(q.y+q.h)*m.d+m.f;
+ sel=null;MS.clear();render();
+ L.querySelectorAll('g[data-i]').forEach(g=>{const r=g.getBoundingClientRect();if(r.right>=x0&&r.left<=x1&&r.bottom>=y0&&r.top<=y1)MS.add(items[+g.dataset.i])});
+ const a=[...MS];if(a.length===1){sel=items.indexOf(a[0]);MS.clear()}else if(a.length>1)sel=items.indexOf(a[a.length-1])}
+$('#mu').onclick=e=>{multi=!multi;e.currentTarget.classList.toggle('on',multi);if(multi&&tool!=='sel'){tool='sel';ui()}};
+$('#sa').onclick=selAll;
+// ---- সাজান ----
+function boxes(){const m=svg.getScreenCTM();return[...MS].map(it=>{const g=L.querySelector(`g[data-i="${items.indexOf(it)}"]`),r=g.getBoundingClientRect();return{it,x:(r.left-m.e)/m.a,y:(r.top-m.f)/m.d,w:r.width/m.a,h:r.height/m.d}})}
+function alignTo(k){
+ if(MS.size<2)return;const b=boxes();save();
+ const x0=Math.min(...b.map(o=>o.x)),x1=Math.max(...b.map(o=>o.x+o.w)),y0=Math.min(...b.map(o=>o.y)),y1=Math.max(...b.map(o=>o.y+o.h));
+ if(k==='dh'||k==='dv'){
+  const H=k==='dh',s=[...b].sort((p,q)=>H?p.x-q.x:p.y-q.y),tot=s.reduce((a,o)=>a+(H?o.w:o.h),0),gap=((H?x1-x0:y1-y0)-tot)/(s.length-1);let c=H?x0:y0;
+  s.forEach(o=>{if(!o.it.lk){if(H)o.it.x+=c-o.x;else o.it.y+=c-o.y}c+=(H?o.w:o.h)+gap})}
+ else b.forEach(o=>{if(o.it.lk)return;
+  if(k==='l')o.it.x+=x0-o.x;if(k==='r')o.it.x+=x1-o.x-o.w;if(k==='c')o.it.x+=(x0+x1)/2-(o.x+o.w/2);
+  if(k==='t')o.it.y+=y0-o.y;if(k==='b')o.it.y+=y1-o.y-o.h;if(k==='m')o.it.y+=(y0+y1)/2-(o.y+o.h/2)});
+ render()}
+document.querySelectorAll('#al [data-a]').forEach(b=>b.onclick=()=>alignTo(b.dataset.a));
+$('#lk').onclick=mod(i=>{i.lk=!i.lk});
+// ---- প্রকল্প ফাইল ----
+$('#pj').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(proj())],{type:'application/json'})),a=document.createElement('a');a.href=u;a.download='diagram-project.json';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000)};
+$('#po').onchange=e=>{const f=e.target.files[0];e.target.value='';if(!f)return;const r=new FileReader();
+ r.onload=()=>{try{const a=JSON.parse(r.result);if(!Array.isArray(a))throw 0;const prev=JSON.stringify(items);loadProj(a);undo.push(prev);msg('✓ প্রকল্প খোলা হয়েছে')}catch(_){msg('ফাইলটি পড়া যায়নি')}};r.readAsText(f)};
+
+// ================= v13: গ্রাফ ও গ্রুপের বাগ ফিক্স =================
+Object.assign(EN,{
+'পরিসর ০.১ থেকে ১০০০-এর মধ্যে দিন।':'Give a range between 0.1 and 1000.',
+'দলকে একসাথে ঘোরান/উল্টান':'Rotate/flip the whole group'
+});
+// গ্রাফের প্রিসেট: আগের প্রিসেটের শিরোনাম আটকে থাকত — এখন শুধু নিজে লিখলে থাকে
+let gTitleDirty=false;
+$('#g_title').addEventListener('input',()=>{gTitleDirty=true});
+{const gf=gfill;gfill=function(sp){gf(sp);gTitleDirty=false}}
+$('#gpre').querySelectorAll('[data-p]').forEach(b=>{
+ b.onclick=()=>{const p=GE.GRAPH_PRESETS[+b.dataset.p];
+  gfill({q:p.equation,r:p.range||10,o:Object.assign({tMax:p.tMax,grid:$('#g_grid').checked,legend:$('#g_legend').checked},p.o||{},{title:(gTitleDirty&&$('#g_title').value.trim())||(p.o&&p.o.title)||''})});
+  (items[sel]&&items[sel].g&&!$('#gu').hidden?$('#gu'):$('#gd')).click()}});
+// দলের ঘোরানো ও উল্টানো — পুরো দল একসাথে, কেন্দ্র ধরে
+function groupCenter(){const b=boxes();return{b,cx:(Math.min(...b.map(o=>o.x))+Math.max(...b.map(o=>o.x+o.w)))/2,cy:(Math.min(...b.map(o=>o.y))+Math.max(...b.map(o=>o.y+o.h)))/2}}
+{const ro0=$('#ro').onclick,fx0=$('#fx').onclick;
+ $('#ro').onclick=()=>{if(MS.size<2)return ro0();save();const{b,cx,cy}=groupCenter();
+  b.forEach(o=>{const q=o.it;if(q.lk)return;const dx=q.x-cx,dy=q.y-cy;q.x=cx-dy;q.y=cy+dx;q.r=((q.r||0)+90)%360});render()};
+ $('#fx').onclick=()=>{if(MS.size<2)return fx0();save();const{b,cx}=groupCenter();
+  b.forEach(o=>{const q=o.it;if(q.lk)return;if(q.k==='text'){q.x+=2*(cx-(o.x+o.w/2))}else{q.x=2*cx-q.x;q.r=-(q.r||0);q.fx=!q.fx}});render()}}
+
+ui();render();
+$('#lg').onclick=()=>setLang(lang==='en'?'bn':'en');trStatic();restoreAuto();
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)||!$('#tx').hidden||!$('#gdv').hidden)return;const ctrl=e.ctrlKey||e.metaKey;
+ if(e.key==='Delete'||e.key==='Backspace'){e.preventDefault();$('#de').click()}
+ else if(ctrl&&e.key.toLowerCase()==='z'){e.preventDefault();(e.shiftKey?$('#rd'):$('#un')).click()}
+ else if(ctrl&&e.key.toLowerCase()==='y'){e.preventDefault();$('#rd').click()}
+ else if(ctrl&&e.key.toLowerCase()==='a'){e.preventDefault();selAll()}
+ else if(ctrl&&e.key.toLowerCase()==='d'){e.preventDefault();$('#du').click()}
+ else if(e.key.startsWith('Arrow')&&sel!=null){e.preventDefault();const st=e.shiftKey?20:4;save();const dx=e.key==='ArrowLeft'?-st:e.key==='ArrowRight'?st:0,dy=e.key==='ArrowUp'?-st:e.key==='ArrowDown'?st:0;targets().forEach(q=>{if(!q.lk){q.x+=dx;q.y+=dy}});render()}
+ else if(!ctrl&&!e.altKey&&e.key.toLowerCase()==='e'){sel=null;MS.clear();tool=tool==='erase'?'sel':'erase';ui();render()}
+ else if(e.key==='Escape'){sel=null;tool='sel';ui();render()}});
+
+</script></body></html>

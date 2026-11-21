@@ -1,0 +1,9 @@
+import React, { useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import axiosClient from '../../api/axiosClient';
+export default function TeacherPasswordReset() {
+  const [params] = useSearchParams(); const token = params.get('token') || '';
+  const [email, setEmail] = useState(''); const [password, setPassword] = useState(''); const [message, setMessage] = useState(''); const [busy, setBusy] = useState(false);
+  const submit = async (e) => { e.preventDefault(); setBusy(true); setMessage(''); try { const { data } = await axiosClient.post(token ? '/auth/teacher/reset-password' : '/auth/teacher/forgot-password', token ? { token, password } : { email }); setMessage(data.message); } catch (err) { setMessage(err.response?.data?.message || 'অনুরোধ সম্পন্ন করা যায়নি'); } finally { setBusy(false); } };
+  return <main className="mx-auto max-w-md px-4 py-16"><div className="card space-y-4 p-6"><h1 className="text-xl font-bold dark:text-white">{token ? 'নতুন পাসওয়ার্ড সেট করুন' : 'পাসওয়ার্ড ভুলে গেছেন?'}</h1><form className="space-y-3" onSubmit={submit}>{token ? <label className="block text-sm">নতুন পাসওয়ার্ড (সর্বনিম্ন ৮ অক্ষর)<input className="input mt-1 w-full" type="password" minLength={8} required value={password} onChange={e => setPassword(e.target.value)} /></label> : <label className="block text-sm">অ্যাকাউন্টের ইমেইল<input className="input mt-1 w-full" type="email" required value={email} onChange={e => setEmail(e.target.value)} /></label>}<button className="btn-primary" disabled={busy}>{busy ? 'অপেক্ষা করুন…' : token ? 'পাসওয়ার্ড পরিবর্তন' : 'রিসেট লিংক পাঠান'}</button></form>{message && <p className="text-sm text-gray-600 dark:text-gray-300">{message}</p>}<Link className="text-sm text-primary-600" to="/teacher/login">← লগইনে ফিরুন</Link></div></main>;
+}

@@ -1,0 +1,19 @@
+# Local secrets and environment configuration
+.env
+.env.*
+!.env.example
+
+# Dependencies and generated output
+node_modules/
+frontend/dist/
+backend/client-dist/
+coverage/
+*.log
+
+# Runtime uploads contain user-generated or private media
+backend/uploads/
+
+# OS/editor artifacts
+.DS_Store
+.idea/
+.vscode/
