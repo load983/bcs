@@ -99,11 +99,12 @@ function CheckList({ prefix, count, tone }) {
 
 export default function Home() {
   const { t } = useLanguage();
-  const { images, media } = useSite();
+  const { images, media, homepage } = useSite();
+  const show = (key) => homepage?.[key] !== false;
   return (
     <div className="overflow-hidden">
       {/* ---------- Hero ---------- */}
-      <section className="relative">
+      {show('showHero') && <section className="relative">
         <div className="mx-auto grid max-w-6xl items-center gap-12 px-4 pb-16 pt-14 sm:pt-20 lg:grid-cols-2 lg:gap-8">
           <div className="text-center lg:text-left">
             <Reveal type="fade">
@@ -154,9 +155,9 @@ export default function Home() {
             <ExamPreview t={t} />
           </Reveal>
         </div>
-      </section>
+      </section>}
 
-      {media?.length > 0 && <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
+      {show('showGallery') && media?.length > 0 && <section className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
         <Reveal type="up" className="mb-8 text-center"><h2 className="section-title">{t('home.mediaTitle')}</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('home.mediaSub')}</p></Reveal>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {media.map((item) => <Reveal key={item.id} type="up" className="card overflow-hidden p-2">
@@ -167,7 +168,7 @@ export default function Home() {
       </section>}
 
       {/* ---------- Features ---------- */}
-      <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
+      {show('showFeatures') && <section className="mx-auto max-w-6xl px-4 py-16 sm:py-20">
         <Reveal type="up" className="mx-auto mb-10 max-w-xl text-center">
           {images.feature?.url && <img src={images.feature.url} alt={images.feature.alt || t('home.featuresTitle')} className="mx-auto mb-6 h-28 w-full max-w-2xl rounded-2xl object-cover shadow-soft" />}
           <h2 className="section-title">{t('home.featuresTitle')}</h2>
@@ -192,10 +193,10 @@ export default function Home() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* ---------- How it works ---------- */}
-      <section className="bg-gray-50/70 py-16 dark:bg-white/[0.02] sm:py-20">
+      {show('showHowItWorks') && <section className="bg-gray-50/70 py-16 dark:bg-white/[0.02] sm:py-20">
         <div className="mx-auto max-w-5xl px-4">
           <Reveal type="up" className="mx-auto mb-12 max-w-xl text-center">
             {images.promo?.url && <img src={images.promo.url} alt={images.promo.alt || t('home.howTitle')} className="mx-auto mb-6 h-36 w-full rounded-2xl object-cover shadow-soft" />}
@@ -219,10 +220,10 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* ---------- Teachers & Students ---------- */}
-      <section className="mx-auto max-w-5xl px-4 py-16 sm:py-20">
+      {show('showAudience') && <section className="mx-auto max-w-5xl px-4 py-16 sm:py-20">
         <Reveal type="up" className="mx-auto mb-10 max-w-xl text-center">
           <h2 className="section-title">{t('home.forTitle')}</h2>
           <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 sm:text-base">{t('home.forSub')}</p>
@@ -247,10 +248,10 @@ export default function Home() {
             />
           </Reveal>
         </div>
-      </section>
+      </section>}
 
       {/* ---------- FAQ ---------- */}
-      <section className="mx-auto max-w-3xl px-4 pb-16 sm:pb-20">
+      {show('showFaq') && <section className="mx-auto max-w-3xl px-4 pb-16 sm:pb-20">
         <Reveal type="up" className="mb-8 text-center">
           <h2 className="section-title">{t('home.faqTitle')}</h2>
         </Reveal>
@@ -272,10 +273,10 @@ export default function Home() {
             </Reveal>
           ))}
         </div>
-      </section>
+      </section>}
 
       {/* ---------- CTA ---------- */}
-      <section className="mx-auto max-w-5xl px-4 pb-20">
+      {show('showCta') && <section className="mx-auto max-w-5xl px-4 pb-20">
         <Reveal type="zoom" className="card relative overflow-hidden bg-gradient-to-br from-primary-600 to-primary-800 p-10 text-center text-white shadow-glow dark:bg-gradient-to-br sm:p-14">
           <div
             aria-hidden
@@ -304,7 +305,7 @@ export default function Home() {
             </Link>
           </div>
         </Reveal>
-      </section>
+      </section>}
     </div>
   );
 }

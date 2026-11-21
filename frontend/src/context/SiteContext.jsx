@@ -6,9 +6,9 @@ import axiosClient from '../api/axiosClient';
 import assetUrl from '../utils/assetUrl';
 import { applyTextOverrides, useLanguage } from './LanguageContext';
 
-const SiteContext = createContext({ logoUrl: '', footerLinks: [], images: {}, media: [], refreshSite: () => {} });
+const SiteContext = createContext({ logoUrl: '', footerLinks: [], images: {}, media: [], homepage: {}, seo: {}, refreshSite: () => {} });
 const CACHE_KEY = 'site-config-v1';
-const EMPTY = { logoUrl: '', textOverrides: [], footerLinks: [], images: {}, media: [] };
+const EMPTY = { logoUrl: '', textOverrides: [], footerLinks: [], images: {}, media: [], homepage: {}, seo: {} };
 
 function readCache() {
   try {
@@ -43,7 +43,18 @@ export function SiteProvider({ children }) {
 
   // ব্রাউজার ট্যাবের নাম = সাইটের নাম (ভাষা বা অ্যাডমিনের বদল অনুযায়ী)
   const brandName = t('brand.name');
-  useEffect(() => { if (brandName) document.title = brandName; }, [brandName]);
+  useEffect(() => {
+    const title = cfg.seo?.title || brandName;
+    if (title) document.title = title;
+    const setMeta = (name, content) => {
+      if (!content) return;
+      let node = document.head.querySelector(`meta[name="${name}"]`);
+      if (!node) { node = document.createElement('meta'); node.setAttribute('name', name); document.head.appendChild(node); }
+      node.setAttribute('content', content);
+    };
+    setMeta('description', cfg.seo?.description);
+    setMeta('keywords', cfg.seo?.keywords);
+  }, [brandName, cfg.seo]);
 
   // অ্যাডমিন লোগো দিলে ব্রাউজার ট্যাবের আইকন (favicon) ও iPhone হোম-স্ক্রিন আইকনও সেটাই হয়;
   // লোগো মুছলে মূল ফাইলের আইকনে ফিরে যায়
@@ -64,6 +75,8 @@ export function SiteProvider({ children }) {
     footerLinks: cfg.footerLinks,
     images: Object.fromEntries(Object.entries(cfg.images || {}).map(([slot, item]) => [slot, { ...item, url: assetUrl(item.url) }])),
     media: (cfg.media || []).map((item) => ({ ...item, url: assetUrl(item.url) })),
+    homepage: cfg.homepage || {},
+    seo: cfg.seo || {},
     refreshSite,
   }), [cfg, refreshSite]);
 

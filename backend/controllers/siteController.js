@@ -4,6 +4,7 @@
 const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
+const mongoose = require('mongoose');
 const SiteSettings = require('../models/SiteSettings');
 const { getSettings } = require('../utils/siteSettings');
 
@@ -37,8 +38,24 @@ const publicLink = (l) => ({
   titleEn: l.titleEn,
   externalUrl: l.externalUrl || '',
 });
-const publicImages = (s, req) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: assetUrlOf(req, i.path), alt: i.alt || '' }]));
-const publicMedia = (s, req) => (s.media || []).map((m) => ({ id: String(m._id), kind: m.kind, url: assetUrlOf(req, m.path), contentType: m.contentType || '', title: m.title || '', alt: m.alt || '' }));
+const assetPath = (item) => (item.gridFsId ? `/api/site/assets/${item.gridFsId}` : item.path);
+const publicImages = (s, req) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: assetUrlOf(req, assetPath(i)), alt: i.alt || '' }]));
+const publicMedia = (s, req) => (s.media || []).map((m) => ({ id: String(m._id), kind: m.kind, url: assetUrlOf(req, assetPath(m)), contentType: m.contentType || '', title: m.title || '', alt: m.alt || '' }));
+
+const gridBucket = () => new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'siteAssets' });
+const storeGridAsset = (file) => new Promise((resolve, reject) => {
+  const upload = gridBucket().openUploadStream(file.filename, { contentType: file.mimetype, metadata: { purpose: 'site-media' } });
+  const input = fs.createReadStream(file.path);
+  input.on('error', reject); upload.on('error', reject);
+  upload.on('finish', () => resolve(upload.id)); input.pipe(upload);
+});
+const deleteGridAsset = async (id) => {
+  if (!id || !mongoose.isValidObjectId(id)) return;
+  try { await gridBucket().delete(new mongoose.Types.ObjectId(id)); } catch (err) { if (err.code !== 'ENOENT') console.warn('Could not delete site asset', err.message); }
+};
+const deleteLegacyFile = (asset) => {
+  if (asset?.path) fs.unlink(path.join(__dirname, '..', asset.path.replace(/^\/uploads\//, 'uploads/')), () => {});
+};
 
 // ---------- পাবলিক ----------
 exports.getPublicConfig = async (req, res) => {
@@ -50,6 +67,8 @@ exports.getPublicConfig = async (req, res) => {
       footerLinks: (s.footerLinks || []).filter((l) => l.enabled && (l.titleBn || l.titleEn)).map(publicLink),
       images: publicImages(s, req),
       media: publicMedia(s, req),
+      homepage: s.homepage || {},
+      seo: s.seo || {},
     });
   } catch (err) {
     res.status(500).json({ message: 'তথ্য লোড করা যায়নি' });
@@ -70,6 +89,17 @@ exports.getLogo = async (req, res) => {
   } catch (err) {
     res.status(500).end();
   }
+};
+
+exports.getAsset = async (req, res) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) return res.status(400).end();
+    const id = new mongoose.Types.ObjectId(req.params.id);
+    const file = await gridBucket().find({ _id: id }).next();
+    if (!file) return res.status(404).end();
+    res.set({ 'Content-Type': file.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
+    gridBucket().openDownloadStream(id).on('error', () => { if (!res.headersSent) res.status(404).end(); }).pipe(res);
+  } catch (err) { res.status(404).end(); }
 };
 
 exports.getPublicPage = async (req, res) => {
@@ -96,6 +126,8 @@ exports.adminGet = async (req, res) => {
       })),
       images: publicImages(s, req),
       media: publicMedia(s, req),
+      homepage: s.homepage || {},
+      seo: s.seo || {},
     });
   } catch (err) {
     res.status(500).json({ message: 'সেটিংস লোড করা যায়নি' });
@@ -153,9 +185,12 @@ exports.adminUploadImage = async (req, res) => {
     const s = await getSettings();
     const old = (s.images || []).find((i) => i.slot === slot);
     s.images = (s.images || []).filter((i) => i.slot !== slot);
-    s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
+    const gridFsId = await storeGridAsset(req.file);
+    s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, gridFsId, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
     await s.save();
-    if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
+    deleteLegacyFile(old);
+    await deleteGridAsset(old?.gridFsId);
+    fs.unlink(req.file.path, () => {});
     res.json({ message: 'সাইটের ছবি আপডেট হয়েছে', images: publicImages(s, req) });
   } catch (err) {
     if (req.file) fs.unlink(req.file.path, () => {});
@@ -170,7 +205,8 @@ exports.adminDeleteImage = async (req, res) => {
     const old = (s.images || []).find((i) => i.slot === slot);
     s.images = (s.images || []).filter((i) => i.slot !== slot);
     await s.save();
-    if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
+    deleteLegacyFile(old);
+    await deleteGridAsset(old?.gridFsId);
     res.json({ message: 'সাইটের ছবি সরানো হয়েছে', images: publicImages(s, req) });
   } catch (err) { res.status(500).json({ message: 'ছবি সরানো যায়নি' }); }
 };
@@ -229,6 +265,54 @@ exports.adminSaveFooter = async (req, res) => {
     res.status(500).json({ message: 'সেভ করা যায়নি' });
   }
 };
+
+exports.adminSavePresentation = async (req, res) => {
+  try {
+    const homepage = req.body?.homepage || {};
+    const seo = req.body?.seo || {};
+    const s = await getSettings();
+    s.homepage = {
+      showHero: homepage.showHero !== false,
+      showGallery: homepage.showGallery !== false,
+      showFeatures: homepage.showFeatures !== false,
+      showHowItWorks: homepage.showHowItWorks !== false,
+      showAudience: homepage.showAudience !== false,
+      showFaq: homepage.showFaq !== false,
+      showCta: homepage.showCta !== false,
+    };
+    s.seo = {
+      title: String(seo.title || '').trim().slice(0, 160),
+      description: String(seo.description || '').trim().slice(0, 320),
+      keywords: String(seo.keywords || '').trim().slice(0, 500),
+    };
+    await s.save();
+    res.json({ message: 'Homepage ও SEO settings সেভ হয়েছে', homepage: s.homepage, seo: s.seo });
+  } catch (err) { res.status(500).json({ message: 'Homepage settings সেভ করা যায়নি' }); }
+};
+
+exports.adminSaveFooterAndTexts = async (req, res) => {
+  try {
+    const rawTexts = Array.isArray(req.body?.overrides) ? req.body.overrides : [];
+    if (rawTexts.length > MAX_OVERRIDES) return res.status(400).json({ message: 'অনেক বেশি লেখা বদলানো হয়েছে' });
+    const seenKeys = new Set(); const textOverrides = [];
+    for (const o of rawTexts) {
+      const key = String(o?.key || ''); if (!KEY_RE.test(key) || RESERVED_KEYS.has(key) || seenKeys.has(key)) continue;
+      const bn = String(o?.bn || '').trim().slice(0, MAX_TEXT_LEN); const en = String(o?.en || '').trim().slice(0, MAX_TEXT_LEN);
+      if (bn || en) { seenKeys.add(key); textOverrides.push({ key, bn, en }); }
+    }
+    const rawLinks = Array.isArray(req.body?.footerLinks) ? req.body.footerLinks.slice(0, MAX_LINKS) : [];
+    const seenSlugs = new Set(); const footerLinks = [];
+    for (const l of rawLinks) {
+      const slug = String(l?.slug || '').trim().toLowerCase();
+      if (!SLUG_RE.test(slug)) return res.status(400).json({ message: 'পেজের স্লাগে শুধু ইংরেজি ছোট হাতের অক্ষর, সংখ্যা ও হাইফেন (-) দেওয়া যাবে' });
+      if (seenSlugs.has(slug)) return res.status(400).json({ message: `স্লাগ "${slug}" একাধিকবার ব্যবহার হয়েছে` });
+      const externalUrl = cleanHttpUrl(l?.externalUrl); if (externalUrl === null) return res.status(400).json({ message: 'বাইরের লিংক শুধু http/https হতে হবে' });
+      seenSlugs.add(slug); footerLinks.push({ slug, titleBn: String(l?.titleBn || '').trim().slice(0, 80), titleEn: String(l?.titleEn || '').trim().slice(0, 80), contentBn: String(l?.contentBn || '').slice(0, MAX_CONTENT_LEN), contentEn: String(l?.contentEn || '').slice(0, MAX_CONTENT_LEN), externalUrl, enabled: l?.enabled !== false });
+    }
+    const s = await getSettings(); s.textOverrides = textOverrides; s.footerLinks = footerLinks; await s.save();
+    res.json({ message: 'লেখা ও ফুটার লিংক একসাথে সেভ হয়েছে', textOverrides, footerLinks });
+  } catch (err) { res.status(500).json({ message: 'লেখা ও ফুটার একসাথে সেভ করা যায়নি' }); }
+};
 // Unlimited homepage image/video gallery (per-file max 50 MB)
 exports.mediaUpload = multer({
   storage: multer.diskStorage({
@@ -243,8 +327,9 @@ exports.adminUploadMedia = async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ message: 'ছবি বা ভিডিও ফাইল বাছাই করুন' });
     const s = await getSettings(); const kind = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
-    s.media = [...(s.media || []), { kind, path: `/uploads/site/${req.file.filename}`, contentType: req.file.mimetype, title: String(req.body.title || '').trim().slice(0, 160), alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() }];
-    await s.save(); res.json({ message: 'Homepage media যোগ হয়েছে', media: publicMedia(s, req) });
+    const gridFsId = await storeGridAsset(req.file);
+    s.media = [...(s.media || []), { kind, path: `/uploads/site/${req.file.filename}`, gridFsId, contentType: req.file.mimetype, title: String(req.body.title || '').trim().slice(0, 160), alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() }];
+    await s.save(); fs.unlink(req.file.path, () => {}); res.json({ message: 'Homepage media যোগ হয়েছে', media: publicMedia(s, req) });
   } catch (err) { if (req.file) fs.unlink(req.file.path, () => {}); res.status(500).json({ message: err.message || 'Media সেভ করা যায়নি' }); }
 };
 
@@ -253,7 +338,8 @@ exports.adminDeleteMedia = async (req, res) => {
     const id = String(req.params.id || ''); if (!MEDIA_ID_RE.test(id)) return res.status(400).json({ message: 'সঠিক media id দিন' });
     const s = await getSettings(); const old = (s.media || []).find((m) => String(m._id) === id);
     s.media = (s.media || []).filter((m) => String(m._id) !== id); await s.save();
-    if (old?.path) fs.unlink(path.join(__dirname, '..', old.path.replace(/^\/uploads\//, 'uploads/')), () => {});
+    deleteLegacyFile(old);
+    await deleteGridAsset(old?.gridFsId);
     res.json({ message: 'Homepage media সরানো হয়েছে', media: publicMedia(s, req) });
   } catch (err) { res.status(500).json({ message: 'Media সরানো যায়নি' }); }
 };

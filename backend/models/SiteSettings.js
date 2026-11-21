@@ -58,7 +58,8 @@ const siteSettingsSchema = new mongoose.Schema(
       type: [{
         _id: false,
         slot: { type: String, required: true },
-        path: { type: String, required: true },
+        path: { type: String, default: '' },
+        gridFsId: { type: mongoose.Schema.Types.ObjectId },
         contentType: { type: String, default: '' },
         alt: { type: String, default: '' },
         updatedAt: { type: Date },
@@ -69,13 +70,30 @@ const siteSettingsSchema = new mongoose.Schema(
     media: {
       type: [{
         kind: { type: String, enum: ['image', 'video'], required: true },
-        path: { type: String, required: true },
+        path: { type: String, default: '' },
+        gridFsId: { type: mongoose.Schema.Types.ObjectId },
         contentType: { type: String, default: '' },
         title: { type: String, default: '' },
         alt: { type: String, default: '' },
         updatedAt: { type: Date, default: Date.now },
       }],
       default: [],
+    },
+
+    // Homepage presentation and search/social metadata; all fields are optional for old records.
+    homepage: {
+      showHero: { type: Boolean, default: true },
+      showGallery: { type: Boolean, default: true },
+      showFeatures: { type: Boolean, default: true },
+      showHowItWorks: { type: Boolean, default: true },
+      showAudience: { type: Boolean, default: true },
+      showFaq: { type: Boolean, default: true },
+      showCta: { type: Boolean, default: true },
+    },
+    seo: {
+      title: { type: String, default: '' },
+      description: { type: String, default: '' },
+      keywords: { type: String, default: '' },
     },
 
     // যেকোনো লেখা বদলানো: key = ফ্রন্টএন্ডের অনুবাদ key, bn/en = নতুন লেখা (ফাঁকা = ডিফল্ট)

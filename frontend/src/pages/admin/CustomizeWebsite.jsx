@@ -30,6 +30,8 @@ export default function CustomizeWebsite({ say }) {
   const [media, setMedia] = useState([]);
   const [overrides, setOverrides] = useState({});
   const [links, setLinks] = useState([]);
+  const [homepage, setHomepage] = useState({});
+  const [seo, setSeo] = useState({ title: '', description: '', keywords: '' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -40,6 +42,8 @@ export default function CustomizeWebsite({ say }) {
         setMedia(data.media || []);
         setOverrides(toMap(data.textOverrides));
         setLinks((data.footerLinks || []).map(withKey));
+        setHomepage(data.homepage || {});
+        setSeo(data.seo || { title: '', description: '', keywords: '' });
       })
       .catch((e) => say(e.response?.data?.message || t('a.loadFailed')))
       .finally(() => setLoading(false));
@@ -62,19 +66,22 @@ export default function CustomizeWebsite({ say }) {
   });
 
   const saveFooter = () => run(async () => {
-    // শিরোনামের লেখা (footer.importantLinks) আর লিংকের তালিকা একসাথে সেভ
-    const [tx, fl] = await Promise.all([
-      axiosClient.put('/admin/site/texts', { overrides: toList(overrides) }),
-      axiosClient.put('/admin/site/footer', { footerLinks: links }),
-    ]);
-    setOverrides(toMap(tx.data.textOverrides));
-    setLinks((fl.data.footerLinks || []).map(withKey));
-    say(fl.data.message || t('a.saved'));
+    const { data } = await axiosClient.put('/admin/site/footer-and-texts', { overrides: toList(overrides), footerLinks: links });
+    setOverrides(toMap(data.textOverrides));
+    setLinks((data.footerLinks || []).map(withKey));
+    say(data.message || t('a.saved'));
+  });
+
+  const savePresentation = () => run(async () => {
+    const { data } = await axiosClient.put('/admin/site/presentation', { homepage, seo });
+    setHomepage(data.homepage || {});
+    setSeo(data.seo || {});
+    say(data.message || t('a.saved'));
   });
 
   if (loading) return <p className="text-gray-500">{t('a.loading')}</p>;
 
-  const SUBS = [['brand', 'cz.sub.brand'], ['texts', 'cz.sub.texts'], ['footer', 'cz.sub.footer']];
+  const SUBS = [['brand', 'cz.sub.brand'], ['presentation', 'Homepage & SEO'], ['texts', 'cz.sub.texts'], ['footer', 'cz.sub.footer']];
 
   return (
     <div className="space-y-5">
@@ -103,6 +110,9 @@ export default function CustomizeWebsite({ say }) {
       )}
       {sub === 'texts' && (
         <TextsTab overrides={overrides} setText={setText} resetText={resetText} onSave={saveTexts} saving={saving} />
+      )}
+      {sub === 'presentation' && (
+        <PresentationTab homepage={homepage} setHomepage={setHomepage} seo={seo} setSeo={setSeo} onSave={savePresentation} saving={saving} />
       )}
       {sub === 'footer' && (
         <FooterTab
@@ -250,6 +260,34 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
         <BilingualField label={t('cz.brandShort')} k="brand.short" overrides={overrides} setText={setText} />
         <BilingualField label={t('cz.brandSplash')} k="brand.splash" overrides={overrides} setText={setText} />
         <button type="button" className="btn-primary" onClick={onSave} disabled={saving}>{saving ? t('a.saving') : t('a.save')}</button>
+      </div>
+    </div>
+  );
+}
+
+function PresentationTab({ homepage, setHomepage, seo, setSeo, onSave, saving }) {
+  const sections = [
+    ['showHero', 'Hero section'], ['showGallery', 'Image/video gallery'], ['showFeatures', 'Features'],
+    ['showHowItWorks', 'How it works'], ['showAudience', 'Teachers & students'], ['showFaq', 'FAQ'], ['showCta', 'Call to action'],
+  ];
+  const setSeoField = (key, value) => setSeo((old) => ({ ...old, [key]: value }));
+  return (
+    <div className="space-y-4">
+      <div className="card space-y-3 p-4">
+        <div><h3 className="font-semibold dark:text-white">Homepage sections</h3><p className="text-sm text-gray-500">যে section দরকার নেই সেটি লুকিয়ে দিন। নতুন settings না থাকলে সব section default-এ দেখা যাবে।</p></div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {sections.map(([key, label]) => <label key={key} className="flex items-center gap-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-white/10 dark:text-gray-200">
+            <input type="checkbox" className="h-4 w-4" checked={homepage[key] !== false} onChange={(e) => setHomepage((old) => ({ ...old, [key]: e.target.checked }))} />
+            {label}
+          </label>)}
+        </div>
+      </div>
+      <div className="card space-y-3 p-4">
+        <div><h3 className="font-semibold dark:text-white">SEO & social preview text</h3><p className="text-sm text-gray-500">Search engine title, description ও keywords সেট করুন।</p></div>
+        <label className="block text-sm"><span className="mb-1 block font-medium dark:text-gray-200">SEO title</span><input className="input" maxLength={160} value={seo.title || ''} onChange={(e) => setSeoField('title', e.target.value)} /></label>
+        <label className="block text-sm"><span className="mb-1 block font-medium dark:text-gray-200">Meta description</span><textarea className="input min-h-[5rem]" maxLength={320} value={seo.description || ''} onChange={(e) => setSeoField('description', e.target.value)} /></label>
+        <label className="block text-sm"><span className="mb-1 block font-medium dark:text-gray-200">Keywords</span><input className="input" maxLength={500} placeholder="exam, online test, education" value={seo.keywords || ''} onChange={(e) => setSeoField('keywords', e.target.value)} /></label>
+        <button type="button" className="btn-primary" onClick={onSave} disabled={saving}>{saving ? 'Saving…' : 'Save homepage settings'}</button>
       </div>
     </div>
   );

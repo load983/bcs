@@ -123,5 +123,7 @@ router.post('/site/media', (req, res, next) => site.mediaUpload(req, res, (err) 
 router.delete('/site/media/:id', site.adminDeleteMedia);
 router.put('/site/texts', site.adminSaveTexts);
 router.put('/site/footer', site.adminSaveFooter);
+router.put('/site/presentation', site.adminSavePresentation);
+router.put('/site/footer-and-texts', site.adminSaveFooterAndTexts);
 
 module.exports = router;

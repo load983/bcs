@@ -89,10 +89,15 @@ export default function AdminDashboard() {
 
   const loadPromos = useCallback(() => axiosClient.get('/admin/promos').then(({ data }) => setPromos(data.promos)).catch(errMsg), []);
 
-  useEffect(() => { loadStats(); loadPlans(); loadPromos(); }, [loadStats, loadPlans, loadPromos]);
+  useEffect(() => { if (tab === 'overview') loadStats(); }, [tab, loadStats]);
   // সার্চ বক্সে প্রতি অক্ষরে রিকোয়েস্ট না পাঠিয়ে একটু থেমে পাঠায়
-  useEffect(() => { const id = setTimeout(loadTeachers, 250); return () => clearTimeout(id); }, [loadTeachers]);
-  useEffect(() => { loadPayments(); }, [loadPayments]);
+  useEffect(() => {
+    if (tab !== 'teachers') return undefined;
+    const id = setTimeout(loadTeachers, 250); return () => clearTimeout(id);
+  }, [tab, loadTeachers]);
+  useEffect(() => { if (tab === 'payments') loadPayments(); }, [tab, loadPayments]);
+  useEffect(() => { if (tab === 'plans') loadPlans(); }, [tab, loadPlans]);
+  useEffect(() => { if (tab === 'plans') loadPromos(); }, [tab, loadPromos]);
 
   // অপঠিত চ্যাট মেসেজের সংখ্যা (ট্যাবের ব্যাজের জন্য) — প্রতি ১০ সেকেন্ডে
   useEffect(() => {
@@ -102,7 +107,12 @@ export default function AdminDashboard() {
     return () => clearInterval(id);
   }, []);
 
-  const refresh = () => { loadStats(); loadTeachers(); loadPayments(); loadPlans(); loadPromos(); };
+  const refresh = () => {
+    if (tab === 'overview') loadStats();
+    if (tab === 'teachers') loadTeachers();
+    if (tab === 'payments') loadPayments();
+    if (tab === 'plans') { loadPlans(); loadPromos(); }
+  };
 
   const act = async (fn) => {
     try {

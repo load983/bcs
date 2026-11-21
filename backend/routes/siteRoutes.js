@@ -6,6 +6,7 @@ const ctrl = require('../controllers/siteController');
 
 router.get('/config', ctrl.getPublicConfig);
 router.get('/logo', ctrl.getLogo);
+router.get('/assets/:id', ctrl.getAsset);
 router.get('/page/:slug', ctrl.getPublicPage);
 
 module.exports = router;
