@@ -58,9 +58,13 @@ export const createExam = createAsyncThunk('exam/createExam', async (data, { rej
   }
 });
 
-export const uploadExamPdf = createAsyncThunk('exam/uploadExamPdf', async (formDataPayload, { rejectWithValue }) => {
+export const uploadExamPdf = createAsyncThunk('exam/uploadExamPdf', async (payload, { rejectWithValue }) => {
   try {
-    const r = await axios.post(`${API_URL}/upload`, formDataPayload);
+    // Keep accepting the old FormData signature while allowing the upload page
+    // to receive a real browser upload percentage.
+    const formDataPayload = payload?.formData || payload;
+    const onUploadProgress = payload?.onUploadProgress;
+    const r = await axios.post(`${API_URL}/upload`, formDataPayload, { onUploadProgress });
     return r.data;
   } catch (e) {
     return rejectWithValue(e.response?.data?.message || 'PDF upload failed');

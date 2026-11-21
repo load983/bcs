@@ -392,6 +392,7 @@ const entries = {
   'upload.change': { bn: 'ফাইল পরিবর্তন করো', en: 'Change file' },
   'upload.onlyPdf': { bn: 'শুধুমাত্র PDF ফাইল দেওয়া যাবে', en: 'Only PDF files are allowed' },
   'upload.parsing': { bn: 'ফাইল পার্স হচ্ছে...', en: 'Parsing file...' },
+  'upload.uploading': { bn: 'ফাইল আপলোড হচ্ছে...', en: 'Uploading file...' },
   'upload.submit': { bn: 'আপলোড ও পার্স করো', en: 'Upload & parse' },
 
   // ---------------------------------------------------------------- result dashboard (teacher)

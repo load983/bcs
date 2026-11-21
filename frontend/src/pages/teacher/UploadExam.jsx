@@ -13,6 +13,7 @@ export default function UploadExam() {
   const [file, setFile] = useState(null);
   const [classIds, setClassIds] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [localError, setLocalError] = useState('');
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function UploadExam() {
     if (classIds.length === 0) return setLocalError(t('classes.required'));
     if (!file) return setLocalError(t('upload.selectFile'));
     setLoading(true);
+    setUploadProgress(0);
     setLocalError('');
 
     const formData = new FormData();
@@ -30,7 +32,12 @@ export default function UploadExam() {
     formData.append('title', title);
     formData.append('classIds', JSON.stringify(classIds));
 
-    const result = await dispatch(uploadExamPdf(formData));
+    const result = await dispatch(uploadExamPdf({
+      formData,
+      onUploadProgress: (event) => {
+        if (event.total) setUploadProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      },
+    }));
     setLoading(false);
     if (uploadExamPdf.fulfilled.match(result)) {
       navigate(`/teacher/exam/${result.payload.exam._id}`);
@@ -60,6 +67,17 @@ export default function UploadExam() {
         <PdfDropzone allowDoc file={file} onFile={setFile} onError={setLocalError} />
 
         {(localError || error) && <p className="text-red-600 text-sm">{localError || error}</p>}
+        {loading && (
+          <div className="space-y-1.5" role="status" aria-live="polite">
+            <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+              <span>{uploadProgress < 100 ? t('upload.uploading') : t('upload.parsing')}</span>
+              <span className="font-semibold tabular-nums">{uploadProgress}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-gray-200 dark:bg-white/10">
+              <div className="h-full rounded-full bg-gradient-to-r from-primary-500 to-emerald-500 transition-[width] duration-200" style={{ width: `${uploadProgress}%` }} />
+            </div>
+          </div>
+        )}
         <button disabled={loading} className="btn-primary w-full">
           {loading ? t('upload.parsing') : t('upload.submit')}
         </button>
