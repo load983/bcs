@@ -230,9 +230,8 @@ exports.saveAnswer = async (req, res) => {
       return res.status(400).json({ message: 'পরীক্ষা ইতিমধ্যে জমা হয়ে গেছে' });
 
     // ⏱ সার্ভারে সময় যাচাই (টাইমার শুধু ব্রাউজারে চললে বাইপাস করা যায়) — নেটওয়ার্ক দেরির জন্য ১৫ সেকেন্ড ছাড়
-    const exam = await Exam.findById(attempt.exam).select('settings.totalTimeMinutes');
-    const limitMs = (Number(exam?.settings?.totalTimeMinutes) || 10) * 60 * 1000;
-    if (Date.now() - new Date(attempt.startedAt).getTime() > limitMs + 15000) {
+    const exam = await Exam.findById(attempt.exam).select('settings');
+    if (attemptExpired(attempt, exam)) {
       return res.status(403).json({ message: 'পরীক্ষার সময় শেষ, আর উত্তর দেওয়া যাবে না' });
     }
 
@@ -270,7 +269,12 @@ exports.saveAnswer = async (req, res) => {
     } else {
       attempt.answers.push({ question: qid, selectedOptionIndex: originalIndex });
     }
-    await attempt.save();
+    const saved = await Attempt.findOneAndUpdate(
+      { _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v },
+      { $set: { answers: attempt.answers }, $inc: { __v: 1 } },
+      { new: true }
+    );
+    if (!saved) return res.status(409).json({ message: 'উত্তর জমা/পরিবর্তন হয়েছে; পরীক্ষা রিফ্রেশ করে আবার চেষ্টা করুন' });
     res.json({ message: 'সেভ হয়েছে' });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -280,7 +284,7 @@ exports.saveAnswer = async (req, res) => {
 // ---------- ৩. Submit করা ----------
 exports.submitAttempt = async (req, res) => {
   try {
-    const attempt = await loadOwnAttempt(req, res);
+    let attempt = await loadOwnAttempt(req, res);
     if (!attempt) return;
 
     const exam = await Exam.findById(attempt.exam);
@@ -289,7 +293,23 @@ exports.submitAttempt = async (req, res) => {
     if (attempt.status === 'submitted')
       return res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
 
-    const expired = attemptExpired(attempt, exam);
+    // Claim the attempt before grading. Answer saves require submittedAt to be absent,
+    // so any save racing this transition either commits first or is rejected.
+    if (!attempt.submittedAt) {
+      const claimed = await Attempt.findOneAndUpdate(
+        { _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false } },
+        { $set: { submittedAt: new Date(), autoSubmitted: attemptExpired(attempt, exam) } },
+        { new: true }
+      );
+      if (claimed) attempt = claimed;
+      else {
+        attempt = await Attempt.findById(attempt._id);
+        if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
+        if (attempt.status === 'submitted') return res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
+        if (!attempt.submittedAt) return res.status(409).json({ message: 'পরীক্ষা জমা দেওয়ার সময় দ্বন্দ্ব হয়েছে, আবার চেষ্টা করুন' });
+      }
+    }
+    const expired = !!attempt.autoSubmitted;
     const questions = await Question.find({ _id: { $in: attempt.questionOrder } });
     const qMap = {};
     questions.forEach((q) => (qMap[q._id.toString()] = q));
@@ -324,14 +344,15 @@ exports.submitAttempt = async (req, res) => {
     attempt.totalWrong = wrong;
     attempt.totalSkipped = skipped;
     attempt.obtainedMarks = Math.round(obtainedMarks * 100) / 100;
-    attempt.submittedAt = new Date();
-    // Never trust the client-provided autoSubmitted flag. Only a server-side
-    // deadline/schedule expiry can mark an attempt as automatically submitted.
-    attempt.autoSubmitted = expired;
-    attempt.status = 'submitted';
-    await attempt.save();
-
-    res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
+    // Finalization is idempotent; concurrent submitters share the server claim and score.
+    const finalized = await Attempt.findOneAndUpdate(
+      { _id: attempt._id, status: 'in-progress', submittedAt: attempt.submittedAt },
+      { $set: { totalCorrect: correct, totalWrong: wrong, totalSkipped: skipped, obtainedMarks: Math.round(obtainedMarks * 100) / 100, autoSubmitted: expired, status: 'submitted', answers: attempt.answers } },
+      { new: true }
+    );
+    const resultAttempt = finalized || await Attempt.findById(attempt._id);
+    if (!resultAttempt || resultAttempt.status !== 'submitted') return res.status(409).json({ message: 'পরীক্ষার ফল জমা দেওয়া যায়নি, আবার চেষ্টা করুন' });
+    res.json(await buildResultPayload(resultAttempt, exam, resultsEnabled(exam)));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

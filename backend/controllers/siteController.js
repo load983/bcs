@@ -185,6 +185,7 @@ exports.imageUpload = multer({
 }).single('image');
 
 exports.adminUploadImage = async (req, res) => {
+  let newGridFsId;
   try {
     const slot = String(req.body.slot || '').trim().toLowerCase();
     if (!SLOT_RE.test(slot) || !req.file) {
@@ -195,6 +196,7 @@ exports.adminUploadImage = async (req, res) => {
     const old = (s.images || []).find((i) => i.slot === slot);
     s.images = (s.images || []).filter((i) => i.slot !== slot);
     const gridFsId = await storeGridAsset(req.file);
+    newGridFsId = gridFsId;
     const kind = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
     s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, gridFsId, kind, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
     await s.save();
@@ -203,6 +205,7 @@ exports.adminUploadImage = async (req, res) => {
     fs.unlink(req.file.path, () => {});
     res.json({ message: 'Homepage media আপডেট হয়েছে', images: publicImages(s, req) });
   } catch (err) {
+    await deleteGridAsset(newGridFsId);
     if (req.file) fs.unlink(req.file.path, () => {});
     res.status(500).json({ message: err.message || 'ছবি সেভ করা যায়নি' });
   }
@@ -343,13 +346,15 @@ exports.mediaUpload = multer({
 }).single('media');
 
 exports.adminUploadMedia = async (req, res) => {
+  let newGridFsId;
   try {
     if (!req.file) return res.status(400).json({ message: 'ছবি বা ভিডিও ফাইল বাছাই করুন' });
     const s = await getSettings(); const kind = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
     const gridFsId = await storeGridAsset(req.file);
+    newGridFsId = gridFsId;
     s.media = [...(s.media || []), { kind, path: `/uploads/site/${req.file.filename}`, gridFsId, contentType: req.file.mimetype, title: String(req.body.title || '').trim().slice(0, 160), alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() }];
     await s.save(); fs.unlink(req.file.path, () => {}); res.json({ message: 'Homepage media যোগ হয়েছে', media: publicMedia(s, req) });
-  } catch (err) { if (req.file) fs.unlink(req.file.path, () => {}); res.status(500).json({ message: err.message || 'Media সেভ করা যায়নি' }); }
+  } catch (err) { await deleteGridAsset(newGridFsId); if (req.file) fs.unlink(req.file.path, () => {}); res.status(500).json({ message: err.message || 'Media সেভ করা যায়নি' }); }
 };
 
 exports.adminDeleteMedia = async (req, res) => {

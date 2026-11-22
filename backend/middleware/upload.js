@@ -37,7 +37,7 @@ const docFileFilter = (req, file, cb) => {
 // চিত্রসহ PDF/DOCX অনেক সময় ১৫ MB ছাড়ায়; নিরাপদ সর্বোচ্চ ৫০ MB রাখা হলো।
 const limits = { fileSize: 50 * 1024 * 1024 };
 const uploader = multer({ storage, fileFilter, limits });
-uploader.examSource = multer({ storage, fileFilter: docFileFilter });
+uploader.examSource = multer({ storage, limits, fileFilter: docFileFilter });
 // Admin/teacher account import: CSV, Excel, PDF, Word, JSON বা text file। Parsing controller-এ হয়।
 uploader.dataImport = multer({
   storage,

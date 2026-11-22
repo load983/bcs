@@ -235,9 +235,11 @@ exports.adminReply = async (req, res) => {
 
 exports.adminDeleteThread = async (req, res) => {
   try {
-    const thread = await ChatThread.findByIdAndDelete(req.params.id);
+    const thread = await ChatThread.findById(req.params.id);
     if (!thread) return res.status(404).json({ message: 'কথোপকথন পাওয়া যায়নি' });
+    // Remove dependent messages first so a failed thread delete cannot leave private orphaned content.
     await ChatMessage.deleteMany({ thread: thread._id });
+    await ChatThread.deleteOne({ _id: thread._id });
     res.json({ message: 'কথোপকথন মুছে ফেলা হয়েছে' });
   } catch (err) {
     res.status(500).json({ message: 'মুছা যায়নি' });

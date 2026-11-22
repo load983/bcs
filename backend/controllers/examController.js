@@ -473,7 +473,7 @@ exports.getExamById = async (req, res) => {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
 
-    const questions = await Question.find({ exam: exam._id }).sort({ order: 1 });
+    const questions = await Question.find({ exam: exam._id }).sort({ order: 1, createdAt: 1, _id: 1 });
     res.json({ exam, questions });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -581,7 +581,7 @@ exports.publishExam = async (req, res) => {
     // Older/imported records may have a missing or out-of-range answer index;
     // a MongoDB `$lt: 0` query does not catch those cases.
     const questions = await Question.find({ exam: exam._id })
-      .select('questionText options correctOptionIndex')
+      .select('questionText options optionImages correctOptionIndex')
       .lean();
     if (questions.length === 0) {
       return res.status(400).json({ message: 'প্রকাশের আগে পরীক্ষায় কমপক্ষে একটি প্রশ্ন যোগ করুন।' });
@@ -594,7 +594,7 @@ exports.publishExam = async (req, res) => {
         || !Number.isInteger(answer)
         || answer < 0
         || answer >= options.length
-        || !String(options[answer] || '').trim();
+        || (!String(options[answer] || '').trim() && !String(q.optionImages?.[answer] || '').trim());
     }).length;
     if (invalidQuestionCount > 0) {
       return res.status(400).json({ message: `${invalidQuestionCount}টি প্রশ্ন অসম্পূর্ণ বা সঠিক উত্তরবিহীন। প্রকাশের আগে Edit করে ঠিক করুন।` });
@@ -698,7 +698,8 @@ exports.addQuestion = async (req, res) => {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
 
-    const count = await Question.countDocuments({ exam: exam._id });
+    const lastQuestion = await Question.findOne({ exam: exam._id }).sort({ order: -1, createdAt: -1, _id: -1 }).select('order').lean();
+    const nextOrder = Number.isInteger(lastQuestion?.order) ? lastQuestion.order + 1 : 0;
     const normalized = normalizeAuthoringQuestion(req.body);
     if (!normalized) {
       return res.status(400).json({ message: 'সঠিক উত্তরটি পূর্ণ অপশনের বৈধ integer index হতে হবে এবং কমপক্ষে দুটি অপশন থাকতে হবে' });
@@ -714,7 +715,7 @@ exports.addQuestion = async (req, res) => {
       diagramSource: cleanDiagram(normalized.diagram) ? cleanDiagramSource(normalized.diagramSource) : undefined,
       diagrams: cleanDiagrams(normalized.diagrams),
       exam: exam._id,
-      order: count,
+      order: nextOrder,
     });
     res.status(201).json(q);
   } catch (err) {
@@ -823,24 +824,34 @@ exports.exportResultsPdf = async (req, res) => {
     if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
     if (exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
 
-    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).sort({ obtainedMarks: -1 });
+    const match = { exam: exam._id, status: 'submitted' };
     const questionCount = await Question.countDocuments({ exam: exam._id });
     const marksPerQuestion = Number(exam.settings?.marksPerQuestion) || 1;
     const configuredQuestionCount = Number(exam.settings?.totalQuestionsToUse) || questionCount;
-    const observedQuestionCount = Math.max(0, ...attempts.map((a) => (Number(a.totalCorrect) || 0) + (Number(a.totalWrong) || 0) + (Number(a.totalSkipped) || 0)));
+    let totalCount = 0;
+    let marksSum = 0;
+    let highestMarks = 0;
+    let observedQuestionCount = 0;
+    for await (const attempt of Attempt.find(match).select('totalCorrect totalWrong totalSkipped obtainedMarks').lean().cursor()) {
+      totalCount += 1;
+      const marks = Number(attempt.obtainedMarks) || 0;
+      marksSum += marks;
+      highestMarks = Math.max(highestMarks, marks);
+      observedQuestionCount = Math.max(observedQuestionCount, (Number(attempt.totalCorrect) || 0) + (Number(attempt.totalWrong) || 0) + (Number(attempt.totalSkipped) || 0));
+    }
     const questionsUsed = observedQuestionCount || Math.min(questionCount, configuredQuestionCount);
-    const maxMarks = Math.max(questionsUsed * marksPerQuestion, ...attempts.map((a) => Number(a.obtainedMarks) || 0), 1);
+    const maxMarks = Math.max(questionsUsed * marksPerQuestion, highestMarks, 1);
     const bins = Array.from({ length: 10 }, (_, i) => ({ label: `${i * 10}–${(i + 1) * 10}%`, count: 0 }));
-    attempts.forEach((attempt) => {
+    for await (const attempt of Attempt.find(match).select('obtainedMarks').lean().cursor()) {
       const percentage = Math.max(0, Math.min(99.99, ((Number(attempt.obtainedMarks) || 0) / maxMarks) * 100));
       bins[Math.floor(percentage / 10)].count += 1;
-    });
-    const average = attempts.length ? attempts.reduce((sum, a) => sum + (Number(a.obtainedMarks) || 0), 0) / attempts.length : 0;
+    }
+    const average = totalCount ? marksSum / totalCount : 0;
     const en = String(req.query.lang || '').toLowerCase() === 'en';
     const filename = `${exam.title || 'exam'}-results.pdf`;
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', `attachment; filename="results.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`);
-    const doc = new PDFDocument({ size: 'A4', margin: 42, bufferPages: true, info: { Title: `${exam.title} results` } });
+    const doc = new PDFDocument({ size: 'A4', margin: 42, info: { Title: `${exam.title} results` } });
     doc.on('error', (err) => { if (!res.headersSent) res.status(500).end(err.message); });
     doc.pipe(res);
     const fonts = registerFonts(doc);
@@ -859,7 +870,7 @@ exports.exportResultsPdf = async (req, res) => {
     doc.y = 68;
     writeAt(summaryTitle, left, 68, { width: pageWidth, align: 'center' });
     doc.font(fonts.latin).fontSize(10).fillColor('#475569');
-    doc.text(`${totalLabel}: ${attempts.length}     ${avgLabel}: ${average.toFixed(1)}     ${topLabel}: ${attempts.length ? Math.max(...attempts.map((a) => Number(a.obtainedMarks) || 0)) : 0}`, left, 98, { width: pageWidth, align: 'center' });
+    doc.text(`${totalLabel}: ${totalCount}     ${avgLabel}: ${average.toFixed(1)}     ${topLabel}: ${highestMarks}`, left, 98, { width: pageWidth, align: 'center' });
 
     // Vector bar graph so it remains sharp in the downloaded PDF.
     writeAt(graphTitle, left, 132, { width: pageWidth, align: 'center' });
@@ -890,15 +901,15 @@ exports.exportResultsPdf = async (req, res) => {
       y += 24;
     };
     drawTableHeader();
-    attempts.forEach((attempt) => {
+    for await (const attempt of Attempt.find(match).select('studentName studentRoll totalCorrect totalWrong totalSkipped obtainedMarks').sort({ obtainedMarks: -1, _id: 1 }).lean().cursor()) {
       if (y > doc.page.height - 58) { doc.addPage(); y = 44; drawTableHeader(); }
       const values = [attempt.studentName || '-', attempt.studentRoll || '-', attempt.totalCorrect ?? 0, attempt.totalWrong ?? 0, attempt.totalSkipped ?? 0, attempt.obtainedMarks ?? 0];
       let x = left;
       values.forEach((value, i) => { writeAt(value, x + 3, y, { width: widths[i] - 6 }); x += widths[i]; });
       doc.strokeColor('#e2e8f0').lineWidth(0.4).moveTo(left, y + 17).lineTo(left + pageWidth, y + 17).stroke();
       y += 22;
-    });
-    if (!attempts.length) writeAt(en ? 'No submitted results yet.' : 'এখনো কোনো জমা দেওয়া ফল নেই।', left, y + 4, { width: pageWidth });
+    }
+    if (!totalCount) writeAt(en ? 'No submitted results yet.' : 'এখনো কোনো জমা দেওয়া ফল নেই।', left, y + 4, { width: pageWidth });
     doc.end();
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ message: err.message || 'PDF তৈরি করা যায়নি' });

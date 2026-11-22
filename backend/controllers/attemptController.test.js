@@ -11,6 +11,7 @@ const attemptId = '507f1f77bcf86cd799439011';
 const studentId = '507f1f77bcf86cd799439012';
 const otherStudentId = '507f1f77bcf86cd799439013';
 const originalAttemptFindById = Attempt.findById;
+const originalAttemptFindOneAndUpdate = Attempt.findOneAndUpdate;
 const originalExamFindById = Exam.findById;
 
 function response() {
@@ -49,6 +50,7 @@ function mockExam(exam) {
 
 test.after(() => {
   Attempt.findById = originalAttemptFindById;
+  Attempt.findOneAndUpdate = originalAttemptFindOneAndUpdate;
   Exam.findById = originalExamFindById;
 });
 
@@ -87,4 +89,32 @@ test('student original source download enforces ownership, submission, and file 
   } finally {
     fs.rmSync(tempDir, { recursive: true, force: true });
   }
+});
+
+test('saveAnswer rejects answers after the exam schedule end even when attempt time remains', async () => {
+  const questionId = '507f1f77bcf86cd799439014';
+  const now = Date.now();
+  mockAttempt({
+    _id: attemptId,
+    studentId,
+    exam: 'exam-1',
+    status: 'in-progress',
+    startedAt: new Date(now - 1000),
+    questionOrder: [questionId],
+    answers: [],
+    optionOrderMap: { [questionId]: [0, 1] },
+  });
+  mockExam({ settings: { totalTimeMinutes: 30, schedule: { enabled: true, endAt: new Date(now - 1000) } } });
+  let persisted = false;
+  Attempt.findOneAndUpdate = async () => { persisted = true; return {}; };
+  const res = response();
+
+  await controller.saveAnswer({
+    params: { attemptId },
+    user: { id: studentId },
+    body: { questionId, selectedOptionIndex: 0 },
+  }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(persisted, false);
 });

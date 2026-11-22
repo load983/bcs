@@ -148,7 +148,7 @@ export default function ResultDashboard() {
         const done = submittedResults;
         const marks = done.map((r) => Number(r.obtainedMarks) || 0);
         const avg = marks.length ? (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1) : '-';
-        const top = marks.length ? Math.max(...marks) : '-';
+        const top = marks.length ? marks.reduce((max, value) => Math.max(max, value), -Infinity) : '-';
         return (
           <div className="mb-5 grid grid-cols-3 gap-3">
             {[[t('r.stat.count'), results.length], [t('r.stat.avg'), avg], [t('r.stat.top'), top]].map(([l, v]) => (
