@@ -165,6 +165,23 @@ exports.joinExam = async (req, res) => {
 // কেমিস্ট্রি ডায়াগ্রাম: শিক্ষার্থীকে শুধু ছবির URL (ও আবার আঁকার SMILES) পাঠানো হয় — নাম/সমীকরণ নয়, যাতে উত্তরের ইঙ্গিত ফাঁস না হয়
 const studentDiagrams = (q) => (q.diagrams && q.diagrams.length ? q.diagrams.map((d) => ({ svg: d.svg, smiles: d.smiles || undefined, conditions: d.conditions || undefined })) : undefined);
 const resultsEnabled = (exam) => exam?.settings?.showResultInstantly !== false;
+// Keep written-answer scores private until every non-empty short answer on this
+// attempt has been reviewed. Original exam-file access uses a separate endpoint.
+async function resultsVisibleForAttempt(attempt, exam) {
+  if (!resultsEnabled(exam)) return false;
+  const answers = attempt?.answers || [];
+  if (!answers.length) return true;
+  const questionIds = answers.map((answer) => answer.question).filter(Boolean);
+  const questions = await Question.find({ _id: { $in: questionIds } }).select('_id type options').lean();
+  const questionMap = new Map(questions.map((question) => [String(question._id), question]));
+  return !answers.some((answer) => {
+    const question = questionMap.get(String(answer.question));
+    const isShort = question?.type === 'short'
+      || (exam?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
+    const hasResponse = String(answer.answerText || '').trim().length > 0 || (answer.answerFiles || []).length > 0;
+    return isShort && hasResponse && answer.reviewed !== true;
+  });
+}
 const attemptExpired = (attempt, exam, now = Date.now()) => {
   if (!exam || !attempt?.startedAt) return true;
   const minutes = Number(exam.settings?.totalTimeMinutes) > 0 ? Number(exam.settings.totalTimeMinutes) : 10;
@@ -309,7 +326,7 @@ exports.submitAttempt = async (req, res) => {
     if (!exam) return res.status(410).json({ message: 'এই পরীক্ষাটি আর পাওয়া যাচ্ছে না' });
 
     if (attempt.status === 'submitted')
-      return res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
+      return res.json(await buildResultPayload(attempt, exam, await resultsVisibleForAttempt(attempt, exam)));
 
     // Claim the attempt before grading. Answer saves require submittedAt to be absent,
     // so any save racing this transition either commits first or is rejected.
@@ -323,7 +340,7 @@ exports.submitAttempt = async (req, res) => {
       else {
         attempt = await Attempt.findById(attempt._id);
         if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
-        if (attempt.status === 'submitted') return res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
+        if (attempt.status === 'submitted') return res.json(await buildResultPayload(attempt, exam, await resultsVisibleForAttempt(attempt, exam)));
         if (!attempt.submittedAt) return res.status(409).json({ message: 'পরীক্ষা জমা দেওয়ার সময় দ্বন্দ্ব হয়েছে, আবার চেষ্টা করুন' });
       }
     }
@@ -379,14 +396,14 @@ exports.submitAttempt = async (req, res) => {
     );
     const resultAttempt = finalized || await Attempt.findById(attempt._id);
     if (!resultAttempt || resultAttempt.status !== 'submitted') return res.status(409).json({ message: 'পরীক্ষার ফল জমা দেওয়া যায়নি, আবার চেষ্টা করুন' });
-    if (finalized && resultsEnabled(exam)) {
+    if (finalized && await resultsVisibleForAttempt(resultAttempt, exam)) {
       User.findById(resultAttempt.studentId).select('phone parentPhone').lean().then(async (student) => {
         const config = await messaging.config();
         if (config.smsResultEnabled === false) return;
         await messaging.sendSmsToUsers([student || { phone: resultAttempt.studentPhone }], `ফলাফল: ${exam.title}। প্রাপ্ত নম্বর ${resultAttempt.obtainedMarks}, সঠিক ${resultAttempt.totalCorrect}, ভুল ${resultAttempt.totalWrong}।`);
       }).catch((error) => console.error('result SMS notification failed:', error.message));
     }
-    res.json(await buildResultPayload(resultAttempt, exam, resultsEnabled(exam)));
+    res.json(await buildResultPayload(resultAttempt, exam, await resultsVisibleForAttempt(resultAttempt, exam)));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -431,7 +448,7 @@ exports.downloadResultPdf = async (req, res) => {
       return res.status(400).json({ message: 'পরীক্ষা এখনো জমা হয়নি' });
 
     const exam = await Exam.findById(attempt.exam);
-    if (!resultsEnabled(exam)) {
+    if (!(await resultsVisibleForAttempt(attempt, exam))) {
       return res.status(403).json({ message: 'ফলাফল এখনো প্রকাশ করা হয়নি' });
     }
     const questions = await Question.find({ _id: { $in: attempt.questionOrder } });
@@ -571,7 +588,7 @@ exports.getAttemptReview = async (req, res) => {
       return res.status(400).json({ message: 'পরীক্ষা এখনো জমা হয়নি' });
 
     const exam = await Exam.findById(attempt.exam);
-    if (!resultsEnabled(exam)) {
+    if (!(await resultsVisibleForAttempt(attempt, exam))) {
       return res.status(403).json({ message: 'ফলাফল এখনো প্রকাশ করা হয়নি' });
     }
     const questions = await Question.find({ _id: { $in: attempt.questionOrder } });
@@ -631,13 +648,13 @@ exports.getMyAttempts = async (req, res) => {
 
     const examIds = [...new Set(attempts.map((a) => a.exam.toString()))];
     const exams = await Exam.find({ _id: { $in: examIds } })
-      .select('title examCode status settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
+      .select('title examCode status questionType settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
       .lean();
 
     const examMap = {};
     exams.forEach((e) => (examMap[e._id.toString()] = e));
 
-    const result = attempts.map((a) => {
+    const result = await Promise.all(attempts.map(async (a) => {
       const exam = examMap[a.exam.toString()] || {};
       const payload = {
         attemptId: a._id,
@@ -646,7 +663,7 @@ exports.getMyAttempts = async (req, res) => {
         examCode: exam.examCode || '',
         examStatus: exam.status || null,
         allowRepetition: !!exam.settings?.allowRepetition,
-        showResultInstantly: exam.settings?.showResultInstantly !== false,
+        showResultInstantly: await resultsVisibleForAttempt(a, exam),
         showLeaderboard: !!exam.settings?.showLeaderboard,
         totalQuestions: a.questionOrder?.length || 0,
         submittedAt: a.submittedAt,
@@ -660,7 +677,7 @@ exports.getMyAttempts = async (req, res) => {
         payload.obtainedMarks = a.obtainedMarks;
       }
       return payload;
-    });
+    }));
 
     res.json(result);
   } catch (err) {
