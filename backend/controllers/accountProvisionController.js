@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Class = require('../models/Class');
-const { allocateStudentRoll } = require('../utils/studentRoll');
+const { allocateStudentRoll, isValidStudentRoll, normalizeStudentRoll } = require('../utils/studentRoll');
 const { grantTrialIfEnabled } = require('../utils/trial');
 const {
   encryptCredential, generatePassword, normalizeRow, parseFile,
@@ -16,7 +16,6 @@ const normPhone = (v) => {
   else if (/^01\d{9}$/.test(p)) p = `+880${p.slice(1)}`;
   return p;
 };
-const normRoll = (v) => String(v || '').trim().replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d)).replace(/\s+/g, '');
 const validId = (v) => /^[a-f\d]{24}$/i.test(String(v || ''));
 const uniqueAccessCode = async () => {
   let code;
@@ -50,8 +49,8 @@ const createAccount = async ({ body, ownerId, isAdmin = false }) => {
   if (role === 'student' && body.classId && !classes.length) throw Object.assign(new Error('নির্বাচিত শ্রেণী পাওয়া যায়নি'), { status: 400 });
   let roll = '';
   if (role === 'student') {
-    roll = normRoll(body.roll) || await allocateStudentRoll();
-    if (!/^\d+$/.test(roll)) throw Object.assign(new Error('রোল নম্বর শুধু numeric হতে হবে'), { status: 400 });
+    roll = normalizeStudentRoll(body.roll) || await allocateStudentRoll();
+    if (!isValidStudentRoll(roll)) throw Object.assign(new Error('রোল নম্বর ১–২০ অঙ্কের numeric হতে হবে'), { status: 400 });
     if (await User.exists({ roll })) throw Object.assign(new Error('এই রোল নম্বর আগে থেকেই ব্যবহৃত হচ্ছে'), { status: 400 });
   }
   const user = await User.create({

@@ -1,6 +1,16 @@
 const User = require('../models/User');
 const Sequence = require('../models/Sequence');
 
+function normalizeStudentRoll(value) {
+  return String(value ?? '').trim()
+    .replace(/[০-৯]/g, (digit) => String('০১২৩৪৫৬৭৮৯'.indexOf(digit)))
+    .replace(/\s+/g, '');
+}
+
+function isValidStudentRoll(value) {
+  return /^\d{1,20}$/.test(String(value || ''));
+}
+
 async function allocateStudentRoll() {
   let roll;
   do {
@@ -21,4 +31,4 @@ async function allocateStudentRoll() {
   return roll;
 }
 
-module.exports = { allocateStudentRoll };
+module.exports = { allocateStudentRoll, isValidStudentRoll, normalizeStudentRoll };

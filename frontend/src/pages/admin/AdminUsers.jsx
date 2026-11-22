@@ -155,7 +155,7 @@ export default function AdminUsers({ say }) {
                     ) : (
                       <>
                         <input className="input" placeholder={t('a.u.phone')} value={edit.phone} onChange={(e) => setEdit({ ...edit, phone: e.target.value })} />
-                        <input className="input" placeholder={t('a.u.roll')} value={edit.roll} onChange={(e) => setEdit({ ...edit, roll: e.target.value })} />
+                        <input className="input" inputMode="numeric" placeholder="রোল (ফাঁকা রাখলে নতুন auto roll)" value={edit.roll} onChange={(e) => setEdit({ ...edit, roll: e.target.value })} />
                       </>
                     )}
                     <div className="flex gap-2">

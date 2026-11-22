@@ -57,6 +57,9 @@ export default function TeacherDashboard() {
   const [students, setStudents] = useState([]);
   const [studentLoading, setStudentLoading] = useState(false);
   const [studentError, setStudentError] = useState('');
+  const [rollEdit, setRollEdit] = useState(null);
+  const [rollEditError, setRollEditError] = useState('');
+  const [rollSaving, setRollSaving] = useState(false);
   // 🎓 শ্রেণী ও প্রতি শ্রেণীর এক্সেস কোড
   const [classes, setClasses] = useState([]);
   const [presets, setPresets] = useState([]);
@@ -265,6 +268,21 @@ export default function TeacherDashboard() {
       setStudents((list) => list.map((s) => (s._id === student._id ? { ...s, banned: willBan } : s)));
     } catch (err) {
       alert(err.response?.data?.message || t('dash.banFailed'));
+    }
+  };
+
+  const saveStudentRoll = async () => {
+    if (!rollEdit) return;
+    setRollSaving(true);
+    setRollEditError('');
+    try {
+      const { data } = await axiosClient.patch(`/auth/students/${rollEdit.id}/roll`, { roll: rollEdit.roll });
+      setStudents((list) => list.map((student) => student._id === rollEdit.id ? { ...student, roll: data.roll } : student));
+      setRollEdit(null);
+    } catch (err) {
+      setRollEditError(err.response?.data?.message || 'রোল নম্বর আপডেট করা যায়নি');
+    } finally {
+      setRollSaving(false);
     }
   };
 
@@ -660,7 +678,20 @@ export default function TeacherDashboard() {
                       <tr key={s._id}>
                         <td>{index + 1}</td>
                         <td className="font-medium"><div className="flex items-center gap-3"><Avatar name={s.name} />{s.name}</div></td>
-                        <td>{s.roll || '-'}</td>
+                        <td>
+                          {rollEdit?.id === s._id ? (
+                            <div className="min-w-40 space-y-1">
+                              <div className="flex items-center gap-1">
+                                <input aria-label={`${s.name} রোল নম্বর`} className="input w-28 !px-2 !py-1" inputMode="numeric" value={rollEdit.roll} onChange={(e) => { setRollEdit({ ...rollEdit, roll: e.target.value }); setRollEditError(''); }} />
+                                <button type="button" className="btn-primary !px-2 !py-1 text-xs" disabled={rollSaving} onClick={saveStudentRoll}>{rollSaving ? '...' : 'সংরক্ষণ'}</button>
+                                <button type="button" className="btn-secondary !px-2 !py-1 text-xs" disabled={rollSaving} onClick={() => { setRollEdit(null); setRollEditError(''); }}>বাতিল</button>
+                              </div>
+                              {rollEditError && <p role="alert" className="text-xs text-red-600">{rollEditError}</p>}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2"><span>{s.roll || '-'}</span><button type="button" className="act" onClick={() => { setRollEdit({ id: s._id, roll: s.roll || '' }); setRollEditError(''); }}>এডিট</button></div>
+                          )}
+                        </td>
                         <td>{s.phone || '-'}</td>
                         <td>{s.classes?.length ? s.classes.map((c) => c.name).join(', ') : '-'}</td>
                         <td>

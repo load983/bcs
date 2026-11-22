@@ -11,6 +11,8 @@ const {
   exportStudentsExcel,
   connectTeacher,
   setStudentBan,
+  updateStudentRoll,
+  getStudentProfile,
   getMyClasses,
   disconnectClass,
   requestPasswordReset,
@@ -42,6 +44,7 @@ router.get('/my-data/export', protect, authorize('teacher', 'student'), dataExpo
 // Student: শিক্ষকের এক্সেস কোড যোগ/বাতিল ও যুক্ত শিক্ষকদের তালিকা
 router.post('/student/connect-teacher', protect, authorize('student'), limits.registration, connectTeacher);
 router.get('/student/my-classes', protect, authorize('student'), getMyClasses);
+router.get('/student/profile', protect, authorize('student'), getStudentProfile);
 router.delete('/student/classes/:classId', protect, authorize('student'), disconnectClass);
 
 // Teacher Dashboard Student Management Routes (শুধু নিজের সাথে যুক্ত স্টুডেন্ট)
@@ -54,5 +57,6 @@ router.get('/students/export', protect, authorize('teacher'), requireSubscriptio
 router.get('/students/credentials/export', protect, authorize('teacher'), requireSubscription, requireFeature('exportStudents'), accounts.teacherExcel);
 router.get('/students/credentials/pdf', protect, authorize('teacher'), requireSubscription, requireFeature('exportStudents'), accounts.teacherPdf);
 router.patch('/students/:id/ban', protect, authorize('teacher'), requireSubscription, requireFeature('students'), setStudentBan);
+router.patch('/students/:id/roll', protect, authorize('teacher'), requireSubscription, requireFeature('students'), updateStudentRoll);
 
 module.exports = router;

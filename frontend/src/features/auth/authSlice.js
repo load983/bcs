@@ -73,6 +73,10 @@ const authSlice = createSlice({
   name: 'auth',
   initialState: { user: savedUser, token: savedToken, status: 'idle', error: null },
   reducers: {
+    syncUserProfile: (state, action) => {
+      state.user = { ...(state.user || {}), ...action.payload };
+      setStoredItem('user', JSON.stringify(state.user));
+    },
     logout: (state) => {
       state.user = null;
       state.token = null;
@@ -119,5 +123,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { logout } = authSlice.actions;
+export const { logout, syncUserProfile } = authSlice.actions;
 export default authSlice.reducer;

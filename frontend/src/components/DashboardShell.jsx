@@ -5,7 +5,8 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import BrandLogo from './BrandLogo';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { logout } from '../features/auth/authSlice';
+import { logout, syncUserProfile } from '../features/auth/authSlice';
+import axiosClient from '../api/axiosClient';
 import { useLanguage } from '../context/LanguageContext';
 import ThemeSwitcher from './ThemeSwitcher';
 import NotificationBell from './NotificationBell';
@@ -115,6 +116,17 @@ export default function DashboardShell({ role, children }) {
   const [q, setQ] = useState('');
   const [palette, setPalette] = useState(false);
   const [open, setOpen] = useState({});
+
+  useEffect(() => {
+    if (role !== 'student' || !user?._id) return undefined;
+    let active = true;
+    const refresh = () => axiosClient.get('/auth/student/profile')
+      .then(({ data }) => { if (active) dispatch(syncUserProfile(data)); })
+      .catch(() => {});
+    refresh();
+    window.addEventListener('focus', refresh);
+    return () => { active = false; window.removeEventListener('focus', refresh); };
+  }, [dispatch, role, user?._id]);
 
   const nav = useMemo(() => buildNav(role, t, badges), [role, t, badges]);
   const all = useMemo(() => [nav.pinned, ...nav.groups.flatMap((g) => g.items)], [nav]);

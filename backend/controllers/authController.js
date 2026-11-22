@@ -7,7 +7,7 @@ const bcrypt = require('bcryptjs');
 const { generateStudentsExcel } = require('../utils/excelExport');
 const { grantTrialIfEnabled } = require('../utils/trial');
 const { sendEmail, sendSms } = require('../utils/messaging');
-const { allocateStudentRoll } = require('../utils/studentRoll');
+const { allocateStudentRoll, isValidStudentRoll, normalizeStudentRoll } = require('../utils/studentRoll');
 const PHONE_E164_RE = /^\+[1-9]\d{7,14}$/;
 const normalizePhone = (value) => {
   const bn = '০১২৩৪৫৬৭৮৯';
@@ -183,7 +183,10 @@ exports.registerStudent = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       hashedPassword = await bcrypt.hash(password, salt);
     }
-    const assignedRoll = String(roll || '').trim() || await allocateStudentRoll();
+    const requestedRoll = normalizeStudentRoll(roll);
+    if (requestedRoll && !isValidStudentRoll(requestedRoll)) return res.status(400).json({ message: 'রোল নম্বর ১–২০ অঙ্কের numeric হতে হবে' });
+    if (requestedRoll && await User.exists({ roll: requestedRoll })) return res.status(409).json({ message: 'এই রোল নম্বর আগে থেকেই ব্যবহৃত হচ্ছে' });
+    const assignedRoll = requestedRoll || await allocateStudentRoll();
 
     const student = await User.create({
       name,
@@ -342,6 +345,41 @@ exports.setStudentBan = async (req, res) => {
     res.json({ banned, message: banned ? 'শিক্ষার্থীকে ব্যান করা হয়েছে' : 'ব্যান তুলে নেওয়া হয়েছে' });
   } catch (err) {
     res.status(500).json({ message: 'ব্যান স্ট্যাটাস পরিবর্তন করতে সমস্যা হয়েছে' });
+  }
+};
+
+// PATCH /auth/students/:id/roll — শিক্ষক কেবল নিজের roster-এর শিক্ষার্থীর roll পরিবর্তন করতে পারবেন
+exports.updateStudentRoll = async (req, res) => {
+  try {
+    if (!/^[a-f\d]{24}$/i.test(String(req.params.id || ''))) return res.status(400).json({ message: 'ভুল শিক্ষার্থী আইডি' });
+    const classes = await Class.find({ teacher: req.user.id }).select('_id').lean();
+    const student = await User.findOne({
+      _id: req.params.id,
+      role: 'student',
+      $or: [{ connectedClasses: { $in: classes.map((c) => c._id) } }, { connectedTeachers: req.user.id }],
+    });
+    if (!student) return res.status(404).json({ message: 'এই শিক্ষার্থী আপনার তালিকায় নেই' });
+    const nextRoll = normalizeStudentRoll(req.body.roll);
+    if (nextRoll && !isValidStudentRoll(nextRoll)) return res.status(400).json({ message: 'রোল নম্বর ১–২০ অঙ্কের numeric হতে হবে' });
+    if (nextRoll && await User.exists({ roll: nextRoll, _id: { $ne: student._id } })) {
+      return res.status(409).json({ message: 'এই রোল নম্বর আগে থেকেই ব্যবহৃত হচ্ছে' });
+    }
+    student.roll = nextRoll || await allocateStudentRoll();
+    await student.save();
+    return res.json({ roll: student.roll, message: 'রোল নম্বর আপডেট হয়েছে' });
+  } catch (err) {
+    return res.status(500).json({ message: 'রোল নম্বর আপডেট করা যায়নি' });
+  }
+};
+
+// GET /auth/student/profile — লগইন করা শিক্ষার্থীর সর্বশেষ profile fields
+exports.getStudentProfile = async (req, res) => {
+  try {
+    const student = await User.findOne({ _id: req.user.id, role: 'student' }).select('name roll phone parentPhone role').lean();
+    if (!student) return res.status(404).json({ message: 'শিক্ষার্থী একাউন্ট পাওয়া যায়নি' });
+    return res.json(student);
+  } catch (err) {
+    return res.status(500).json({ message: 'প্রোফাইল লোড করা যায়নি' });
   }
 };
 

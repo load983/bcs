@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const User = require('../models/User');
 const Class = require('../models/Class');
 const { encryptCredential } = require('../utils/accountProvision');
+const { allocateStudentRoll, isValidStudentRoll, normalizeStudentRoll } = require('../utils/studentRoll');
 
 const esc = (s) => String(s).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const isId = (v) => /^[a-f\d]{24}$/i.test(String(v || ''));
@@ -161,11 +162,18 @@ exports.updateUser = async (req, res) => {
           user.phone = p;
         }
       }
-      if (roll !== undefined) user.roll = String(roll).trim();
+      if (roll !== undefined) {
+        const nextRoll = normalizeStudentRoll(roll);
+        if (nextRoll && !isValidStudentRoll(nextRoll)) return res.status(400).json({ message: 'রোল নম্বর ১–২০ অঙ্কের numeric হতে হবে' });
+        if (nextRoll && await User.exists({ roll: nextRoll, _id: { $ne: user._id } })) {
+          return res.status(409).json({ message: 'এই রোল নম্বর আগে থেকেই ব্যবহৃত হচ্ছে' });
+        }
+        user.roll = nextRoll || await allocateStudentRoll();
+      }
     }
 
     await user.save();
-    res.json({ message: 'তথ্য আপডেট হয়েছে' });
+    res.json({ message: 'তথ্য আপডেট হয়েছে', roll: user.role === 'student' ? user.roll : undefined });
   } catch (err) {
     res.status(500).json({ message: 'আপডেট করতে সমস্যা হয়েছে' });
   }
