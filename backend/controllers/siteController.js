@@ -17,6 +17,13 @@ const RESERVED_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
 const SLUG_RE = /^[a-z0-9-]{1,40}$/;
 const SLOT_RE = /^[a-z0-9-]{1,30}$/;
 const MEDIA_ID_RE = /^[a-f0-9]{24}$/i;
+const APPEARANCE_VALUES = {
+  accent: new Set(['coral', 'indigo', 'violet', 'sky', 'emerald', 'rose', 'amber']),
+  mode: new Set(['light', 'dark', 'system']),
+  background: new Set(['minimal', 'blobs', 'dots', 'mesh']),
+  density: new Set(['comfortable', 'compact']),
+  radius: new Set(['sharp', 'soft', 'round']),
+};
 const siteDir = path.join(__dirname, '..', 'uploads', 'site');
 if (!fs.existsSync(siteDir)) fs.mkdirSync(siteDir, { recursive: true });
 
@@ -69,6 +76,7 @@ exports.getPublicConfig = async (req, res) => {
       media: publicMedia(s, req),
       homepage: s.homepage || {},
       seo: s.seo || {},
+      appearance: s.appearance || {},
     });
   } catch (err) {
     res.status(500).json({ message: 'তথ্য লোড করা যায়নি' });
@@ -128,6 +136,7 @@ exports.adminGet = async (req, res) => {
       media: publicMedia(s, req),
       homepage: s.homepage || {},
       seo: s.seo || {},
+      appearance: s.appearance || {},
     });
   } catch (err) {
     res.status(500).json({ message: 'সেটিংস লোড করা যায়নি' });
@@ -270,6 +279,8 @@ exports.adminSavePresentation = async (req, res) => {
   try {
     const homepage = req.body?.homepage || {};
     const seo = req.body?.seo || {};
+    const rawAppearance = req.body?.appearance || {};
+    const appearance = Object.fromEntries(Object.entries(APPEARANCE_VALUES).map(([key, allowed]) => [key, allowed.has(String(rawAppearance[key] || '')) ? String(rawAppearance[key]) : undefined]));
     const s = await getSettings();
     s.homepage = {
       showHero: homepage.showHero !== false,
@@ -285,8 +296,15 @@ exports.adminSavePresentation = async (req, res) => {
       description: String(seo.description || '').trim().slice(0, 320),
       keywords: String(seo.keywords || '').trim().slice(0, 500),
     };
+    s.appearance = {
+      accent: appearance.accent || s.appearance?.accent || 'coral',
+      mode: appearance.mode || s.appearance?.mode || 'dark',
+      background: appearance.background || s.appearance?.background || 'minimal',
+      density: appearance.density || s.appearance?.density || 'comfortable',
+      radius: appearance.radius || s.appearance?.radius || 'soft',
+    };
     await s.save();
-    res.json({ message: 'Homepage ও SEO settings সেভ হয়েছে', homepage: s.homepage, seo: s.seo });
+    res.json({ message: 'Homepage, SEO ও UI settings সেভ হয়েছে', homepage: s.homepage, seo: s.seo, appearance: s.appearance });
   } catch (err) { res.status(500).json({ message: 'Homepage settings সেভ করা যায়নি' }); }
 };
 

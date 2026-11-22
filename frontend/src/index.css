@@ -176,6 +176,19 @@
     background-image: radial-gradient(70rem 26rem at 50% -8rem, rgb(var(--accent-primary-rgb-500) / 0.14), transparent 70%);
   }
 
+  :root[data-bg="blobs"] body {
+    background-image: radial-gradient(28rem 22rem at 10% 8%, rgb(var(--accent-primary-rgb-500) / 0.14), transparent 70%), radial-gradient(30rem 24rem at 90% 30%, rgb(14 165 233 / 0.10), transparent 70%);
+  }
+  :root[data-bg="dots"] body {
+    background-image: radial-gradient(rgb(var(--accent-primary-rgb-500) / 0.16) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+  :root[data-bg="mesh"] body {
+    background-image: linear-gradient(135deg, rgb(var(--accent-primary-rgb-500) / 0.09) 25%, transparent 25%), linear-gradient(315deg, rgb(14 165 233 / 0.08) 25%, transparent 25%);
+    background-position: 0 0, 18px 18px;
+    background-size: 36px 36px;
+  }
+
   /* শিরোনাম ব্যালান্সড, প্যারাগ্রাফ সুন্দরভাবে ভাঙবে */
   h1, h2, h3 {
     text-wrap: balance;
@@ -183,6 +196,11 @@
   p {
     text-wrap: pretty;
   }
+
+  :root[data-density="compact"] body { --ui-space-scale: 0.88; font-size: 14px; }
+  :root[data-density="comfortable"] body { --ui-space-scale: 1; }
+  :root[data-radius="sharp"] .card, :root[data-radius="sharp"] .btn, :root[data-radius="sharp"] .btn-primary, :root[data-radius="sharp"] .btn-secondary, :root[data-radius="sharp"] .btn-danger, :root[data-radius="sharp"] .btn-success, :root[data-radius="sharp"] .input { border-radius: 0.35rem; }
+  :root[data-radius="round"] .card, :root[data-radius="round"] .btn, :root[data-radius="round"] .btn-primary, :root[data-radius="round"] .btn-secondary, :root[data-radius="round"] .btn-danger, :root[data-radius="round"] .btn-success, :root[data-radius="round"] .input { border-radius: 1.35rem; }
 
   /* কিবোর্ড ইউজারদের জন্য স্পষ্ট ফোকাস রিং */
   a:focus-visible,

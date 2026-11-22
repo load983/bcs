@@ -9,6 +9,11 @@ test('site settings provide safe homepage defaults', () => {
   assert.equal(settings.homepage.showCta, true);
   assert.equal(settings.seo.title, '');
   assert.equal(settings.seo.description, '');
+  assert.equal(settings.appearance.accent, 'coral');
+  assert.equal(settings.appearance.mode, 'dark');
+  assert.equal(settings.appearance.background, 'minimal');
+  assert.equal(settings.appearance.density, 'comfortable');
+  assert.equal(settings.appearance.radius, 'soft');
 });
 
 test('site media accepts durable GridFS identifiers without a local path', () => {

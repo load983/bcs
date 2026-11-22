@@ -6,9 +6,9 @@ import axiosClient from '../api/axiosClient';
 import assetUrl from '../utils/assetUrl';
 import { applyTextOverrides, useLanguage } from './LanguageContext';
 
-const SiteContext = createContext({ logoUrl: '', footerLinks: [], images: {}, media: [], homepage: {}, seo: {}, refreshSite: () => {} });
+const SiteContext = createContext({ logoUrl: '', footerLinks: [], images: {}, media: [], homepage: {}, seo: {}, appearance: {}, refreshSite: () => {} });
 const CACHE_KEY = 'site-config-v1';
-const EMPTY = { logoUrl: '', textOverrides: [], footerLinks: [], images: {}, media: [], homepage: {}, seo: {} };
+const EMPTY = { logoUrl: '', textOverrides: [], footerLinks: [], images: {}, media: [], homepage: {}, seo: {}, appearance: {} };
 
 function readCache() {
   try {
@@ -77,6 +77,7 @@ export function SiteProvider({ children }) {
     media: (cfg.media || []).map((item) => ({ ...item, url: assetUrl(item.url) })),
     homepage: cfg.homepage || {},
     seo: cfg.seo || {},
+    appearance: cfg.appearance || {},
     refreshSite,
   }), [cfg, refreshSite]);
 

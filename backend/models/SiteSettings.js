@@ -95,6 +95,14 @@ const siteSettingsSchema = new mongoose.Schema(
       description: { type: String, default: '' },
       keywords: { type: String, default: '' },
     },
+    // পাঁচটি global UI preference — পুরোনো record-এ default থাকায় migration লাগে না।
+    appearance: {
+      accent: { type: String, enum: ['coral', 'indigo', 'violet', 'sky', 'emerald', 'rose', 'amber'], default: 'coral' },
+      mode: { type: String, enum: ['light', 'dark', 'system'], default: 'dark' },
+      background: { type: String, enum: ['minimal', 'blobs', 'dots', 'mesh'], default: 'minimal' },
+      density: { type: String, enum: ['comfortable', 'compact'], default: 'comfortable' },
+      radius: { type: String, enum: ['sharp', 'soft', 'round'], default: 'soft' },
+    },
 
     // যেকোনো লেখা বদলানো: key = ফ্রন্টএন্ডের অনুবাদ key, bn/en = নতুন লেখা (ফাঁকা = ডিফল্ট)
     textOverrides: [

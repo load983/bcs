@@ -33,6 +33,7 @@ export default function CustomizeWebsite({ say }) {
   const [links, setLinks] = useState([]);
   const [homepage, setHomepage] = useState({});
   const [seo, setSeo] = useState({ title: '', description: '', keywords: '' });
+  const [appearance, setAppearance] = useState({ accent: 'coral', mode: 'dark', background: 'minimal', density: 'comfortable', radius: 'soft' });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,6 +46,7 @@ export default function CustomizeWebsite({ say }) {
         setLinks((data.footerLinks || []).map(withKey));
         setHomepage(data.homepage || {});
         setSeo(data.seo || { title: '', description: '', keywords: '' });
+        setAppearance({ accent: 'coral', mode: 'dark', background: 'minimal', density: 'comfortable', radius: 'soft', ...(data.appearance || {}) });
       })
       .catch((e) => say(e.response?.data?.message || t('a.loadFailed')))
       .finally(() => setLoading(false));
@@ -74,9 +76,10 @@ export default function CustomizeWebsite({ say }) {
   });
 
   const savePresentation = () => run(async () => {
-    const { data } = await axiosClient.put('/admin/site/presentation', { homepage, seo });
+    const { data } = await axiosClient.put('/admin/site/presentation', { homepage, seo, appearance });
     setHomepage(data.homepage || {});
     setSeo(data.seo || {});
+    setAppearance({ accent: 'coral', mode: 'dark', background: 'minimal', density: 'comfortable', radius: 'soft', ...(data.appearance || {}) });
     say(data.message || t('a.saved'));
   });
 
@@ -113,7 +116,7 @@ export default function CustomizeWebsite({ say }) {
         <TextsTab overrides={overrides} setText={setText} resetText={resetText} onSave={saveTexts} saving={saving} />
       )}
       {sub === 'presentation' && (
-        <PresentationTab homepage={homepage} setHomepage={setHomepage} seo={seo} setSeo={setSeo} onSave={savePresentation} saving={saving} />
+        <PresentationTab homepage={homepage} setHomepage={setHomepage} seo={seo} setSeo={setSeo} appearance={appearance} setAppearance={setAppearance} onSave={savePresentation} saving={saving} />
       )}
       {sub === 'footer' && (
         <FooterTab
@@ -271,14 +274,33 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
   );
 }
 
-function PresentationTab({ homepage, setHomepage, seo, setSeo, onSave, saving }) {
+function PresentationTab({ homepage, setHomepage, seo, setSeo, appearance, setAppearance, onSave, saving }) {
   const sections = [
     ['showHero', 'Hero section'], ['showGallery', 'Image/video gallery'], ['showFeatures', 'Features'],
     ['showHowItWorks', 'How it works'], ['showAudience', 'Teachers & students'], ['showFaq', 'FAQ'], ['showCta', 'Call to action'],
   ];
   const setSeoField = (key, value) => setSeo((old) => ({ ...old, [key]: value }));
+  const setAppearanceField = (key, value) => setAppearance((old) => ({ ...old, [key]: value }));
+  const appearanceOptions = [
+    ['accent', 'Accent color', [['coral', 'Coral'], ['indigo', 'Indigo'], ['violet', 'Violet'], ['sky', 'Sky'], ['emerald', 'Emerald'], ['rose', 'Rose'], ['amber', 'Amber']]],
+    ['mode', 'Default theme', [['light', 'Light'], ['dark', 'Dark'], ['system', 'System']]],
+    ['background', 'Background style', [['minimal', 'Minimal'], ['blobs', 'Blobs'], ['dots', 'Dots'], ['mesh', 'Mesh']]],
+    ['density', 'UI spacing', [['comfortable', 'Comfortable'], ['compact', 'Compact']]],
+    ['radius', 'Corner style', [['sharp', 'Sharp'], ['soft', 'Soft'], ['round', 'Round']]],
+  ];
   return (
     <div className="space-y-4">
+      <div className="card space-y-3 p-4">
+        <div><h3 className="font-semibold dark:text-white">Global UI appearance</h3><p className="text-sm text-gray-500">এই ৫টি option বদলালে site-এর সব visitor-এর জন্য নতুন UI style প্রয়োগ হবে।</p></div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {appearanceOptions.map(([key, label, options]) => <label key={key} className="block text-sm">
+            <span className="mb-1 block font-medium dark:text-gray-200">{label}</span>
+            <select className="input" value={appearance[key] || options[0][0]} onChange={(e) => setAppearanceField(key, e.target.value)}>
+              {options.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+            </select>
+          </label>)}
+        </div>
+      </div>
       <div className="card space-y-3 p-4">
         <div><h3 className="font-semibold dark:text-white">Homepage sections</h3><p className="text-sm text-gray-500">যে section দরকার নেই সেটি লুকিয়ে দিন। নতুন settings না থাকলে সব section default-এ দেখা যাবে।</p></div>
         <div className="grid gap-2 sm:grid-cols-2">

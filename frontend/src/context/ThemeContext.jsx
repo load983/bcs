@@ -1,6 +1,7 @@
 // ================== context/ThemeContext.jsx ==================
 // Light/Dark/System mode, accent colors, and wallpaper preferences.
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
+import { useSite } from './SiteContext';
 
 const ThemeContext = createContext(null);
 
@@ -25,6 +26,8 @@ export const BG_STYLES = [
   { key: 'dots', labelKey: 'theme.bg.dots' },
   { key: 'mesh', labelKey: 'theme.bg.mesh' },
 ];
+const DENSITIES = ['comfortable', 'compact'];
+const RADII = ['sharp', 'soft', 'round'];
 
 function readLocal(key) {
   if (typeof window === 'undefined') return null;
@@ -79,10 +82,20 @@ function readInitialBgStyle() {
 }
 
 export function ThemeProvider({ children }) {
+  const { appearance } = useSite();
   const [mode, setModeState] = useState(readInitialMode);
   const [accent, setAccentState] = useState(readInitialAccent);
   const [bgStyle, setBgStyleState] = useState(readInitialBgStyle);
   const [systemDark, setSystemDark] = useState(getSystemPrefersDark);
+
+  // Admin appearance settings are the shared site default and override local preferences.
+  useEffect(() => {
+    if (MODES.includes(appearance?.mode)) setModeState(appearance.mode);
+    if (ACCENTS.some((item) => item.key === appearance?.accent)) setAccentState(appearance.accent);
+    if (BG_STYLES.some((item) => item.key === appearance?.background)) setBgStyleState(appearance.background);
+    if (DENSITIES.includes(appearance?.density)) writeLocal('theme-density', appearance.density);
+    if (RADII.includes(appearance?.radius)) writeLocal('theme-radius', appearance.radius);
+  }, [appearance]);
 
   // Track OS/browser preference changes, including older Safari implementations.
   useEffect(() => {
@@ -115,6 +128,8 @@ export function ThemeProvider({ children }) {
     root.classList.toggle('dark', resolvedDark);
     root.setAttribute('data-accent', accent);
     root.setAttribute('data-bg', bgStyle);
+    root.setAttribute('data-density', readLocal('theme-density') || 'comfortable');
+    root.setAttribute('data-radius', readLocal('theme-radius') || 'soft');
     root.style.colorScheme = resolvedDark ? 'dark' : 'light';
     const browserThemeColor = document.querySelector('meta[name="theme-color"]');
     if (browserThemeColor) browserThemeColor.setAttribute('content', resolvedDark ? '#0b0b0e' : '#f9fafb');
@@ -123,7 +138,7 @@ export function ThemeProvider({ children }) {
     writeLocal(BG_KEY, bgStyle);
     // Keep the legacy key for older parts of the application.
     writeLocal('theme', resolvedDark ? 'dark' : 'light');
-  }, [mode, accent, bgStyle, resolvedDark]);
+  }, [mode, accent, bgStyle, resolvedDark, appearance]);
 
   const setMode = useCallback((value) => {
     if (MODES.includes(value)) setModeState(value);
