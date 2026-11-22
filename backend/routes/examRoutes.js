@@ -57,6 +57,7 @@ router.delete('/diagrams/:did', requireFeature('diagrams'), diagrams.remove);
 router.get('/', requireFeature('manageExams'), ctrl.getMyExams);
 router.post('/', requireFeature('createExam'), enforceExamLimit, ctrl.createExam); // 👈 শিক্ষক নিজে অনলাইনে MCQ প্রশ্ন লিখে পরীক্ষা তৈরি করার রুট
 router.get('/attempts/:attemptId', requireFeature('results'), ctrl.getAttemptDetails);
+router.post('/attempts/:attemptId/short-answers/suggest', requireFeature('results'), ctrl.suggestShortAnswerMarks);
 router.patch('/attempts/:attemptId/short-answers', requireFeature('results'), ctrl.gradeShortAnswers);
 router.get('/:id/feedback', requireFeature('examFeedback'), feedbackCtrl.getExamFeedback);
 

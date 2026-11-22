@@ -7,6 +7,7 @@ const questionSchema = new mongoose.Schema(
     exam: { type: mongoose.Schema.Types.ObjectId, ref: 'Exam', required: true },
     questionText: { type: String, required: true },
     type: { type: String, enum: ['mcq', 'short'], default: 'mcq' },
+    gradingRubric: { type: String, default: '', maxlength: 3000 },
     options: {
       type: [String], // ['অপশন A টেক্সট', 'অপশন B টেক্সট', ...]
       default: undefined,

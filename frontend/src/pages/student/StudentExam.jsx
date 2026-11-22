@@ -27,6 +27,17 @@ export default function StudentExam() {
   const pendingSavesRef = useRef(new Map());
   const failedSavesRef = useRef(new Set());
   const submittedRef = useRef(false);
+  const questionRefs = useRef([]);
+  useEffect(() => {
+    const elements = questionRefs.current.filter(Boolean);
+    if (!elements.length || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter((entry) => entry.isIntersecting).sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+      if (visible) { const index = Number(visible.target.dataset.questionIndex); if (Number.isFinite(index)) setCurrentIndex(index); }
+    }, { threshold: [0.25, 0.5, 0.75] });
+    elements.forEach((element) => observer.observe(element));
+    return () => observer.disconnect();
+  }, [questions.length]);
 
   // জয়েন না করে সরাসরি এই পেজে এলে জয়েন পেজে ফেরত পাঠাও
   useEffect(() => {
@@ -148,13 +159,16 @@ export default function StudentExam() {
     );
   }
 
-  const q = questions[currentIndex];
   const answeredCount = Object.values(answersMap).filter((v) => v !== null && v !== undefined).length;
   const progressPct = Math.round((answeredCount / questions.length) * 100);
+  const jumpToQuestion = (index) => {
+    setCurrentIndex(index);
+    questionRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6">
-      <div className="glass sticky top-16 z-20 -mx-4 mb-4 px-4 pb-3 pt-3 sm:mx-0 sm:rounded-2xl sm:px-5">
+    <div className="mx-auto max-w-5xl px-4 py-5 sm:py-6">
+      <div className="glass -mx-4 mb-4 px-4 pb-3 pt-3 sm:mx-0 sm:rounded-2xl sm:px-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <h1 className="truncate text-lg font-semibold dark:text-white">{examTitle}</h1>
           <Timer startedAt={startedAt} totalMinutes={totalTimeMinutes} onTimeUp={() => handleSubmit(true)} />
@@ -166,109 +180,52 @@ export default function StudentExam() {
           <span className="shrink-0 text-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">{answeredCount}/{questions.length}</span>
         </div>
       </div>
+      <div className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{t('exam.tabWarning')}</div>
+      {saveError && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{saveError}</p>}
 
-      <div className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">
-        {t('exam.tabWarning')}
-      </div>
-      {saveError && (
-        <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">
-          {saveError}
-        </p>
-      )}
-
-      <div className="grid gap-6 sm:grid-cols-[1fr_auto]">
-        {/* ---------- প্রশ্ন ---------- */}
-        <div className="card p-5 sm:p-7">
-          <p className="mb-3 text-sm font-medium text-primary-600 dark:text-primary-400">
-            {t('exam.questionOf', { current: currentIndex + 1, total: questions.length })}
-          </p>
-          <h2 className="mb-5 text-lg font-medium leading-relaxed dark:text-white sm:text-xl"><MathText text={q.questionText} /></h2>
-          {q.diagram && (
-            <div className="mb-5">
-              <ZoomImage src={assetUrl(q.diagram)} alt={t('diagram.alt')} className="mx-auto max-h-[28rem] w-full rounded-lg border border-gray-200 bg-white object-contain p-1 sm:w-auto" />
-              <p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">🔍 {t('diagram.zoomHint')}</p>
-            </div>
-          )}
-          {q.diagrams && q.diagrams.length > 0 && (
-            <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>
-          )}
-          {q.type === 'short' ? (
-            <div className="space-y-3">
-              <textarea className="input min-h-40 w-full" disabled={isLocked(q._id)} value={shortDrafts[q._id]?.text || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), text: e.target.value } }))} placeholder="উত্তর লিখুন…" />
-              <input type="file" disabled={isLocked(q._id)} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(e) => readAnswerFiles(e.target.files, q._id)} />
-              {(shortDrafts[q._id]?.files || []).length > 0 && <p className="text-xs text-gray-500">{shortDrafts[q._id].files.length}টি file প্রস্তুত হয়েছে</p>}
-              <button type="button" className="btn-primary" disabled={isLocked(q._id) || submitting} onClick={() => handleShortSubmit(q._id)}>উত্তর জমা দিন</button>
-            </div>
-          ) : (
-          <div className="space-y-3">
-            {(Array.isArray(q.options) ? q.options : []).map((opt, i) => {
-              const locked = isLocked(q._id);
-              const selected = answersMap[q._id] === i;
-              return (
-              <label
-                key={i}
-                className={`flex items-center gap-3 rounded-2xl border-2 p-3.5 transition-all focus-within:ring-2 focus-within:ring-primary-500/40
-                  ${locked ? 'cursor-not-allowed' : 'cursor-pointer'}
-                  ${
-                    selected
-                      ? 'border-primary-500 bg-primary-50 shadow-sm dark:border-primary-500/60 dark:bg-primary-500/10'
-                      : locked
-                      ? 'border-gray-100 opacity-50 dark:border-white/10'
-                      : 'border-gray-100 bg-white hover:border-primary-300 dark:border-white/10 dark:bg-transparent dark:hover:border-primary-500/40'
-                  }`}
-              >
-                <input
-                  type="radio"
-                  name={`q-${q._id}`}
-                  checked={selected}
-                  disabled={locked}
-                  onChange={() => handleSelect(q._id, i)}
-                  className="sr-only"
-                />
-                <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-colors ${selected ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>{String.fromCharCode(65 + i)}</span>
-                <span className="min-w-0 dark:text-white">
-                  {opt ? <MathText text={opt} /> : null}
-                  {(q.optionImages || [])[i] && <ZoomImage src={q.optionImages[i]} className={`max-h-40 max-w-full rounded-lg border border-gray-200 bg-white object-contain ${opt ? 'mt-2' : ''}`} />}
+      <div className="grid items-start gap-5 sm:grid-cols-[minmax(0,1fr)_220px]">
+        <div className="order-2 space-y-4 sm:order-1">
+          {questions.map((q, index) => (
+            <article key={q._id} ref={(element) => { questionRefs.current[index] = element; }} data-question-index={index} className="card scroll-mt-4 p-5 sm:p-7">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-primary-600 dark:text-primary-400">{t('exam.questionOf', { current: index + 1, total: questions.length })}</p>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${answersMap[q._id] !== undefined && answersMap[q._id] !== null ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>
+                  {answersMap[q._id] !== undefined && answersMap[q._id] !== null ? 'উত্তর জমা হয়েছে' : 'উত্তর বাকি'}
                 </span>
-              </label>
-              );
-            })}
-            {isLocked(q._id) && (
-              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('exam.answerLocked')}</p>
-            )}
-          </div>
-          )}
-
-          <div className="mt-6 flex justify-between">
-            <button
-              disabled={currentIndex === 0}
-              onClick={() => setCurrentIndex((i) => i - 1)}
-              className="btn-secondary disabled:opacity-40"
-            >
-              {t('exam.prev')}
-            </button>
-            {currentIndex < questions.length - 1 ? (
-              <button onClick={() => setCurrentIndex((i) => i + 1)} className="btn-primary">
-                {t('exam.next')}
-              </button>
-            ) : (
-              <button onClick={() => handleSubmit(false)} className="btn-success">
-                {t('exam.submit')}
-              </button>
-            )}
-          </div>
+              </div>
+              <h2 className="mb-5 text-lg font-medium leading-relaxed dark:text-white sm:text-xl"><MathText text={q.questionText} /></h2>
+              {q.diagram && <div className="mb-5"><ZoomImage src={assetUrl(q.diagram)} alt={t('diagram.alt')} className="mx-auto max-h-[28rem] w-full rounded-lg border border-gray-200 bg-white object-contain p-1 sm:w-auto" /><p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">🔍 {t('diagram.zoomHint')}</p></div>}
+              {q.diagrams?.length > 0 && <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>}
+              {q.type === 'short' ? (
+                <div className="space-y-3">
+                  <textarea className="input min-h-36 w-full" disabled={isLocked(q._id) || submitting} value={shortDrafts[q._id]?.text || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), text: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+                  <input type="file" disabled={isLocked(q._id) || submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(e) => readAnswerFiles(e.target.files, q._id)} />
+                  {(shortDrafts[q._id]?.files || []).length > 0 && <p className="text-xs text-gray-500">{shortDrafts[q._id].files.length}টি file প্রস্তুত হয়েছে</p>}
+                  <button type="button" className="btn-primary" disabled={isLocked(q._id) || submitting} onClick={() => handleShortSubmit(q._id)}>{isLocked(q._id) ? 'উত্তর জমা হয়েছে' : 'উত্তর জমা দিন'}</button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {(Array.isArray(q.options) ? q.options : []).map((opt, optionIndex) => {
+                    const locked = isLocked(q._id);
+                    const selected = answersMap[q._id] === optionIndex;
+                    return <label key={optionIndex} className={`flex items-center gap-3 rounded-2xl border-2 p-3.5 transition-all focus-within:ring-2 focus-within:ring-primary-500/40 ${locked ? 'cursor-not-allowed' : 'cursor-pointer'} ${selected ? 'border-primary-500 bg-primary-50 shadow-sm dark:border-primary-500/60 dark:bg-primary-500/10' : locked ? 'border-gray-100 opacity-50 dark:border-white/10' : 'border-gray-100 bg-white hover:border-primary-300 dark:border-white/10 dark:bg-transparent dark:hover:border-primary-500/40'}`}>
+                      <input type="radio" name={`q-${q._id}`} checked={selected} disabled={locked || submitting} onChange={() => handleSelect(q._id, optionIndex)} className="sr-only" />
+                      <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold transition-colors ${selected ? 'bg-primary-600 text-white' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>{String.fromCharCode(65 + optionIndex)}</span>
+                      <span className="min-w-0 dark:text-white">{opt ? <MathText text={opt} /> : null}{(q.optionImages || [])[optionIndex] && <ZoomImage src={q.optionImages[optionIndex]} className={`max-h-40 max-w-full rounded-lg border border-gray-200 bg-white object-contain ${opt ? 'mt-2' : ''}`} />}</span>
+                    </label>;
+                  })}
+                  {isLocked(q._id) && <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('exam.answerLocked')}</p>}
+                </div>
+              )}
+            </article>
+          ))}
+          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success w-full py-4 text-base disabled:opacity-60">{submitting ? 'জমা হচ্ছে…' : t('exam.submitNow')}</button>
         </div>
-
-        {/* ---------- Question Palette ---------- */}
-        <div className="card h-fit p-4 sm:sticky sm:top-40">
-          <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
-            {t('exam.answered', { answered: answeredCount, total: questions.length })}
-          </p>
-          <QuestionPalette questions={questions} answersMap={answersMap} currentIndex={currentIndex} onJump={setCurrentIndex} />
-          <button onClick={() => handleSubmit(false)} className="btn-success mt-4 w-full text-sm">
-            {t('exam.submitNow')}
-          </button>
-        </div>
+        <aside className="card order-1 h-fit p-4 sm:sticky sm:top-4 sm:order-2">
+          <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{t('exam.answered', { answered: answeredCount, total: questions.length })}</p>
+          <QuestionPalette questions={questions} answersMap={answersMap} currentIndex={currentIndex} onJump={jumpToQuestion} />
+          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success mt-4 w-full text-sm disabled:opacity-60">{submitting ? 'জমা হচ্ছে…' : t('exam.submitNow')}</button>
+        </aside>
       </div>
     </div>
   );

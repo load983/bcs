@@ -177,7 +177,7 @@ async function resultsVisibleForAttempt(attempt, exam) {
   return !answers.some((answer) => {
     const question = questionMap.get(String(answer.question));
     const isShort = question?.type === 'short'
-      || (exam?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
+      || (exam?.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
     const hasResponse = String(answer.answerText || '').trim().length > 0 || (answer.answerFiles || []).length > 0;
     return isShort && hasResponse && answer.reviewed !== true;
   });

@@ -68,6 +68,10 @@ export default function ResultDashboard() {
   const [pdfBusy, setPdfBusy] = useState(false);
   const [reviewAttempt, setReviewAttempt] = useState(null);
   const [reviewMarks, setReviewMarks] = useState({});
+  const [reviewRubrics, setReviewRubrics] = useState({});
+  const [suggestionReasons, setSuggestionReasons] = useState({});
+  const [suggesting, setSuggesting] = useState(false);
+  const [bulkMark, setBulkMark] = useState('');
   const [reviewFeedback, setReviewFeedback] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const canViewFeedback = !!status && has('examFeedback');
@@ -140,8 +144,11 @@ export default function ResultDashboard() {
       const { data } = await axiosClient.get(`/exams/attempts/${attemptId}`);
       setReviewAttempt(data);
       const initial = {};
-      (data.answers || []).forEach((a) => { if (a.question?.type === 'short') initial[a.question._id] = a.marksAwarded ?? ''; });
+      const rubrics = {};
+      (data.answers || []).forEach((a) => { if (a.question?.type === 'short') { initial[a.question._id] = a.marksAwarded ?? ''; rubrics[a.question._id] = a.question.gradingRubric || ''; } });
       setReviewMarks(initial);
+      setReviewRubrics(rubrics);
+      setSuggestionReasons({});
       setReviewFeedback(data.teacherFeedback || '');
     } catch (err) { window.alert(err.response?.data?.message || 'Answer load করা যায়নি'); }
     finally { setReviewBusy(false); }
@@ -151,13 +158,32 @@ export default function ResultDashboard() {
     if (!reviewAttempt) return;
     setReviewBusy(true);
     try {
-      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks, feedback: reviewFeedback });
+      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks, rubrics: reviewRubrics, feedback: reviewFeedback });
       setReviewAttempt(null);
       dispatch(fetchExamResults(id));
     } catch (err) { window.alert(err.response?.data?.message || 'Marks save করা যায়নি'); }
     finally { setReviewBusy(false); }
   };
 
+  const applyBulkMark = () => {
+    const value = Number(bulkMark);
+    if (!Number.isFinite(value) || value < 0 || value > shortMax) return;
+    setReviewMarks((current) => {
+      const updated = { ...current };
+      reviewAnswers.forEach((answer) => { updated[answer.question._id] = String(value); });
+      return updated;
+    });
+  };
+  const requestAiSuggestions = async () => {
+    if (!reviewAttempt) return;
+    setSuggesting(true);
+    try {
+      const { data } = await axiosClient.post(`/exams/attempts/${reviewAttempt._id}/short-answers/suggest`);
+      setReviewMarks((current) => ({ ...current, ...Object.fromEntries((data.suggestions || []).map((item) => [item.questionId, String(item.marks)])) }));
+      setSuggestionReasons(Object.fromEntries((data.suggestions || []).map((item) => [item.questionId, item.reason])));
+    } catch (err) { window.alert(err.response?.data?.message || 'AI suggestion আনতে সমস্যা হয়েছে'); }
+    finally { setSuggesting(false); }
+  };
   const reviewAnswers = reviewAttempt
     ? (reviewAttempt.answers || [])
       .filter((a) => a.question?.type === 'short')
@@ -193,12 +219,14 @@ export default function ResultDashboard() {
 
       {(() => {
         const done = submittedResults;
+        const reviewTotal = done.reduce((sum, item) => sum + (item.reviewProgress?.total || 0), 0);
+        const reviewDone = done.reduce((sum, item) => sum + (item.reviewProgress?.reviewed || 0), 0);
         const marks = done.map((r) => Number(r.obtainedMarks) || 0);
         const avg = marks.length ? (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1) : '-';
         const top = marks.length ? marks.reduce((max, value) => Math.max(max, value), -Infinity) : '-';
         return (
-          <div className="mb-5 grid grid-cols-3 gap-3">
-            {[[t('r.stat.count'), results.length], [t('r.stat.avg'), avg], [t('r.stat.top'), top]].map(([l, v]) => (
+          <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[[t('r.stat.count'), results.length], [t('r.stat.avg'), avg], [t('r.stat.top'), top], [lang === 'en' ? 'Short answers reviewed' : 'Short উত্তর review', `${reviewDone}/${reviewTotal}`]].map(([l, v]) => (
               <div key={l} className="card px-4 py-3">
                 <div className="text-xs text-gray-500 dark:text-gray-400">{l}</div>
                 <div className="text-2xl font-semibold tabular-nums text-primary-700 dark:text-primary-300">{v}</div>
@@ -285,7 +313,7 @@ export default function ResultDashboard() {
                 <td className="text-center text-gray-500">{r.totalSkipped}</td>
                 <td className="text-center font-semibold">{r.obtainedMarks}</td>
                 <td className="text-center"><span className={`badge ${r.status === 'submitted' ? (r.autoSubmitted ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300') : 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'}`}>{r.status === 'submitted' ? (r.autoSubmitted ? t('resultDash.autoSubmit') : t('resultDash.submitted')) : t('resultDash.ongoing')}</span></td>
-                <td className="text-center">{r.status === 'submitted' && <button type="button" className="act" onClick={() => openReview(r._id)} disabled={reviewBusy}>Review</button>}</td>
+                <td className="text-center">{r.status === 'submitted' && <div className="flex flex-col items-center gap-1"><button type="button" className="act" onClick={() => openReview(r._id)} disabled={reviewBusy}>Review</button>{r.reviewProgress?.total > 0 && <span className="text-xs text-gray-500">{r.reviewProgress.reviewed}/{r.reviewProgress.total} reviewed</span>}</div>}</td>
               </tr>
             ))}
             {results.length === 0 && (
@@ -296,8 +324,31 @@ export default function ResultDashboard() {
       </div>
 
       {reviewAttempt && <section className="card mt-5 overflow-hidden p-0">
-        <div className="border-b border-gray-200 bg-primary-50/70 p-5 dark:border-white/10 dark:bg-primary-500/10"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">Short answer script</p><h2 className="mt-1 text-xl font-semibold dark:text-white">{reviewAttempt.studentName || 'Student'}</h2><p className="text-sm text-gray-600 dark:text-gray-300">Roll: {reviewAttempt.studentRoll || '—'} · Submitted: {reviewAttempt.submittedAt ? new Date(reviewAttempt.submittedAt).toLocaleString(lang === 'en' ? 'en-US' : 'bn-BD') : '—'}</p></div><button className="act" onClick={() => setReviewAttempt(null)}>Close</button></div><div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="rounded-lg bg-white px-3 py-2 font-semibold text-primary-700 shadow-sm dark:bg-white/10 dark:text-primary-200">{reviewAnswers.length} questions</span><span className="rounded-lg bg-white px-3 py-2 font-semibold text-emerald-700 shadow-sm dark:bg-white/10 dark:text-emerald-300">Marks given: {reviewedTotal} / {reviewAnswers.length * shortMax}</span></div></div>
-        <div className="space-y-4 p-5">{reviewAnswers.length === 0 ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">এই শিক্ষার্থী কোনো Short Question উত্তর জমা দেয়নি।</p> : reviewAnswers.map((a, index) => <article key={a.question._id} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]"><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">{index + 1}</span><p className="pt-1 font-semibold leading-relaxed dark:text-white">{a.question.questionText}</p></div><span className="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">পূর্ণমান: {shortMax}</span></div><div className="ml-11 mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-4 dark:border-white/15 dark:bg-black/10"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Student answer</p><p className="whitespace-pre-wrap break-words text-sm leading-7 dark:text-gray-200">{a.answerText || 'কোনো লিখিত উত্তর নেই'}</p>{a.answerFiles?.length > 0 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{a.answerFiles.map((file, i) => <ShortAnswerFile key={`${file.name}-${i}`} file={file} index={i} />)}</div>}</div><div className="ml-11 mt-4 flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm font-semibold dark:text-gray-200">প্রাপ্ত নম্বর <input type="number" min="0" max={shortMax} step="0.01" className="input w-28" placeholder="0" value={reviewMarks[a.question._id] ?? ''} onChange={(e) => setReviewMarks((m) => ({ ...m, [a.question._id]: e.target.value }))} /></label><span className="text-xs text-gray-500 dark:text-gray-400">এই প্রশ্নের নম্বর লিখুন</span></div></article>)}<div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><label className="block text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য<textarea className="input mt-2 min-h-24 w-full resize-y bg-white dark:bg-gray-900" maxLength={5000} placeholder="খাতার সামগ্রিক মন্তব্য লিখুন…" value={reviewFeedback} onChange={(e) => setReviewFeedback(e.target.value)} /><span className="mt-1 block text-right text-xs text-gray-500 dark:text-gray-400">{reviewFeedback.length}/5000</span></label></div><div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10"><p className="text-lg font-bold dark:text-white">মোট প্রাপ্ত নম্বর: {reviewedTotal} / {reviewAnswers.length * shortMax}</p><button className="btn-primary" onClick={saveReview} disabled={reviewBusy}>{reviewBusy ? 'Saving…' : 'Save marks & feedback'}</button></div></div>
+        <div className="border-b border-gray-200 bg-primary-50/70 p-5 dark:border-white/10 dark:bg-primary-500/10">
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-xs font-semibold uppercase tracking-wide text-primary-700 dark:text-primary-300">Short answer script</p><h2 className="mt-1 text-xl font-semibold dark:text-white">{reviewAttempt.studentName || 'Student'}</h2><p className="text-sm text-gray-600 dark:text-gray-300">Roll: {reviewAttempt.studentRoll || '—'} · Submitted: {reviewAttempt.submittedAt ? new Date(reviewAttempt.submittedAt).toLocaleString(lang === 'en' ? 'en-US' : 'bn-BD') : '—'}</p></div><button className="act" onClick={() => setReviewAttempt(null)}>Close</button></div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="rounded-lg bg-white px-3 py-2 font-semibold text-primary-700 shadow-sm dark:bg-white/10 dark:text-primary-200">{reviewAnswers.length} questions</span><span className="rounded-lg bg-white px-3 py-2 font-semibold text-emerald-700 shadow-sm dark:bg-white/10 dark:text-emerald-300">Marks given: {reviewedTotal} / {reviewAnswers.length * shortMax}</span></div>
+        </div>
+        <div className="space-y-4 p-5">
+          {reviewAnswers.length === 0 ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">এই শিক্ষার্থী কোনো Short Question উত্তর জমা দেয়নি।</p> : <>
+            <div className="flex flex-wrap items-end gap-3 rounded-xl bg-gray-50 p-3 dark:bg-white/5">
+              <label className="text-sm font-medium dark:text-gray-200">একই নম্বর সবার জন্য<input className="input mt-1 w-32" type="number" min="0" max={shortMax} step="0.01" value={bulkMark} onChange={(e) => setBulkMark(e.target.value)} placeholder={`0–${shortMax}`} /></label>
+              <button type="button" className="btn-secondary" onClick={applyBulkMark}>সব উত্তরে প্রয়োগ</button>
+              <button type="button" className="btn-primary" onClick={requestAiSuggestions} disabled={suggesting}>{suggesting ? 'AI দেখছে…' : 'AI নম্বরের প্রস্তাব'}</button>
+              <span className="w-full text-xs text-amber-700 dark:text-amber-300">টাইপ করা উত্তর configured AI provider-এ যাবে; AI কেবল প্রস্তাব দেবে—যাচাই/সম্পাদনা করে তারপর Save করুন। ছবি/PDF AI পড়ে না; সেগুলো নিজে দেখে নম্বর দিন।</span>
+            </div>
+            {reviewAnswers.map((a, index) => {
+              const qid = a.question._id;
+              return <article key={qid} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
+                <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">{index + 1}</span><p className="pt-1 font-semibold leading-relaxed dark:text-white">{a.question.questionText}</p></div><span className="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">পূর্ণমান: {shortMax}</span></div>
+                <div className="ml-11 mt-4"><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">MARKING RUBRIC / KEY POINTS<textarea className="input mt-1 min-h-16 w-full bg-gray-50 dark:bg-gray-900" maxLength={3000} value={reviewRubrics[qid] || ''} onChange={(e) => setReviewRubrics((items) => ({ ...items, [qid]: e.target.value }))} placeholder="কোন মূল ধারণা থাকলে কত নম্বর দিতে হবে? (optional)" /></label></div>
+                <div className="ml-11 mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-4 dark:border-white/15 dark:bg-black/10"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Student answer</p><p className="whitespace-pre-wrap break-words text-sm leading-7 dark:text-gray-200">{a.answerText || 'কোনো লিখিত উত্তর নেই'}</p>{a.answerFiles?.length > 0 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{a.answerFiles.map((file, i) => <ShortAnswerFile key={`${file.name}-${i}`} file={file} index={i} />)}</div>}</div>
+                <div className="ml-11 mt-4 flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm font-semibold dark:text-gray-200">প্রাপ্ত নম্বর <input type="number" min="0" max={shortMax} step="0.01" className="input w-28" placeholder="0" value={reviewMarks[qid] ?? ''} onChange={(e) => setReviewMarks((m) => ({ ...m, [qid]: e.target.value }))} /></label>{suggestionReasons[qid] ? <span className="text-xs text-violet-700 dark:text-violet-300">AI প্রস্তাব: {suggestionReasons[qid]}</span> : <span className="text-xs text-gray-500 dark:text-gray-400">এই প্রশ্নের নম্বর লিখুন</span>}</div>
+              </article>;
+            })}
+          </>}
+          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><label className="block text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য<textarea className="input mt-2 min-h-24 w-full resize-y bg-white dark:bg-gray-900" maxLength={5000} placeholder="খাতার সামগ্রিক মন্তব্য লিখুন…" value={reviewFeedback} onChange={(e) => setReviewFeedback(e.target.value)} /><span className="mt-1 block text-right text-xs text-gray-500 dark:text-gray-400">{reviewFeedback.length}/5000</span></label></div>
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10"><p className="text-lg font-bold dark:text-white">মোট প্রাপ্ত নম্বর: {reviewedTotal} / {reviewAnswers.length * shortMax}</p><button className="btn-primary" onClick={saveReview} disabled={reviewBusy}>{reviewBusy ? 'Saving…' : 'Save marks & feedback'}</button></div>
+        </div>
       </section>}
     </div>
   );
