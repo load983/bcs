@@ -13,6 +13,43 @@ const BRAND_KEYS = ['brand.name', 'brand.short', 'brand.splash'];
 const PAGE_SIZE = 40;
 const ALL_KEYS = Object.keys(translations.bn);
 const GROUPS = [...new Set(ALL_KEYS.map((k) => k.split('.')[0]))].sort();
+const HOME_MEDIA_MAX_BYTES = 50 * 1024 * 1024;
+const HOME_MEDIA_ACCEPTED = /^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/;
+const SLOT_GUIDANCE = {
+  hero: { title: 'Hero', width: 1200, height: 600 },
+  promo: { title: 'Promotion (How it works)', width: 1600, height: 500 },
+  feature: { title: 'Feature', width: 1200, height: 400 },
+};
+
+function readMediaDimensions(file, url) {
+  return new Promise((resolve) => {
+    const media = file.type.startsWith('video/') ? document.createElement('video') : new Image();
+    const finish = () => resolve({ width: media.videoWidth || media.naturalWidth || 0, height: media.videoHeight || media.naturalHeight || 0 });
+    media.onloadedmetadata = finish;
+    media.onload = finish;
+    media.onerror = finish;
+    media.src = url;
+    if (media.tagName === 'VIDEO') media.load();
+  });
+}
+
+async function inspectHomepageMedia(file, url, slot) {
+  if (!HOME_MEDIA_ACCEPTED.test(file.type)) return { error: 'এই ফরম্যাট সমর্থিত নয়। PNG/JPG/WEBP/GIF ছবি বা MP4/WEBM/OGG ভিডিও দিন।' };
+  if (file.size > HOME_MEDIA_MAX_BYTES) return { error: 'ফাইলটি ৫০ MB-এর বেশি; ছোট ফাইল বেছে নিন।' };
+  const { width, height } = await readMediaDimensions(file, url);
+  if (!width || !height) return { error: 'ফাইলটির preview বা dimensions পড়া যায়নি; ফাইলটি valid কিনা যাচাই করুন।' };
+  const guidance = SLOT_GUIDANCE[slot];
+  const aspect = width / height;
+  const recommendedAspect = file.type.startsWith('video/') ? 16 / 9 : guidance.width / guidance.height;
+  const minWidth = file.type.startsWith('video/') ? 1280 : guidance.width;
+  const minHeight = file.type.startsWith('video/') ? 720 : guidance.height;
+  const lowResolution = width < minWidth || height < minHeight;
+  const ratioMismatch = Math.abs(aspect - recommendedAspect) / recommendedAspect > 0.12;
+  const warning = lowResolution || ratioMismatch
+    ? `প্রস্তাবিত ${file.type.startsWith('video/') ? 'ভিডিও' : 'ছবি'} মাপ ${minWidth} × ${minHeight} px${file.type.startsWith('video/') ? ' (16:9)' : ''}; নির্বাচিত ফাইল ${width} × ${height} px। ${ratioMismatch ? 'এই অংশে crop হতে পারে।' : 'ছবি ঝাপসা দেখাতে পারে।'}`
+    : '';
+  return { width, height, warning };
+}
 
 // overrides: { key: { bn, en } }
 const toMap = (list) => Object.fromEntries((list || []).map((o) => [o.key, { bn: o.bn || '', en: o.en || '' }]));
@@ -156,6 +193,8 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
   const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(null);
+  const [pendingSlots, setPendingSlots] = useState({});
+  const [pendingGallery, setPendingGallery] = useState(null);
   const uploadConfig = { onUploadProgress: (event) => event.total && setUploadProgress(Math.round((event.loaded / event.total) * 100)) };
 
   const upload = async (e) => {
@@ -190,14 +229,20 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
     } finally { setBusy(false); setUploadProgress(null); }
   };
 
-  const uploadSlot = async (slot, e) => {
+  const selectSlot = async (slot, e) => {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
-    if (!/^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/.test(file.type) || file.size > 50 * 1024 * 1024) return say('PNG/JPG/WEBP/GIF ছবি অথবা MP4/WEBM/OGG ভিডিও, সর্বোচ্চ ৫০ MB');
+    const url = URL.createObjectURL(file);
+    const inspection = await inspectHomepageMedia(file, url, slot);
+    setPendingSlots((old) => { if (old[slot]?.url) URL.revokeObjectURL(old[slot].url); return { ...old, [slot]: { file, url, ...inspection } }; });
+  };
+  const uploadSlot = async (slot) => {
+    const file = pendingSlots[slot]?.file;
+    if (!file || pendingSlots[slot]?.error) return;
     const fd = new FormData(); fd.append('image', file); fd.append('slot', slot); fd.append('alt', slot);
     setBusy(true);
     setUploadProgress(0);
-    try { const { data } = await axiosClient.post('/admin/site/image', fd, uploadConfig); setImages(data.images || {}); await refreshSite(); say(data.message || t('a.saved')); }
+    try { const { data } = await axiosClient.post('/admin/site/image', fd, uploadConfig); setImages(data.images || {}); await refreshSite(); setPendingSlots((old) => { if (old[slot]?.url) URL.revokeObjectURL(old[slot].url); const next = { ...old }; delete next[slot]; return next; }); say(data.message || t('a.saved')); }
     catch (err) { say(err.response?.data?.message || t('a.saveFailed')); }
     finally { setBusy(false); setUploadProgress(null); }
   };
@@ -208,11 +253,17 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
     finally { setBusy(false); setUploadProgress(null); }
   };
 
-  const uploadMedia = async (e) => {
+  const selectGalleryMedia = async (e) => {
     const file = e.target.files?.[0]; e.target.value = ''; if (!file) return;
-    if (!/^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/.test(file.type) || file.size > 50 * 1024 * 1024) return say('ছবি বা MP4/WEBM/OGG ভিডিও, সর্বোচ্চ ৫০ MB');
+    const url = URL.createObjectURL(file);
+    const inspection = await inspectHomepageMedia(file, url, 'promo');
+    setPendingGallery((old) => { if (old?.url) URL.revokeObjectURL(old.url); return { file, url, ...inspection }; });
+  };
+  const uploadMedia = async () => {
+    const file = pendingGallery?.file;
+    if (!file || pendingGallery?.error) return;
     const fd = new FormData(); fd.append('media', file); fd.append('title', file.name.replace(/\.[^.]+$/, ''));
-    setBusy(true); setUploadProgress(0); try { const { data } = await axiosClient.post('/admin/site/media', fd, uploadConfig); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); setUploadProgress(null); }
+    setBusy(true); setUploadProgress(0); try { const { data } = await axiosClient.post('/admin/site/media', fd, uploadConfig); setMedia(data.media || []); await refreshSite(); if (pendingGallery?.url) URL.revokeObjectURL(pendingGallery.url); setPendingGallery(null); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); setUploadProgress(null); }
   };
   const removeMedia = async (id) => {
     setBusy(true); try { const { data } = await axiosClient.delete(`/admin/site/media/${id}`); setMedia(data.media || []); await refreshSite(); say(data.message || t('a.saved')); } catch (err) { say(err.response?.data?.message || t('a.saveFailed')); } finally { setBusy(false); setUploadProgress(null); }
@@ -248,12 +299,26 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
             <div key={slot} className="rounded-xl border border-gray-200 p-3 dark:border-white/10">
               <div className="mb-1 text-sm font-medium dark:text-gray-200">{{ hero: 'Hero', promo: 'Promotion (How it works)', feature: 'Feature' }[slot]}</div>
               <p className="mb-2 text-xs text-gray-500">{{ hero: 'ছবি: 1200 × 600 px', promo: 'ছবি: 1600 × 500 px', feature: 'ছবি: 1200 × 400 px' }[slot]} · ভিডিও: 16:9 সুপারিশ</p>
-              {images[slot]?.url && (images[slot].kind === 'video' || images[slot].contentType?.startsWith('video/')
-                ? <video src={assetUrl(images[slot].url)} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
-                : <img src={assetUrl(images[slot].url)} alt={images[slot].alt || slot} className="mb-2 h-24 w-full rounded-lg object-cover" />)}
+              {pendingSlots[slot]?.url
+                ? (pendingSlots[slot].file.type.startsWith('video/')
+                  ? <video src={pendingSlots[slot].url} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
+                  : pendingSlots[slot].file.type.startsWith('image/') && <img src={pendingSlots[slot].url} alt="Selected media preview" className="mb-2 h-24 w-full rounded-lg object-cover" />)
+                : images[slot]?.url && (images[slot].kind === 'video' || images[slot].contentType?.startsWith('video/')
+                  ? <video src={assetUrl(images[slot].url)} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
+                  : <img src={assetUrl(images[slot].url)} alt={images[slot].alt || slot} className="mb-2 h-24 w-full rounded-lg object-cover" />)}
+              {pendingSlots[slot] && <div className="mb-2 space-y-1 text-xs">
+                <p className="text-gray-500">{pendingSlots[slot].file.name} · {(pendingSlots[slot].file.size / (1024 * 1024)).toFixed(2)} MB{pendingSlots[slot].width ? ` · ${pendingSlots[slot].width} × ${pendingSlots[slot].height} px` : ''}</p>
+                {pendingSlots[slot].error && <p role="alert" className="rounded-lg bg-red-50 p-2 text-red-700 dark:bg-red-500/10 dark:text-red-300">সতর্কতা: {pendingSlots[slot].error}</p>}
+                {pendingSlots[slot].warning && <p role="status" className="rounded-lg bg-amber-50 p-2 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">সতর্কতা: {pendingSlots[slot].warning}</p>}
+                {!pendingSlots[slot].error && !pendingSlots[slot].warning && <p className="text-emerald-700 dark:text-emerald-300">ফরম্যাট ও মাপ ঠিক আছে।</p>}
+              </div>}
               <div className="flex flex-wrap gap-2">
-                <label className="btn-secondary cursor-pointer !px-2 !py-1 text-xs">ছবি / ভিডিও আপলোড<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={(e) => uploadSlot(slot, e)} disabled={busy} /></label>
-                {images[slot]?.url && <button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeSlot(slot)} disabled={busy}>Remove</button>}
+                <label className="btn-secondary cursor-pointer !px-2 !py-1 text-xs">ফাইল বাছুন<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={(e) => selectSlot(slot, e)} disabled={busy} /></label>
+                {pendingSlots[slot] && <>
+                  <button type="button" className="btn-primary !px-2 !py-1 text-xs" onClick={() => uploadSlot(slot)} disabled={busy || Boolean(pendingSlots[slot].error)}>আপলোড নিশ্চিত</button>
+                  <button type="button" className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { URL.revokeObjectURL(pendingSlots[slot].url); setPendingSlots((old) => { const next = { ...old }; delete next[slot]; return next; }); }} disabled={busy}>বাতিল</button>
+                </>}
+                {!pendingSlots[slot] && images[slot]?.url && <button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeSlot(slot)} disabled={busy}>Remove</button>}
               </div>
             </div>
           ))}
@@ -262,7 +327,15 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
 
       <div className="card space-y-4 p-4">
         <div><h3 className="font-semibold dark:text-white">Homepage ছবি ও ভিডিও গ্যালারি</h3><p className="text-sm text-gray-500">যত ইচ্ছা ছবি/ভিডিও যোগ করুন—সব homepage-এ দেখা যাবে। প্রতি ফাইল সর্বোচ্চ ৫০ MB।</p></div>
-        <label className="btn-primary inline-flex w-fit cursor-pointer">+ ছবি / ভিডিও যোগ করুন<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={uploadMedia} disabled={busy} /></label>
+        <label className="btn-primary inline-flex w-fit cursor-pointer">+ ছবি / ভিডিও বাছুন<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={selectGalleryMedia} disabled={busy} /></label>
+        {pendingGallery && <div className="max-w-md rounded-xl border border-gray-200 p-3 dark:border-white/10">
+          {pendingGallery.file.type.startsWith('video/') ? <video src={pendingGallery.url} controls playsInline preload="metadata" className="mb-2 aspect-video w-full rounded-lg bg-black object-cover" /> : pendingGallery.file.type.startsWith('image/') && <img src={pendingGallery.url} alt="Selected gallery media preview" className="mb-2 aspect-video w-full rounded-lg object-cover" />}
+          <p className="text-xs text-gray-500">{pendingGallery.file.name} · {(pendingGallery.file.size / (1024 * 1024)).toFixed(2)} MB{pendingGallery.width ? ` · ${pendingGallery.width} × ${pendingGallery.height} px` : ''}</p>
+          {pendingGallery.error && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">সতর্কতা: {pendingGallery.error}</p>}
+          {pendingGallery.warning && <p role="status" className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">সতর্কতা: {pendingGallery.warning}</p>}
+          {!pendingGallery.error && !pendingGallery.warning && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">ফরম্যাট ও মাপ ঠিক আছে।</p>}
+          <div className="mt-2 flex gap-2"><button type="button" className="btn-primary !px-2 !py-1 text-xs" onClick={uploadMedia} disabled={busy || Boolean(pendingGallery.error)}>আপলোড নিশ্চিত</button><button type="button" className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { URL.revokeObjectURL(pendingGallery.url); setPendingGallery(null); }} disabled={busy}>বাতিল</button></div>
+        </div>}
         {media?.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{media.map((item) => <div key={item.id} className="overflow-hidden rounded-xl border border-gray-200 p-2 dark:border-white/10">{item.kind === 'video' ? <video src={assetUrl(item.url)} controls className="h-28 w-full rounded-lg bg-black object-cover" /> : <img src={assetUrl(item.url)} alt={item.alt || item.title} className="h-28 w-full rounded-lg object-cover" />}<div className="mt-2 flex items-center justify-between gap-2"><span className="truncate text-xs text-gray-600 dark:text-gray-300">{item.title || item.kind}</span><button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeMedia(item.id)} disabled={busy}>Remove</button></div></div>)}</div>}
       </div>
 
