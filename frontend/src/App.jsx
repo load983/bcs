@@ -117,8 +117,8 @@ export default function App() {
 
           {/* ---------- Student রুট (পাবলিক লিংক দিয়ে জয়েন) ---------- */}
           <Route path="/join/:code" element={<StudentJoin />} />
-          <Route path="/exam/live" element={<StudentExam />} />
-          <Route path="/exam/result" element={<StudentResult />} />
+          <Route path="/exam/live" element={<PrivateRoute role="student"><StudentExam /></PrivateRoute>} />
+          <Route path="/exam/result" element={<PrivateRoute role="student"><StudentResult /></PrivateRoute>} />
 
           {/* ---------- 404 ---------- */}
           <Route path="*" element={<NotFound />} />

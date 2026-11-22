@@ -56,7 +56,19 @@ const emptyAttemptState = {
 const loadSavedAttempt = () => {
   try {
     const saved = sessionStorage.getItem('student-attempt-state');
-    return saved ? { ...emptyAttemptState, ...JSON.parse(saved) } : emptyAttemptState;
+    if (!saved) return emptyAttemptState;
+    const parsed = JSON.parse(saved);
+    let currentUserId = null;
+    try {
+      currentUserId = JSON.parse(localStorage.getItem('user') || 'null')?._id || null;
+    } catch {
+      currentUserId = null;
+    }
+    if (!currentUserId || parsed.ownerId !== currentUserId) {
+      sessionStorage.removeItem('student-attempt-state');
+      return emptyAttemptState;
+    }
+    return { ...emptyAttemptState, ...parsed };
   } catch {
     return emptyAttemptState;
   }

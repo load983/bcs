@@ -84,6 +84,10 @@ exports.joinExam = async (req, res) => {
     }
 
     const allowRepetition = exam.settings?.allowRepetition;
+    const schedule = exam.settings?.schedule;
+    if (schedule?.enabled && schedule.endAt && new Date() > new Date(schedule.endAt)) {
+      return res.status(400).json({ message: 'পরীক্ষার সময় শেষ হয়ে গেছে' });
+    }
 
     const studentQuery = { exam: exam._id, studentId };
 
@@ -105,7 +109,6 @@ exports.joinExam = async (req, res) => {
     }
 
     // 🗓️ শিডিউল চালু থাকলে নির্ধারিত সময়ের বাইরে নতুন করে পরীক্ষা শুরু করা যাবে না
-    const schedule = exam.settings?.schedule;
     if (schedule?.enabled) {
       const now = new Date();
       if (schedule.startAt && now < new Date(schedule.startAt)) {
@@ -160,6 +163,13 @@ exports.joinExam = async (req, res) => {
 // কেমিস্ট্রি ডায়াগ্রাম: শিক্ষার্থীকে শুধু ছবির URL (ও আবার আঁকার SMILES) পাঠানো হয় — নাম/সমীকরণ নয়, যাতে উত্তরের ইঙ্গিত ফাঁস না হয়
 const studentDiagrams = (q) => (q.diagrams && q.diagrams.length ? q.diagrams.map((d) => ({ svg: d.svg, smiles: d.smiles || undefined, conditions: d.conditions || undefined })) : undefined);
 const resultsEnabled = (exam) => exam?.settings?.showResultInstantly !== false;
+const attemptExpired = (attempt, exam, now = Date.now()) => {
+  if (!exam || !attempt?.startedAt) return true;
+  const minutes = Number(exam.settings?.totalTimeMinutes) > 0 ? Number(exam.settings.totalTimeMinutes) : 10;
+  if (now - new Date(attempt.startedAt).getTime() > minutes * 60 * 1000 + 15000) return true;
+  const schedule = exam.settings?.schedule;
+  return !!(schedule?.enabled && schedule.endAt && now > new Date(schedule.endAt).getTime());
+};
 
 function buildStudentExamPayload(exam, attempt, questions) {
   const optionOrderMap = attempt.optionOrderMap || {};
@@ -270,16 +280,16 @@ exports.saveAnswer = async (req, res) => {
 // ---------- ৩. Submit করা ----------
 exports.submitAttempt = async (req, res) => {
   try {
-    const { autoSubmitted } = req.body || {};
-
     const attempt = await loadOwnAttempt(req, res);
     if (!attempt) return;
 
     const exam = await Exam.findById(attempt.exam);
+    if (!exam) return res.status(410).json({ message: 'এই পরীক্ষাটি আর পাওয়া যাচ্ছে না' });
 
     if (attempt.status === 'submitted')
-      return res.json(await buildResultPayload(attempt, exam, exam?.settings?.showResultInstantly));
+      return res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
 
+    const expired = attemptExpired(attempt, exam);
     const questions = await Question.find({ _id: { $in: attempt.questionOrder } });
     const qMap = {};
     questions.forEach((q) => (qMap[q._id.toString()] = q));
@@ -315,11 +325,13 @@ exports.submitAttempt = async (req, res) => {
     attempt.totalSkipped = skipped;
     attempt.obtainedMarks = Math.round(obtainedMarks * 100) / 100;
     attempt.submittedAt = new Date();
-    attempt.autoSubmitted = !!autoSubmitted;
+    // Never trust the client-provided autoSubmitted flag. Only a server-side
+    // deadline/schedule expiry can mark an attempt as automatically submitted.
+    attempt.autoSubmitted = expired;
     attempt.status = 'submitted';
     await attempt.save();
 
-    res.json(await buildResultPayload(attempt, exam, exam?.settings?.showResultInstantly));
+    res.json(await buildResultPayload(attempt, exam, resultsEnabled(exam)));
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

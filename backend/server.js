@@ -115,7 +115,25 @@ app.use('/uploads/diagrams', express.static(path.join(uploadDir, 'diagrams'), {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   },
 }));
-app.use('/uploads', express.static(uploadDir));
+// Only deliberately public media may be served directly. Exam source files,
+// resource PDFs, imports and teacher backups must go through authenticated
+// controller endpoints; exposing the whole upload directory bypasses those
+// ownership checks.
+const PUBLIC_UPLOAD_EXTENSIONS = new Set([
+  '.jpg', '.jpeg', '.png', '.webp', '.gif',
+  '.mp4', '.webm', '.mov', '.m4v',
+]);
+app.use('/uploads', (req, res, next) => {
+  let requestPath;
+  try {
+    requestPath = decodeURIComponent(req.path);
+  } catch {
+    return res.status(404).end();
+  }
+  const extension = path.extname(requestPath).toLowerCase();
+  if (!PUBLIC_UPLOAD_EXTENSIONS.has(extension)) return res.status(404).end();
+  return next();
+}, express.static(uploadDir, { index: false, dotfiles: 'deny' }));
 
 // রাউট গুলো মাউন্ট করা হলো
 app.use('/api/auth', authRoutes);       // লগইন/রেজিস্ট্রেশন (Teacher & Student)

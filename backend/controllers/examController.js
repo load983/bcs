@@ -57,6 +57,16 @@ const validateClassesForTeacher = async (teacherId, rawIds) => {
   return { ids: classes.map((c) => c._id) };
 };
 
+const isSafeResourceLink = (value) => {
+  if (typeof value !== 'string' || value.trim().length > 2048) return false;
+  try {
+    const url = new URL(value.trim());
+    return url.protocol === 'http:' || url.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 // ---------- ১. PDF আপলোড করে নতুন Exam তৈরি করা ----------
 exports.uploadExamPdf = async (req, res) => {
   try {
@@ -495,7 +505,12 @@ exports.updateExamSettings = async (req, res) => {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
 
-    exam.title = req.body.title ?? exam.title;
+    if (req.body.title !== undefined) {
+      if (typeof req.body.title !== 'string' || !req.body.title.trim() || req.body.title.trim().length > 200) {
+        return res.status(400).json({ message: 'পরীক্ষার নাম ১ থেকে ২০০ অক্ষরের মধ্যে হতে হবে' });
+      }
+      exam.title = req.body.title.trim();
+    }
 
     // শ্রেণী পরিবর্তন (ঐচ্ছিক, একাধিক)
     if (req.body.classIds !== undefined) {
@@ -522,8 +537,23 @@ exports.updateExamSettings = async (req, res) => {
     }
 
     const updatedSettings = { ...exam.settings?.toObject(), ...incomingSettings };
-    if (!updatedSettings.totalTimeMinutes || Number(updatedSettings.totalTimeMinutes) <= 0) {
+    const duration = Number(updatedSettings.totalTimeMinutes);
+    if (!Number.isFinite(duration) || duration <= 0 || duration > 1440) {
       updatedSettings.totalTimeMinutes = 10;
+    } else {
+      updatedSettings.totalTimeMinutes = duration;
+    }
+    const marks = Number(updatedSettings.marksPerQuestion ?? 1);
+    if (!Number.isFinite(marks) || marks < 0 || marks > 100) {
+      return res.status(400).json({ message: 'প্রতি প্রশ্নের নম্বর ০ থেকে ১০০-এর মধ্যে হতে হবে' });
+    }
+    updatedSettings.marksPerQuestion = marks;
+    if (updatedSettings.negativeMarking?.enabled) {
+      const negative = Number(updatedSettings.negativeMarking.marksPerWrong ?? 0);
+      if (!Number.isFinite(negative) || negative < 0 || negative > 100) {
+        return res.status(400).json({ message: 'ভুল উত্তরের কাটা নম্বর ০ থেকে ১০০-এর মধ্যে হতে হবে' });
+      }
+      updatedSettings.negativeMarking.marksPerWrong = negative;
     }
     
     exam.settings = updatedSettings;
@@ -593,11 +623,28 @@ exports.updateQuestion = async (req, res) => {
     if (!q) return res.status(404).json({ message: 'প্রশ্ন পাওয়া যায়নি' });
 
     const exam = await Exam.findById(q.exam);
+    if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
     if (exam.teacher.toString() !== req.user.id) {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
 
-    const body = { ...req.body };
+    const body = {};
+    ['questionText', 'explanation', 'order'].forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
+    });
+    if (body.questionText !== undefined) {
+      if (typeof body.questionText !== 'string' || !body.questionText.trim()) {
+        return res.status(400).json({ message: 'প্রশ্নের লেখা আবশ্যক' });
+      }
+      body.questionText = body.questionText.trim();
+    }
+    if (body.explanation !== undefined) body.explanation = String(body.explanation).trim();
+    if (body.order !== undefined && (!Number.isInteger(body.order) || body.order < 0)) {
+      return res.status(400).json({ message: 'প্রশ্নের ক্রম সঠিক নয়' });
+    }
+    ['options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams'].forEach((field) => {
+      if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
+    });
     if ('diagram' in body) {
       body.diagram = cleanDiagram(body.diagram) || undefined;
       body.diagramSource = body.diagram ? cleanDiagramSource(body.diagramSource) : undefined;
@@ -615,6 +662,8 @@ exports.updateQuestion = async (req, res) => {
     body.optionImages = normalized.optionImages;
     body.correctOptionIndex = normalized.correctOptionIndex;
     if (diagramsChangedWhileLocked(req, { ...q.toObject(), ...body }, [q])) return diagramLocked(res);
+    // Never copy arbitrary request keys: in particular, `exam`, `_id`, and
+    // timestamps must not be writable through this endpoint.
     Object.assign(q, body);
     await q.save();
     res.json(q);
@@ -629,6 +678,7 @@ exports.deleteQuestion = async (req, res) => {
     if (!q) return res.status(404).json({ message: 'প্রশ্ন পাওয়া যায়নি' });
 
     const exam = await Exam.findById(q.exam);
+    if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
     if (exam.teacher.toString() !== req.user.id) {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
@@ -973,11 +1023,13 @@ exports.setResourceLink = async (req, res) => {
     }
 
     const { link } = req.body;
-    if (!link) return res.status(400).json({ message: 'লিংক আবশ্যক' });
+    if (!isSafeResourceLink(link)) {
+      return res.status(400).json({ message: 'শুধুমাত্র বৈধ http বা https resource link দেওয়া যাবে' });
+    }
 
     if (exam.resource?.pdfPath) safeDeleteFile(exam.resource.pdfPath);
 
-    exam.resource = { kind: 'link', link, pdfPath: undefined, pdfOriginalName: undefined };
+    exam.resource = { kind: 'link', link: link.trim(), pdfPath: undefined, pdfOriginalName: undefined };
     await exam.save();
     res.json(exam);
   } catch (err) {

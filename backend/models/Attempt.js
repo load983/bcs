@@ -47,6 +47,11 @@ const attemptSchema = new mongoose.Schema(
 
 // রোল ও স্টুডেন্ট আইডি অনুযায়ী দ্রুত খোঁজার জন্য ইনডেক্স
 attemptSchema.index({ exam: 1, studentRoll: 1 });
-attemptSchema.index({ exam: 1, studentId: 1 });
+// A student may have many submitted attempts when repetition is enabled, but
+// there can only be one resumable attempt per exam/student pair.
+attemptSchema.index(
+  { exam: 1, studentId: 1 },
+  { unique: true, partialFilterExpression: { status: 'in-progress', studentId: { $type: 'objectId' } } }
+);
 
 module.exports = mongoose.model('Attempt', attemptSchema);
