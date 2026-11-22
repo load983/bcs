@@ -10,6 +10,7 @@ import ClassSelect from '../../components/ClassSelect';
 import MathText from '../../components/MathText';
 import FormulaToolbar from '../../components/FormulaToolbar';
 import QuestionDiagram from '../../components/QuestionDiagram';
+import QuestionAudioField from '../../components/QuestionAudioField';
 import assetUrl from '../../utils/assetUrl';
 import ZoomImage from '../../components/ZoomImage';
 import ChemDiagramList from '../../components/ChemDiagramList';
@@ -34,6 +35,8 @@ const emptyQuestion = () => ({
   optionImages: ['', ''],
   correctOptionIndex: 0,
   explanation: '',
+  questionAudio: '',
+  explanationAudio: '',
   diagram: '',
   diagramSource: '',
   diagrams: [], // কেমিস্ট্রি ডায়াগ্রাম (ChemistryDiagramPicker)
@@ -42,7 +45,7 @@ const emptyQuestion = () => ({
 // ফর্মে কিছুই লেখা হয়নি কিনা
 const isBlank = (title, questions) =>
   !title.trim() &&
-  questions.every((q) => !q.questionText.trim() && !(q.explanation || '').trim() && !q.diagram && !(q.diagrams || []).length && q.options.every((o) => !o.trim()) && !(q.optionImages || []).some(Boolean));
+  questions.every((q) => !q.questionText.trim() && !(q.explanation || '').trim() && !q.questionAudio && !q.explanationAudio && !q.diagram && !(q.diagrams || []).length && q.options.every((o) => !o.trim()) && !(q.optionImages || []).some(Boolean));
 
 // সংরক্ষিত অবস্থা মেলানোর জন্য ফর্মের ছাপ (key বাদে)
 const snapshotOf = (title, classIds, questions) =>
@@ -380,6 +383,8 @@ export default function CreateMcqExam() {
         options: q.type === 'short' ? [] : q.options.map((o) => o.trim()),
         correctOptionIndex: q.type === 'short' ? undefined : q.correctOptionIndex,
         explanation: q.explanation.trim() || undefined,
+        questionAudio: q.questionAudio || undefined,
+        explanationAudio: q.explanationAudio || undefined,
         optionImages: (q.optionImages || []).some(Boolean) ? q.options.map((_, k) => (q.optionImages || [])[k] || '') : undefined,
         diagram: q.diagram || undefined,
         diagramSource: q.diagram && q.diagramSource ? q.diagramSource : undefined,
@@ -494,6 +499,7 @@ export default function CreateMcqExam() {
                 rows={2}
                 className={side ? 'input resize-none !px-2 !text-sm sm:!px-3 sm:!text-base' : 'input resize-none'}
               />
+              <QuestionAudioField label="প্রশ্নের voice note" value={q.questionAudio} onChange={(questionAudio) => updateQuestion(q.key, { questionAudio })} />
               <select className="input" value={q.type || 'mcq'} onChange={(e) => updateQuestion(q.key, { type: e.target.value })}>
                 <option value="mcq">MCQ question</option>
                 <option value="short">Short question</option>
@@ -569,6 +575,7 @@ export default function CreateMcqExam() {
                 onChange={(e) => updateQuestion(q.key, { explanation: e.target.value })}
                 className="input"
               />
+              <QuestionAudioField label="ব্যাখ্যার voice note" value={q.explanationAudio} onChange={(explanationAudio) => updateQuestion(q.key, { explanationAudio })} />
 
              </div>
 

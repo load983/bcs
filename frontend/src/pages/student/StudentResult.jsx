@@ -294,6 +294,7 @@ function QuestionReviewCard({ item }) {
         <p className="font-semibold dark:text-white">{t('result.questionN', { n: item.serial })} <MathText text={item.questionText} /></p>
         <span className={`badge shrink-0 ${badge.cls}`}>{badge.text}</span>
       </div>
+      {item.questionAudio && <div className="mb-3 rounded-xl bg-primary-50 p-3 dark:bg-primary-500/10"><p className="mb-2 text-sm font-medium dark:text-gray-200">🎧 প্রশ্নের voice note</p><audio className="w-full" controls preload="none" src={item.questionAudio}>Audio playback সমর্থিত নয়।</audio></div>}
       {item.diagram && <ZoomImage src={assetUrl(item.diagram)} className="mb-3 max-h-80 max-w-full rounded-lg border border-gray-200 bg-white object-contain p-1" />}
       {item.diagrams && item.diagrams.length > 0 && <div className="mb-3"><ChemDiagramList items={item.diagrams} /></div>}
       <div className="space-y-2">
@@ -318,9 +319,10 @@ function QuestionReviewCard({ item }) {
           </div>
         )}
       </div>
-      {item.explanation && (
+      {(item.explanation || item.explanationAudio) && (
         <div className="mt-3 rounded-lg bg-primary-50 p-3 text-sm dark:bg-primary-500/10 dark:text-gray-100">
-          <strong>{t('result.explanation')}</strong><MathText text={item.explanation} />
+          <strong>{t('result.explanation')}</strong>{item.explanation && <MathText text={item.explanation} />}
+          {item.explanationAudio && <audio className="mt-2 w-full" controls preload="none" src={item.explanationAudio}>Audio playback সমর্থিত নয়।</audio>}
         </div>
       )}
     </div>

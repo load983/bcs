@@ -194,6 +194,7 @@ export default function StudentExam() {
                 </span>
               </div>
               <h2 className="mb-5 text-lg font-medium leading-relaxed dark:text-white sm:text-xl"><MathText text={q.questionText} /></h2>
+              {q.questionAudio && <div className="mb-5 rounded-xl bg-primary-50 p-3 dark:bg-primary-500/10"><p className="mb-2 text-sm font-medium dark:text-gray-200">🎧 প্রশ্নের voice note</p><audio className="w-full" controls preload="none" src={q.questionAudio}>Audio playback সমর্থিত নয়।</audio></div>}
               {q.diagram && <div className="mb-5"><ZoomImage src={assetUrl(q.diagram)} alt={t('diagram.alt')} className="mx-auto max-h-[28rem] w-full rounded-lg border border-gray-200 bg-white object-contain p-1 sm:w-auto" /><p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">🔍 {t('diagram.zoomHint')}</p></div>}
               {q.diagrams?.length > 0 && <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>}
               {q.type === 'short' ? (

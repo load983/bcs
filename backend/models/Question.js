@@ -14,7 +14,9 @@ const questionSchema = new mongoose.Schema(
       validate: { validator: function (v) { return this.type === 'short' || (Array.isArray(v) && v.length >= 2); }, message: 'MCQ প্রশ্নে কমপক্ষে দুটি অপশন প্রয়োজন' },
     },
     correctOptionIndex: { type: Number }, // 0=A, 1=B, 2=C, 3=D
-        explanation: { type: String }, // ঐচ্ছিক — কেন এই উত্তরটা সঠিক তার ব্যাখ্যা
+    explanation: { type: String }, // ঐচ্ছিক — কেন এই উত্তরটা সঠিক তার ব্যাখ্যা
+    questionAudio: { type: String, maxlength: 2_500_000 }, // প্রশ্নের recording (validated data URL)
+    explanationAudio: { type: String, maxlength: 2_500_000 }, // ফলাফল প্রকাশের পর দেখানো ব্যাখ্যার recording
     optionImages: { type: [String], default: undefined }, // ঐচ্ছিক — প্রতিটি অপশনের ছবি (options-এর সাথে একই ক্রমে; ফাঁকা = ছবি নেই)
     diagramSource: { type: String }, // ঐচ্ছিক — স্টুডিও প্রজেক্ট (JSON), যাতে পরে ডায়াগ্রাম আবার সম্পাদনা করা যায়; শিক্ষার্থীকে পাঠানো হয় না
     diagram: { type: String }, // ঐচ্ছিক — প্রশ্নের ডায়াগ্রাম/ছবি (/uploads/... পাথ)

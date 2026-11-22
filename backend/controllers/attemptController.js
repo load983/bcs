@@ -198,7 +198,7 @@ function buildStudentExamPayload(exam, attempt, questions) {
     const imgs = q.optionImages && q.optionImages.length ? (order ? order.map((i) => q.optionImages[i] || '') : q.optionImages) : undefined;
     const isShortQuestion = q.type === 'short'
       || (exam.settings?.questionType === 'short' && options.length === 0);
-    return { _id: q._id, type: isShortQuestion ? 'short' : (q.type || 'mcq'), maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
+    return { _id: q._id, type: isShortQuestion ? 'short' : (q.type || 'mcq'), maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, questionAudio: q.questionAudio || undefined, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
   });
 
   // সময় ০ বা undefined হলে ডিফল্ট ১০ মিনিট দেখাবে
@@ -617,6 +617,8 @@ exports.getAttemptReview = async (req, res) => {
       return {
         serial: idx + 1,
         questionText: q.questionText,
+        questionAudio: q.questionAudio || undefined,
+        explanationAudio: q.explanationAudio || undefined,
         diagram: q.diagram || undefined,
         diagrams: studentDiagrams(q),
         options: q.options,

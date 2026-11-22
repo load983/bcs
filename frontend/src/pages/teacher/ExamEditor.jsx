@@ -12,6 +12,7 @@ import { downloadBlob, fetchFileBlob } from '../../utils/download';
 import PdfPreviewModal from '../../components/PdfPreviewModal';
 import PdfDropzone from '../../components/PdfDropzone';
 import QuestionDiagram from '../../components/QuestionDiagram';
+import QuestionAudioField from '../../components/QuestionAudioField';
 import ChemDiagramList from '../../components/ChemDiagramList';
 import assetUrl from '../../utils/assetUrl';
 import ZoomImage from '../../components/ZoomImage';
@@ -349,6 +350,9 @@ function Toggle({ label, checked, onChange }) { return (<label className="flex i
 function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelete }) {
   const questionOptions = Array.isArray(question.options) ? question.options : [];
   const [text, setText] = useState(question.questionText);
+  const [explanation, setExplanation] = useState(question.explanation || '');
+  const [questionAudio, setQuestionAudio] = useState(question.questionAudio || '');
+  const [explanationAudio, setExplanationAudio] = useState(question.explanationAudio || '');
   const [type, setType] = useState(question.type || (questionOptions.length ? 'mcq' : 'short'));
   const [options, setOptions] = useState(questionOptions.length ? questionOptions : ['', '']);
   const [correctIdx, setCorrectIdx] = useState(question.correctOptionIndex);
@@ -361,6 +365,9 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
 
   const resetDraft = () => {
     setText(question.questionText || '');
+    setExplanation(question.explanation || '');
+    setQuestionAudio(question.questionAudio || '');
+    setExplanationAudio(question.explanationAudio || '');
     setType(question.type || (questionOptions.length ? 'mcq' : 'short'));
     setOptions(questionOptions.length ? questionOptions : ['', '']);
     setCorrectIdx(question.correctOptionIndex);
@@ -391,7 +398,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
       return;
     }
     setValidationError('');
-    onSave({ type, questionText: text, options: type === 'short' ? [] : options, correctOptionIndex: type === 'short' ? undefined : correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages: type === 'short' ? undefined : optionImages });
+    onSave({ type, questionText: text, explanation, questionAudio, explanationAudio, options: type === 'short' ? [] : options, correctOptionIndex: type === 'short' ? undefined : correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages: type === 'short' ? undefined : optionImages });
   };
 
   const handleCancel = () => {
@@ -405,6 +412,8 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
           <p className="font-medium dark:text-white">{index + 1}. <MathText text={question.questionText} /></p>
           {question.diagram && <ZoomImage src={assetUrl(question.diagram)} className="mt-2 max-h-40 rounded-lg border border-gray-200 bg-white object-contain" />}
           {(question.diagrams || []).length > 0 && <div className="mt-2"><ChemDiagramList items={question.diagrams} compact /></div>}
+          {question.questionAudio && <audio className="mt-2 max-w-sm" controls preload="none" src={question.questionAudio} />}
+          {question.explanationAudio && <p className="mt-1 text-xs text-gray-500">ব্যাখ্যার voice note সংযুক্ত</p>}
           {question.type === 'short' ? <p className="mt-2 text-sm text-primary-600">Short question — student লিখিত উত্তর বা image/PDF দিতে পারবে</p> : <><ul className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {questionOptions.map((opt, i) => (
               <li key={i} className={i === question.correctOptionIndex ? 'text-green-600 font-semibold' : ''}>
@@ -425,7 +434,9 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
     <div className="border dark:border-gray-700 rounded-lg p-3 space-y-2 bg-primary-50 dark:bg-gray-700">
       <textarea data-math rows={2} value={text} onChange={(e) => setText(e.target.value)} className="input resize-none" />
       <select className="input" value={type} onChange={(e) => setType(e.target.value)}><option value="mcq">MCQ question</option><option value="short">Short question</option></select>
+      <QuestionAudioField label="প্রশ্নের voice note" value={questionAudio} onChange={setQuestionAudio} />
       <QuestionDiagram compact value={diagram} source={diagramSource} onChange={(p) => { setDiagram(p.diagram); setDiagramSource(p.diagramSource); }} chem={{ items: chemDiagrams, onInsert: (d, { insertEquation } = {}) => { setChemDiagrams((a) => [...a.filter((x) => x.svg !== d.svg), d].slice(-8)); if (insertEquation && d.equation) setText((tx) => (tx.trim() ? `${tx.trimEnd()}\n${d.equation}` : d.equation)); }, onRemove: (i) => setChemDiagrams((a) => a.filter((_, k) => k !== i)) }} />
+      <div className="space-y-2"><label className="block text-sm font-medium dark:text-gray-200">লিখিত explanation (ঐচ্ছিক)<textarea className="input mt-1" rows={2} value={explanation} onChange={(e) => setExplanation(e.target.value)} /></label><QuestionAudioField label="ব্যাখ্যার voice note" value={explanationAudio} onChange={setExplanationAudio} /><p className="text-xs text-gray-500">ব্যাখ্যার audio ফলাফল প্রকাশ/teacher review-এর আগে শিক্ষার্থীরা দেখতে পাবে না।</p></div>
       {type === 'short' ? <p className="rounded-lg bg-primary-100 p-3 text-sm text-primary-700">Options লাগবে না। Student answer লিখবে বা image/PDF upload করবে।</p> : <>
       <fieldset role="radiogroup" aria-labelledby={`correct-answer-label-${question._id}`} className="space-y-2">
         <legend id={`correct-answer-label-${question._id}`} className="text-sm font-medium dark:text-gray-200">{t('editor.correctAnswer')}</legend>

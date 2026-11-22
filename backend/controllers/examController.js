@@ -137,6 +137,13 @@ exports.uploadExamPdf = async (req, res) => {
 // প্রশ্নের ডায়াগ্রাম: শুধু আমাদের আপলোড-করা ছবির পাথ গ্রহণযোগ্য (অন্য কোনো লিংক/স্ক্রিপ্ট নয়)
 const DIAGRAM_RE = /^\/uploads\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|gif)$/i; // পুরনো পাথ-ভিত্তিক ছবি
 const DIAGRAM_DATA_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/; // ছবি সরাসরি প্রশ্নের সাথেই সংরক্ষিত
+const AUDIO_DATA_RE = /^data:audio\/(webm|ogg|mp4|mpeg|mp3|aac|wav|x-wav|x-m4a|3gpp)(?:;codecs=[a-z0-9._-]+)?;base64,[A-Za-z0-9+/]+={0,2}$/i;
+const AUDIO_DATA_MAX = 2_500_000; // ১.৮ MB ফাইলের base64 overhead-সহ
+const cleanQuestionAudio = (value) => {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  const audio = value.trim();
+  return audio.length <= AUDIO_DATA_MAX && AUDIO_DATA_RE.test(audio) ? audio : undefined;
+};
 const cleanDiagram = (v) => {
   if (typeof v !== 'string') return undefined;
   const s = v.trim();
@@ -191,7 +198,7 @@ const normalizeQuestionOptions = (rawOptions, rawOptionImages, rawCorrectOptionI
 const normalizeAuthoringQuestion = (q) => {
   if (!q || typeof q.questionText !== 'string' || !q.questionText.trim()) return null;
   if (q.type === 'short') {
-    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined };
+    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined, questionAudio: cleanQuestionAudio(q.questionAudio), explanationAudio: cleanQuestionAudio(q.explanationAudio) };
   }
   const normalized = normalizeQuestionOptions(q.options, q.optionImages, q.correctOptionIndex);
   if (!normalized) return null;
@@ -200,6 +207,8 @@ const normalizeAuthoringQuestion = (q) => {
     questionText: q.questionText.trim(),
     ...normalized,
     explanation: q.explanation ? String(q.explanation).trim() : undefined,
+    questionAudio: cleanQuestionAudio(q.questionAudio),
+    explanationAudio: cleanQuestionAudio(q.explanationAudio),
   };
 };
 
@@ -292,6 +301,8 @@ exports.createExam = async (req, res) => {
         options: q.options,
         correctOptionIndex: q.correctOptionIndex,
         explanation: q.explanation,
+        questionAudio: q.questionAudio,
+        explanationAudio: q.explanationAudio,
         diagram: cleanDiagram(q.diagram),
         diagramSource: cleanDiagram(q.diagram) ? cleanDiagramSource(q.diagramSource) : undefined,
         diagrams: cleanDiagrams(q.diagrams),
@@ -341,6 +352,8 @@ const sanitizeDraft = async (teacherId, body = {}) => {
       options: type === 'short' ? [] : options,
       correctOptionIndex: type === 'short' ? undefined : idx,
       explanation: cutStr(q?.explanation, 5000),
+      questionAudio: cleanQuestionAudio(q?.questionAudio) || '',
+      explanationAudio: cleanQuestionAudio(q?.explanationAudio) || '',
       optionImages: cleanOptionImages(q?.optionImages, options.length) || [],
       diagram: cleanDiagram(q?.diagram) || '',
       diagramSource: (cleanDiagram(q?.diagram) && cleanDiagramSource(q?.diagramSource)) || '',
@@ -352,7 +365,7 @@ const sanitizeDraft = async (teacherId, body = {}) => {
 
 const draftHasContent = (d) =>
   !!d.title.trim() ||
-  d.questions.some((q) => q.questionText.trim() || q.explanation.trim() || q.diagram || (q.diagrams || []).length || q.options.some((o) => o.trim()) || (q.optionImages || []).some(Boolean));
+  d.questions.some((q) => q.questionText.trim() || q.explanation.trim() || q.questionAudio || q.explanationAudio || q.diagram || (q.diagrams || []).length || q.options.some((o) => o.trim()) || (q.optionImages || []).some(Boolean));
 
 // পেন্ডিং পরীক্ষা তৈরি/আপডেট (ফর্ম অসম্পূর্ণ থাকলেও চলবে; সীমা গণনায় ধরা হয় না)
 exports.savePending = async (req, res) => {
@@ -443,6 +456,8 @@ exports.finalizePending = async (req, res) => {
         options: q.options,
         correctOptionIndex: q.correctOptionIndex,
         explanation: q.explanation,
+        questionAudio: q.questionAudio,
+        explanationAudio: q.explanationAudio,
         diagram: cleanDiagram(q.diagram),
         diagramSource: cleanDiagram(q.diagram) ? cleanDiagramSource(q.diagramSource) : undefined,
         diagrams: cleanDiagrams(q.diagrams),
@@ -664,9 +679,15 @@ exports.updateQuestion = async (req, res) => {
     if (body.order !== undefined && (!Number.isInteger(body.order) || body.order < 0)) {
       return res.status(400).json({ message: 'প্রশ্নের ক্রম সঠিক নয়' });
     }
-    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams'].forEach((field) => {
+    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams', 'questionAudio', 'explanationAudio'].forEach((field) => {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
     });
+    for (const field of ['questionAudio', 'explanationAudio']) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        body[field] = cleanQuestionAudio(body[field]);
+        if (body[field] === undefined) return res.status(400).json({ message: 'অডিও ফাইলটি সঠিক নয় বা ১.৮ MB সীমা ছাড়িয়েছে' });
+      }
+    }
     if (body.type !== undefined && !['mcq', 'short'].includes(body.type)) return res.status(400).json({ message: 'প্রশ্নের ধরন সঠিক নয়' });
     if ('diagram' in body) {
       body.diagram = cleanDiagram(body.diagram) || undefined;
@@ -745,6 +766,8 @@ exports.addQuestion = async (req, res) => {
       options: normalized.options,
       correctOptionIndex: normalized.correctOptionIndex,
       explanation: normalized.explanation,
+      questionAudio: normalized.questionAudio,
+      explanationAudio: normalized.explanationAudio,
       optionImages: normalized.optionImages,
       diagram: cleanDiagram(normalized.diagram),
       diagramSource: cleanDiagram(normalized.diagram) ? cleanDiagramSource(normalized.diagramSource) : undefined,
