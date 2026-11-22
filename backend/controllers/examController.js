@@ -319,14 +319,16 @@ const sanitizeDraft = async (teacherId, body = {}) => {
     classIds = found.map((c) => String(c._id));
   }
   const questions = (Array.isArray(body.questions) ? body.questions : []).slice(0, 500).map((q) => {
+    const type = q?.type === 'short' ? 'short' : 'mcq';
     const options = (Array.isArray(q?.options) ? q.options : ['', '']).slice(0, 12).map((o) => cutStr(o, 2000));
     while (options.length < 2) options.push('');
     let idx = Number(q?.correctOptionIndex);
     if (!Number.isInteger(idx) || idx < 0 || idx >= options.length) idx = 0;
     return {
+      type,
       questionText: cutStr(q?.questionText, 5000),
-      options,
-      correctOptionIndex: idx,
+      options: type === 'short' ? [] : options,
+      correctOptionIndex: type === 'short' ? undefined : idx,
       explanation: cutStr(q?.explanation, 5000),
       optionImages: cleanOptionImages(q?.optionImages, options.length) || [],
       diagram: cleanDiagram(q?.diagram) || '',
@@ -646,14 +648,26 @@ exports.updateQuestion = async (req, res) => {
     if (body.order !== undefined && (!Number.isInteger(body.order) || body.order < 0)) {
       return res.status(400).json({ message: 'প্রশ্নের ক্রম সঠিক নয়' });
     }
-    ['options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams'].forEach((field) => {
+    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams'].forEach((field) => {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
     });
+    if (body.type !== undefined && !['mcq', 'short'].includes(body.type)) return res.status(400).json({ message: 'প্রশ্নের ধরন সঠিক নয়' });
     if ('diagram' in body) {
       body.diagram = cleanDiagram(body.diagram) || undefined;
       body.diagramSource = body.diagram ? cleanDiagramSource(body.diagramSource) : undefined;
     }
     if ('diagrams' in body) body.diagrams = cleanDiagrams(body.diagrams) || [];
+    if ((body.type || q.type) === 'short') {
+      body.type = 'short';
+      body.options = undefined;
+      body.optionImages = undefined;
+      body.correctOptionIndex = undefined;
+      if (diagramsChangedWhileLocked(req, { ...q.toObject(), ...body }, [q])) return diagramLocked(res);
+      Object.assign(q, body);
+      await q.save();
+      return res.json(q);
+    }
+    body.type = 'mcq';
     const normalized = normalizeQuestionOptions(
       'options' in body ? body.options : q.options,
       'optionImages' in body ? body.optionImages : q.optionImages,
@@ -711,6 +725,7 @@ exports.addQuestion = async (req, res) => {
     if (diagramsChangedWhileLocked(req, normalized)) return diagramLocked(res);
     const q = await Question.create({
       questionText: normalized.questionText,
+      type: normalized.type || 'mcq',
       options: normalized.options,
       correctOptionIndex: normalized.correctOptionIndex,
       explanation: normalized.explanation,

@@ -348,7 +348,8 @@ function Field({ label, children }) { return (<label className="block text-sm"><
 function Toggle({ label, checked, onChange }) { return (<label className="flex items-center gap-2 text-sm dark:text-gray-200"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4" />{label}</label>); }
 function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelete }) {
   const [text, setText] = useState(question.questionText);
-  const [options, setOptions] = useState(question.options);
+  const [type, setType] = useState(question.type || 'mcq');
+  const [options, setOptions] = useState(question.options || ['', '']);
   const [correctIdx, setCorrectIdx] = useState(question.correctOptionIndex);
   const [diagram, setDiagram] = useState(question.diagram || '');
   const [diagramSource, setDiagramSource] = useState(question.diagramSource || '');
@@ -359,7 +360,8 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
 
   const resetDraft = () => {
     setText(question.questionText || '');
-    setOptions(question.options || []);
+    setType(question.type || 'mcq');
+    setOptions(question.options || ['', '']);
     setCorrectIdx(question.correctOptionIndex);
     setDiagram(question.diagram || '');
     setDiagramSource(question.diagramSource || '');
@@ -374,21 +376,21 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
 
   const handleSave = () => {
     const isFilledChoice = (option, index) => (typeof option === 'string' && option.trim()) || optionImages[index];
-    const filledOptions = options.filter(isFilledChoice);
     if (!text.trim()) {
       setValidationError(t('editor.questionRequired'));
       return;
     }
-    if (filledOptions.length < 2) {
+    const filledOptions = options.filter(isFilledChoice);
+    if (type !== 'short' && filledOptions.length < 2) {
       setValidationError(t('editor.choicesRequired'));
       return;
     }
-    if (!Number.isInteger(correctIdx) || !isFilledChoice(options[correctIdx], correctIdx)) {
+    if (type !== 'short' && (!Number.isInteger(correctIdx) || !isFilledChoice(options[correctIdx], correctIdx))) {
       setValidationError(t('editor.correctChoiceRequired'));
       return;
     }
     setValidationError('');
-    onSave({ questionText: text, options, correctOptionIndex: correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages });
+    onSave({ type, questionText: text, options: type === 'short' ? [] : options, correctOptionIndex: type === 'short' ? undefined : correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages: type === 'short' ? undefined : optionImages });
   };
 
   const handleCancel = () => {
@@ -402,15 +404,14 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
           <p className="font-medium dark:text-white">{index + 1}. <MathText text={question.questionText} /></p>
           {question.diagram && <ZoomImage src={assetUrl(question.diagram)} className="mt-2 max-h-40 rounded-lg border border-gray-200 bg-white object-contain" />}
           {(question.diagrams || []).length > 0 && <div className="mt-2"><ChemDiagramList items={question.diagrams} compact /></div>}
-          {question.correctOptionIndex < 0 && <p className="mt-2 text-xs font-semibold text-amber-600 dark:text-amber-400">⚠ সঠিক উত্তর বাছাই করা হয়নি</p>}
-          <ul className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+          {question.type === 'short' ? <p className="mt-2 text-sm text-primary-600">Short question — student লিখিত উত্তর বা image/PDF দিতে পারবে</p> : <><ul className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             {question.options.map((opt, i) => (
               <li key={i} className={i === question.correctOptionIndex ? 'text-green-600 font-semibold' : ''}>
                 {String.fromCharCode(65 + i)}. <MathText text={opt} /> {i === question.correctOptionIndex && '✓'}
                 {(question.optionImages || [])[i] && <ZoomImage src={question.optionImages[i]} className="mt-1 block max-h-20 rounded border border-gray-200 bg-white object-contain" />}
               </li>
             ))}
-          </ul>
+          </ul>{question.correctOptionIndex < 0 && <p className="mt-2 text-xs font-semibold text-amber-600 dark:text-amber-400">⚠ সঠিক উত্তর বাছাই করা হয়নি</p>}</>}
         </div>
         <div className="flex gap-2 text-sm shrink-0">
           <button onClick={onEditToggle} className="text-primary-600">{t('common.edit')}</button>
@@ -422,7 +423,9 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
   return (
     <div className="border dark:border-gray-700 rounded-lg p-3 space-y-2 bg-primary-50 dark:bg-gray-700">
       <textarea data-math rows={2} value={text} onChange={(e) => setText(e.target.value)} className="input resize-none" />
+      <select className="input" value={type} onChange={(e) => setType(e.target.value)}><option value="mcq">MCQ question</option><option value="short">Short question</option></select>
       <QuestionDiagram compact value={diagram} source={diagramSource} onChange={(p) => { setDiagram(p.diagram); setDiagramSource(p.diagramSource); }} chem={{ items: chemDiagrams, onInsert: (d, { insertEquation } = {}) => { setChemDiagrams((a) => [...a.filter((x) => x.svg !== d.svg), d].slice(-8)); if (insertEquation && d.equation) setText((tx) => (tx.trim() ? `${tx.trimEnd()}\n${d.equation}` : d.equation)); }, onRemove: (i) => setChemDiagrams((a) => a.filter((_, k) => k !== i)) }} />
+      {type === 'short' ? <p className="rounded-lg bg-primary-100 p-3 text-sm text-primary-700">Options লাগবে না। Student answer লিখবে বা image/PDF upload করবে।</p> : <>
       <fieldset role="radiogroup" aria-labelledby={`correct-answer-label-${question._id}`} className="space-y-2">
         <legend id={`correct-answer-label-${question._id}`} className="text-sm font-medium dark:text-gray-200">{t('editor.correctAnswer')}</legend>
         {options.map((opt, i) => (
@@ -439,6 +442,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
           </div>
         ))}
       </fieldset>
+      </>}
       {validationError && <p role="alert" className="text-sm text-red-600 dark:text-red-400">{validationError}</p>}
       <div className="flex gap-2">
         <button onClick={handleSave} className="bg-primary-600 text-white px-3 py-1.5 rounded-lg text-sm">{t('common.save')}</button>
