@@ -383,8 +383,8 @@ const entries = {
   },
   'upload.shortFormatLabel': { bn: 'Short question ফরম্যাটের উদাহরণ:', en: 'Short-question format example:' },
   'upload.shortFormatNote': {
-    bn: 'প্রতিটি প্রশ্ন 1. / 1) / ১। দিয়ে শুরু করুন। একই প্রশ্নের পরের লাইনের লেখা সেই প্রশ্নের অংশ হবে। Short answer শিক্ষার্থী লিখে বা PDF/image হিসেবে জমা দেবে; শিক্ষক পরে নম্বর দেবেন।',
-    en: 'Start each question with 1. / 1) / ১।. Wrapped lines remain part of that question. Students will answer in text or upload a PDF/image, and the teacher can grade it later.',
+    bn: 'প্রতিটি প্রশ্ন 1. / 1) / ১। দিয়ে শুরু করুন। উত্তর থাকলে প্রশ্নের নিচে Answer: / উত্তর: লিখতে পারেন, অথবা শেষে Answer key/উত্তরমালা দিতে পারেন। Short answer শিক্ষার্থী লিখে বা PDF/image হিসেবে জমা দেবে; শিক্ষক পরে নম্বর দেবেন।',
+    en: 'Start each question with 1. / 1) / ১।. If answers are included, use Answer: / উত্তর: below the question or add an Answer key/উত্তরমালা section at the end. Students will answer in text or upload a PDF/image, and the teacher can grade it later.',
   },
   'upload.answerOptional': {
     bn: 'প্রশ্ন ও অপশন আলাদা লাইনে বা পাশাপাশি থাকতে পারে। উত্তর না থাকলেও প্রশ্ন draft হিসেবে আসবে; পরে সঠিক উত্তর যোগ করতে পারবেন।',

@@ -42,3 +42,27 @@ test('parses Q-number and parenthesized short-question labels', () => {
     'Define evaporation.',
   ]);
 });
+
+test('parses short answers written inline and in a separate answer key', () => {
+  const inline = parseShortQuestionText([
+    '1. What is photosynthesis?',
+    'Answer: It is the process by which green plants make food.',
+    '2. Define evaporation.',
+    'উত্তর: তরল থেকে বাষ্পে পরিবর্তন।',
+  ].join('\n'));
+  assert.equal(inline.length, 2);
+  assert.equal(inline[0].explanation, 'It is the process by which green plants make food.');
+  assert.equal(inline[1].explanation, 'তরল থেকে বাষ্পে পরিবর্তন।');
+
+  const keyed = parseShortQuestionText([
+    '1. What is photosynthesis?',
+    '2. Define evaporation.',
+    'Answer key:',
+    '1. It is food-making in green plants.',
+    '2. Liquid changing into vapour.',
+  ].join('\n'));
+  assert.deepEqual(keyed.map((q) => q.explanation), [
+    'It is food-making in green plants.',
+    'Liquid changing into vapour.',
+  ]);
+});

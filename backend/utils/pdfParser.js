@@ -180,7 +180,7 @@ function parseMcqText(rawText) {
   return result.map(finalizeQuestion);
 }
 
-/** Numbered short prompts (e.g. "1. ..." or Bengali "১। ...") to open-answer questions. */
+/** Numbered short prompts with optional inline or separate answer-key answers. */
 function parseShortQuestionText(rawText) {
   const normalized = String(rawText || '')
     .replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))
@@ -188,35 +188,57 @@ function parseShortQuestionText(rawText) {
   const text = unicodeScriptsToSentinels(normalized);
   const prefixedQuestionStartRegex = /^\s*(?:(?:q(?:uestion)?|প্রশ্ন)\s*\.?\s*)(\d{1,3})\s*[.)।:]?\s*(.*?)\s*$/i;
   const numberedQuestionStartRegex = /^\s*[\[(]?(\d{1,3})[\])\].।:]\s*(.*?)\s*$/i;
-  const endMarkerRegex = /^(?:answer\s*key|উত্তরমালা|উত্তরসূচি)(?:\s|:|$)/i;
+  const answerKeyHeaderRegex = /^(?:answer\s*key|উত্তরমালা|উত্তরসূচি)\s*:?(?:\s*)$/i;
+  const answerLineRegex = /^(?:ans(?:wer)?|উত্তর)\s*[:\-]\s*(.*)$/i;
   const rawQuestions = [];
-  let current = '';
+  const answerKey = new Map();
+  let current = null;
+  let inAnswerKey = false;
 
   const finishCurrent = () => {
-    const questionText = cleanText(current);
-    if (questionText) rawQuestions.push(questionText);
-    current = '';
+    if (!current) return;
+    const questionText = cleanText(current.questionText);
+    if (questionText) rawQuestions.push({ num: current.num, questionText, answer: cleanText(current.answer) });
+    current = null;
   };
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
     if (!line || /^page\s+\d+\s+of\s+\d+$/i.test(line)) continue;
-    if (endMarkerRegex.test(line)) break;
+    if (answerKeyHeaderRegex.test(line)) {
+      finishCurrent();
+      inAnswerKey = true;
+      continue;
+    }
+    if (inAnswerKey) {
+      const answerEntry = line.match(/^\s*[\[(]?(\d{1,3})[\])\].।:]\s*(.+?)\s*$/);
+      if (answerEntry) answerKey.set(Number(answerEntry[1]), cleanText(answerEntry[2]));
+      continue;
+    }
+
     const match = line.match(prefixedQuestionStartRegex) || line.match(numberedQuestionStartRegex);
     if (match) {
       finishCurrent();
-      current = match[2] || '';
-    } else if (current) {
-      current = `${current} ${line}`;
+      current = { num: Number(match[1]), questionText: match[2] || '', answer: '' };
+      continue;
     }
+    if (!current) continue;
+    const answerMatch = line.match(answerLineRegex);
+    if (answerMatch) current.answer = cleanText(`${current.answer} ${answerMatch[1]}`);
+    else if (current.answer) current.answer = cleanText(`${current.answer} ${line}`);
+    else current.questionText = `${current.questionText} ${line}`;
   }
   finishCurrent();
 
-  return rawQuestions.map((questionText, order) => ({
-    type: 'short',
-    questionText: sentinelsToLatex(questionText),
-    order,
-  }));
+  return rawQuestions.map((item, order) => {
+    const answer = item.answer || answerKey.get(item.num);
+    return {
+      type: 'short',
+      questionText: sentinelsToLatex(item.questionText),
+      ...(answer ? { explanation: sentinelsToLatex(answer) } : {}),
+      order,
+    };
+  });
 }
 
 // সেন্টিনেল-চিহ্নিত সূত্রকে চূড়ান্ত LaTeX ($...$, \ce{...}) এ বদলানো
