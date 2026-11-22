@@ -55,6 +55,9 @@ export default function ResultDashboard() {
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [reviewAttempt, setReviewAttempt] = useState(null);
+  const [reviewMarks, setReviewMarks] = useState({});
+  const [reviewBusy, setReviewBusy] = useState(false);
   const canViewFeedback = !!status && has('examFeedback');
   const submittedResults = results.filter((r) => r.status === 'submitted');
   const observedQuestionCount = Math.max(0, ...submittedResults.map((r) => (Number(r.totalCorrect) || 0) + (Number(r.totalWrong) || 0) + (Number(r.totalSkipped) || 0)));
@@ -117,6 +120,29 @@ export default function ResultDashboard() {
       const message = err.response?.data?.message || (lang === 'en' ? 'Could not create the results PDF.' : 'রেজাল্ট PDF তৈরি করা যায়নি।');
       window.alert(message);
     } finally { setPdfBusy(false); }
+  };
+
+  const openReview = async (attemptId) => {
+    setReviewBusy(true);
+    try {
+      const { data } = await axiosClient.get(`/exams/attempts/${attemptId}`);
+      setReviewAttempt(data);
+      const initial = {};
+      (data.answers || []).forEach((a) => { if (a.question?.type === 'short') initial[a.question._id] = a.marksAwarded ?? ''; });
+      setReviewMarks(initial);
+    } catch (err) { window.alert(err.response?.data?.message || 'Answer load করা যায়নি'); }
+    finally { setReviewBusy(false); }
+  };
+
+  const saveReview = async () => {
+    if (!reviewAttempt) return;
+    setReviewBusy(true);
+    try {
+      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks });
+      setReviewAttempt(null);
+      dispatch(fetchExamResults(id));
+    } catch (err) { window.alert(err.response?.data?.message || 'Marks save করা যায়নি'); }
+    finally { setReviewBusy(false); }
   };
 
   if (resultsExamId === id && resultsDisabledMessage) {
@@ -224,6 +250,7 @@ export default function ResultDashboard() {
               <th className="text-center">{t('resultDash.colSkipped')}</th>
               <th className="text-center">{t('resultDash.colMarks')}</th>
               <th className="text-center">{t('resultDash.colStatus')}</th>
+              <th className="text-center">Short answers</th>
             </tr>
           </thead>
           <tbody>
@@ -237,14 +264,21 @@ export default function ResultDashboard() {
                 <td className="text-center text-gray-500">{r.totalSkipped}</td>
                 <td className="text-center font-semibold">{r.obtainedMarks}</td>
                 <td className="text-center"><span className={`badge ${r.status === 'submitted' ? (r.autoSubmitted ? 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300' : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300') : 'bg-primary-50 text-primary-700 dark:bg-primary-500/15 dark:text-primary-300'}`}>{r.status === 'submitted' ? (r.autoSubmitted ? t('resultDash.autoSubmit') : t('resultDash.submitted')) : t('resultDash.ongoing')}</span></td>
+                <td className="text-center">{r.status === 'submitted' && <button type="button" className="act" onClick={() => openReview(r._id)} disabled={reviewBusy}>Review</button>}</td>
               </tr>
             ))}
             {results.length === 0 && (
-              <tr><td colSpan={8} className="!py-10 text-center text-gray-400">{t('resultDash.empty')}</td></tr>
+              <tr><td colSpan={9} className="!py-10 text-center text-gray-400">{t('resultDash.empty')}</td></tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {reviewAttempt && <div className="card mt-5 space-y-4 p-5">
+        <div className="flex items-center justify-between"><h2 className="text-lg font-semibold dark:text-white">Review short answers — {reviewAttempt.student?.name || reviewAttempt.studentName || 'Student'}</h2><button className="act" onClick={() => setReviewAttempt(null)}>Close</button></div>
+        {(reviewAttempt.answers || []).filter((a) => a.question?.type === 'short').map((a) => <div key={a.question._id} className="rounded-xl border border-gray-200 p-4 dark:border-white/10"><p className="font-medium dark:text-white">{a.question.questionText}</p><p className="mt-2 whitespace-pre-wrap text-sm dark:text-gray-200">{a.answerText || '—'}</p>{(a.answerFiles || []).map((file, i) => <a key={i} href={file} target="_blank" rel="noreferrer" className="mr-2 inline-block text-sm text-primary-600 underline">View file {i + 1}</a>)}<input type="number" min="0" max={Number(currentExam?.settings?.marksPerQuestion) || 1} step="0.01" className="input mt-3 max-w-xs" placeholder="Marks" value={reviewMarks[a.question._id] ?? ''} onChange={(e) => setReviewMarks((m) => ({ ...m, [a.question._id]: e.target.value }))} /></div>)}
+        <button className="btn-primary" onClick={saveReview} disabled={reviewBusy}>{reviewBusy ? 'Saving…' : 'Save marks'}</button>
+      </div>}
     </div>
   );
 }

@@ -23,6 +23,7 @@ export default function StudentExam() {
   // একই সাথে দ্রুত দুইবার ক্লিক ঠেকাতে: যে প্রশ্নের উত্তর পাঠানো শুরু হয়েছে সেটা সাথে সাথে লক
   const [lockedQ, setLockedQ] = useState({});
   const [saveError, setSaveError] = useState('');
+  const [shortDrafts, setShortDrafts] = useState({});
   const pendingSavesRef = useRef(new Map());
   const failedSavesRef = useRef(new Set());
   const submittedRef = useRef(false);
@@ -110,6 +111,31 @@ export default function StudentExam() {
     });
   };
 
+  const handleShortSubmit = (questionId) => {
+    if (isLocked(questionId) || submitting) return;
+    const draft = shortDrafts[questionId] || { text: '', files: [] };
+    if (!draft.text.trim() && !draft.files.length) return;
+    setLockedQ((m) => ({ ...m, [questionId]: true }));
+    const savePromise = dispatch(saveAnswer({ attemptId, questionId, selectedOptionIndex: null, answerText: draft.text, answerFiles: draft.files }));
+    pendingSavesRef.current.set(questionId, savePromise);
+    savePromise.then((res) => {
+      if (res.meta?.requestStatus === 'rejected') {
+        setLockedQ((m) => { const n = { ...m }; delete n[questionId]; return n; });
+        setSaveError(res.payload || t('exam.answerSaveFailed'));
+      }
+    }).finally(() => pendingSavesRef.current.delete(questionId));
+  };
+
+  const readAnswerFiles = (fileList, questionId) => {
+    const files = [...fileList].slice(0, 5).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type) && file.size <= 10 * 1024 * 1024);
+    Promise.all(files.map((file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, mime: file.type, data: reader.result });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    }))).then((items) => setShortDrafts((d) => ({ ...d, [questionId]: { ...(d[questionId] || {}), files: items.filter(Boolean) } })));
+  };
+
   if (!questions.length) {
     return (
       <div className="flex min-h-[70vh] items-center justify-center text-center">
@@ -165,6 +191,14 @@ export default function StudentExam() {
           {q.diagrams && q.diagrams.length > 0 && (
             <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>
           )}
+          {q.type === 'short' ? (
+            <div className="space-y-3">
+              <textarea className="input min-h-40 w-full" disabled={isLocked(q._id)} value={shortDrafts[q._id]?.text || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), text: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+              <input type="file" disabled={isLocked(q._id)} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(e) => readAnswerFiles(e.target.files, q._id)} />
+              {(shortDrafts[q._id]?.files || []).length > 0 && <p className="text-xs text-gray-500">{shortDrafts[q._id].files.length}টি file প্রস্তুত হয়েছে</p>}
+              <button type="button" className="btn-primary" disabled={isLocked(q._id) || submitting} onClick={() => handleShortSubmit(q._id)}>উত্তর জমা দিন</button>
+            </div>
+          ) : (
           <div className="space-y-3">
             {q.options.map((opt, i) => {
               const locked = isLocked(q._id);
@@ -198,9 +232,10 @@ export default function StudentExam() {
               </label>
               );
             })}
+            {isLocked(q._id) && (
+              <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('exam.answerLocked')}</p>
+            )}
           </div>
-          {isLocked(q._id) && (
-            <p className="mt-2 text-xs text-gray-400 dark:text-gray-500">{t('exam.answerLocked')}</p>
           )}
 
           <div className="mt-6 flex justify-between">

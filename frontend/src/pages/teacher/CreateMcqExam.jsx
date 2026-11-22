@@ -28,6 +28,7 @@ const MAX_OPTIONS = 12;
 
 const emptyQuestion = () => ({
   key: newKey(),
+  type: 'mcq',
   questionText: '',
   options: ['', ''],
   optionImages: ['', ''],
@@ -330,6 +331,7 @@ export default function CreateMcqExam() {
     for (let i = 0; i < questions.length; i++) {
       const q = questions[i];
       if (!q.questionText.trim()) return t('createMcq.needQuestionText', { n: i + 1 });
+      if (q.type === 'short') continue;
       const has = (k) => !!(q.options[k] || '').trim() || !!(q.optionImages || [])[k];
       const filled = q.options.filter((_, k) => has(k));
       if (filled.length < 2) return t('createMcq.needTwoOptions', { n: i + 1 });
@@ -374,8 +376,9 @@ export default function CreateMcqExam() {
       classIds,
       questions: questions.map((q) => ({
         questionText: q.questionText.trim(),
-        options: q.options.map((o) => o.trim()),
-        correctOptionIndex: q.correctOptionIndex,
+        type: q.type || 'mcq',
+        options: q.type === 'short' ? [] : q.options.map((o) => o.trim()),
+        correctOptionIndex: q.type === 'short' ? undefined : q.correctOptionIndex,
         explanation: q.explanation.trim() || undefined,
         optionImages: (q.optionImages || []).some(Boolean) ? q.options.map((_, k) => (q.optionImages || [])[k] || '') : undefined,
         diagram: q.diagram || undefined,
@@ -491,6 +494,10 @@ export default function CreateMcqExam() {
                 rows={2}
                 className={side ? 'input resize-none !px-2 !text-sm sm:!px-3 sm:!text-base' : 'input resize-none'}
               />
+              <select className="input" value={q.type || 'mcq'} onChange={(e) => updateQuestion(q.key, { type: e.target.value })}>
+                <option value="mcq">MCQ question</option>
+                <option value="short">Short question</option>
+              </select>
 
               <QuestionDiagram
                 compact={side}
@@ -507,7 +514,7 @@ export default function CreateMcqExam() {
                   onRemove: (i) => updateQuestion(q.key, { diagrams: (q.diagrams || []).filter((_, k) => k !== i) }),
                 }} />
 
-              <div className="space-y-2">
+              {q.type === 'short' ? <p className="rounded-xl bg-primary-50 p-3 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">Student এই প্রশ্নের উত্তর লিখতে বা image/PDF upload করতে পারবে। Teacher পরে manual marks দেবেন।</p> : <div className="space-y-2">
                 {q.options.map((opt, i) => (
                   <div key={i} className={`flex items-center rounded-xl border transition-colors ${side ? 'gap-1 p-1 sm:gap-2 sm:p-1.5 sm:pr-2' : 'gap-2 p-1.5 pr-2'} ${q.correctOptionIndex === i ? 'border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/40 dark:bg-emerald-500/10' : 'border-transparent'}`}>
                     <input
@@ -553,7 +560,7 @@ export default function CreateMcqExam() {
                 )}
                 <span className="text-[11px] text-gray-500">{q.options.length >= MAX_OPTIONS ? `সর্বোচ্চ ${MAX_OPTIONS}টি অপশন` : 'সঠিক উত্তরের পাশে গোল বাটনে ক্লিক করুন'}</span>
                 </div>
-              </div>
+              </div>}
 
               <input
                 data-math

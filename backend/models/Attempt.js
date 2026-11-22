@@ -6,7 +6,11 @@ const answerSchema = new mongoose.Schema(
   {
     question: { type: mongoose.Schema.Types.ObjectId, ref: 'Question' },
     selectedOptionIndex: { type: Number, default: null }, // null = স্কিপ করেছে
+    answerText: { type: String, default: '' },
+    answerFiles: [{ name: String, mime: String, data: String }],
     isCorrect: { type: Boolean, default: false },
+    marksAwarded: { type: Number, default: null },
+    reviewed: { type: Boolean, default: false },
   },
   { _id: false }
 );

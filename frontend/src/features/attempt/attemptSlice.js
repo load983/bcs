@@ -18,10 +18,10 @@ export const startAttempt = joinExam;
 
 export const saveAnswer = createAsyncThunk(
   'attempt/saveAnswer',
-  async ({ attemptId, questionId, selectedOptionIndex }, { rejectWithValue }) => {
+  async ({ attemptId, questionId, selectedOptionIndex, answerText, answerFiles }, { rejectWithValue }) => {
     try {
-      await axiosClient.put(`/attempts/${attemptId}/answer`, { questionId, selectedOptionIndex });
-      return { questionId, selectedOptionIndex };
+      await axiosClient.put(`/attempts/${attemptId}/answer`, { questionId, selectedOptionIndex, answerText, answerFiles });
+      return { questionId, selectedOptionIndex: selectedOptionIndex ?? 'answered' };
     } catch (err) {
       return rejectWithValue(err.response?.data?.message);
     }

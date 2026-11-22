@@ -176,9 +176,9 @@ function buildStudentExamPayload(exam, attempt, questions) {
   const optionOrderMap = attempt.optionOrderMap || {};
   const safeQuestions = questions.map((q) => {
     const order = optionOrderMap[q._id.toString()];
-    const options = order ? order.map((i) => q.options[i]) : q.options;
+    const options = order ? order.map((i) => q.options[i]) : (q.options || []);
     const imgs = q.optionImages && q.optionImages.length ? (order ? order.map((i) => q.optionImages[i] || '') : q.optionImages) : undefined;
-    return { _id: q._id, questionText: q.questionText, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
+    return { _id: q._id, type: q.type || 'mcq', maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
   });
 
   // সময় ০ বা undefined হলে ডিফল্ট ১০ মিনিট দেখাবে
@@ -225,7 +225,7 @@ exports.saveAnswer = async (req, res) => {
   try {
     const attempt = await loadOwnAttempt(req, res);
     if (!attempt) return;
-    const { questionId, selectedOptionIndex } = req.body || {};
+    const { questionId, selectedOptionIndex, answerText, answerFiles } = req.body || {};
 
     if (attempt.status === 'submitted')
       return res.status(400).json({ message: 'পরীক্ষা ইতিমধ্যে জমা হয়ে গেছে' });
@@ -243,7 +243,19 @@ exports.saveAnswer = async (req, res) => {
     }
 
     // অপশন ইনডেক্স: null (স্কিপ) অথবা প্রশ্নের অপশন-সংখ্যার মধ্যে একটি পূর্ণসংখ্যা
-    const question = await Question.findById(qid).select('options');
+    const question = await Question.findById(qid).select('type options');
+    if (question?.type === 'short') {
+      const text = String(answerText || '').trim().slice(0, 20000);
+      const files = Array.isArray(answerFiles) ? answerFiles.slice(0, 5).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(String(file?.mime || '')) && String(file?.data || '').startsWith('data:') && String(file.data).length <= 14 * 1024 * 1024).map((file) => ({ name: String(file.name || 'answer').slice(0, 120), mime: String(file.mime), data: String(file.data) })) : [];
+      if (!text && !files.length) return res.status(400).json({ message: 'উত্তর লিখুন অথবা ছবি/PDF upload করুন' });
+      const existingAnswer = attempt.answers.find((a) => a.question.toString() === qid);
+      if (existingAnswer && (existingAnswer.answerText || existingAnswer.answerFiles?.length)) return res.status(409).json({ message: 'এই প্রশ্নের উত্তর ইতিমধ্যে দেওয়া হয়েছে' });
+      if (existingAnswer) { existingAnswer.answerText = text; existingAnswer.answerFiles = files; }
+      else attempt.answers.push({ question: qid, answerText: text, answerFiles: files, selectedOptionIndex: null });
+      const saved = await Attempt.findOneAndUpdate({ _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v }, { $set: { answers: attempt.answers }, $inc: { __v: 1 } }, { new: true });
+      if (!saved) return res.status(409).json({ message: 'উত্তর জমা/পরিবর্তন হয়েছে; পরীক্ষা রিফ্রেশ করে আবার চেষ্টা করুন' });
+      return res.json({ message: 'সেভ হয়েছে' });
+    }
     const optCount = question?.options?.length || 0;
     const isNull = selectedOptionIndex === null || selectedOptionIndex === undefined;
     if (!isNull && !(Number.isInteger(selectedOptionIndex) && selectedOptionIndex >= 0 && selectedOptionIndex < optCount)) {
@@ -315,7 +327,7 @@ exports.submitAttempt = async (req, res) => {
     const qMap = {};
     questions.forEach((q) => (qMap[q._id.toString()] = q));
 
-    let correct = 0, wrong = 0;
+    let correct = 0, wrong = 0, shortMarks = 0;
     const marksPerQ = exam.settings?.marksPerQuestion || 1;
     const negEnabled = exam.settings?.negativeMarking?.enabled || false;
     const negMarks = exam.settings?.negativeMarking?.marksPerWrong || 0;
@@ -323,6 +335,13 @@ exports.submitAttempt = async (req, res) => {
     attempt.questionOrder.forEach((qId) => {
       const q = qMap[qId.toString()];
       const ans = attempt.answers.find((a) => a.question.toString() === qId.toString());
+      if (q?.type === 'short') {
+        if (!ans || (!String(ans.answerText || '').trim() && !ans.answerFiles?.length)) {
+          return;
+        }
+        if (Number.isFinite(Number(ans.marksAwarded))) shortMarks += Math.max(0, Number(ans.marksAwarded));
+        return;
+      }
       if (!ans || ans.selectedOptionIndex === null || ans.selectedOptionIndex === undefined) return;
       // A question may have been deleted after this attempt started. It is no
       // longer gradable and must not accidentally count as a correct answer.
@@ -339,7 +358,7 @@ exports.submitAttempt = async (req, res) => {
 
     const totalQ = attempt.questionOrder.length;
     const skipped = totalQ - correct - wrong;
-    const obtainedMarks = correct * marksPerQ - (negEnabled ? wrong * negMarks : 0);
+    const obtainedMarks = correct * marksPerQ + shortMarks - (negEnabled ? wrong * negMarks : 0);
 
     attempt.totalCorrect = correct;
     attempt.totalWrong = wrong;

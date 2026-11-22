@@ -179,6 +179,9 @@ const normalizeQuestionOptions = (rawOptions, rawOptionImages, rawCorrectOptionI
 
 const normalizeAuthoringQuestion = (q) => {
   if (!q || typeof q.questionText !== 'string' || !q.questionText.trim()) return null;
+  if (q.type === 'short') {
+    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined };
+  }
   const normalized = normalizeQuestionOptions(q.options, q.optionImages, q.correctOptionIndex);
   if (!normalized) return null;
   return {
@@ -274,6 +277,7 @@ exports.createExam = async (req, res) => {
       const questionDocs = validQuestions.map((q, index) => ({
         exam: exam._id,
         questionText: q.questionText,
+        type: q.type || 'mcq',
         options: q.options,
         correctOptionIndex: q.correctOptionIndex,
         explanation: q.explanation,
@@ -795,6 +799,34 @@ exports.getAttemptDetails = async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 };
+
+exports.gradeShortAnswers = async (req, res) => {
+  try {
+    const attempt = await Attempt.findById(req.params.attemptId);
+    if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
+    const exam = await Exam.findById(attempt.exam);
+    if (!exam || exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
+    const questions = await Question.find({ exam: exam._id }).select('type _id');
+    const shortIds = new Set(questions.filter((q) => q.type === 'short').map((q) => String(q._id)));
+    const marks = req.body?.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
+    const max = Number(exam.settings?.marksPerQuestion) || 1;
+    attempt.answers.forEach((answer) => {
+      const id = String(answer.question);
+      if (!shortIds.has(id) || marks[id] === undefined) return;
+      const value = Number(marks[id]);
+      if (!Number.isFinite(value) || value < 0 || value > max) return;
+      answer.marksAwarded = Math.round(value * 100) / 100;
+      answer.reviewed = true;
+    });
+    const shortMarks = attempt.answers.reduce((sum, answer) => sum + (Number(answer.marksAwarded) || 0), 0);
+    const mcqMarks = (Number(attempt.totalCorrect) || 0) * max;
+    const negative = exam.settings?.negativeMarking?.enabled ? (Number(attempt.totalWrong) || 0) * (Number(exam.settings?.negativeMarking?.marksPerWrong) || 0) : 0;
+    attempt.obtainedMarks = Math.round((mcqMarks + shortMarks - negative) * 100) / 100;
+    await attempt.save();
+    res.json({ message: 'Short question-এর নম্বর সংরক্ষিত হয়েছে', attempt });
+  } catch (err) { res.status(500).json({ message: err.message }); }
+};
+
 
 // ---------- ৮. Excel এ Export ----------
 exports.exportResultsExcel = async (req, res) => {
