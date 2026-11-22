@@ -1,10 +1,10 @@
 const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Class = require('../models/Class');
-const Sequence = require('../models/Sequence');
+const { allocateStudentRoll } = require('../utils/studentRoll');
 const { grantTrialIfEnabled } = require('../utils/trial');
 const {
-  encryptCredential, generatePassword, generateRoll, normalizeRow, parseFile,
+  encryptCredential, generatePassword, normalizeRow, parseFile,
   credentialsFromUser, generateCredentialsExcel, generateCredentialsPdf,
   generateStudentImportTemplate,
 } = require('../utils/accountProvision');
@@ -22,20 +22,6 @@ const uniqueAccessCode = async () => {
   let code;
   do { code = require('crypto').randomBytes(3).toString('hex').toUpperCase(); } while (await User.exists({ accessCode: code }));
   return code;
-};
-const uniqueRoll = async () => {
-  // findOneAndUpdate + $inc makes concurrent manual/import requests receive
-  // different values. Start at 100001, then skip any legacy numeric rolls.
-  let roll;
-  do {
-    const sequence = await Sequence.findOneAndUpdate(
-      { _id: 'user-roll' },
-      { $inc: { value: 1 } },
-      { new: true, upsert: true, setDefaultsOnInsert: true },
-    ).lean();
-    roll = generateRoll(sequence.value);
-  } while (await User.exists({ roll }));
-  return roll;
 };
 const classesFor = async (classIds, ownerId, isAdmin = false) => {
   const ids = Array.isArray(classIds) ? classIds.filter(validId) : (classIds ? [classIds].filter(validId) : []);
@@ -64,7 +50,7 @@ const createAccount = async ({ body, ownerId, isAdmin = false }) => {
   if (role === 'student' && body.classId && !classes.length) throw Object.assign(new Error('নির্বাচিত শ্রেণী পাওয়া যায়নি'), { status: 400 });
   let roll = '';
   if (role === 'student') {
-    roll = normRoll(body.roll) || await uniqueRoll();
+    roll = normRoll(body.roll) || await allocateStudentRoll();
     if (!/^\d+$/.test(roll)) throw Object.assign(new Error('রোল নম্বর শুধু numeric হতে হবে'), { status: 400 });
     if (await User.exists({ roll })) throw Object.assign(new Error('এই রোল নম্বর আগে থেকেই ব্যবহৃত হচ্ছে'), { status: 400 });
   }

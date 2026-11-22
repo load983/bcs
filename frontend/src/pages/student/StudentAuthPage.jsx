@@ -100,6 +100,7 @@ export default function StudentAuthPage() {
           value={formData.roll}
           onChange={handleChange}
         />
+        <p className="aa-hint">{t('studentAuth.rollOptionalHint')}</p>
         <AaField
           id="suPhone"
           name="phone"

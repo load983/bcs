@@ -251,6 +251,7 @@ const entries = {
   'studentAuth.registerTitle': { bn: 'নতুন অ্যাকাউন্ট তৈরি করুন', en: 'Create a new account' },
   'studentAuth.name': { bn: 'নাম', en: 'Name' },
   'studentAuth.roll': { bn: 'রোল নাম্বার', en: 'Roll number' },
+  'studentAuth.rollOptionalHint': { bn: 'রোল না দিলেও সমস্যা নেই—অ্যাকাউন্ট তৈরি হলে স্বয়ংক্রিয়ভাবে রোল দেওয়া হবে।', en: 'You can leave this blank; a roll number will be generated automatically.' },
   'studentAuth.phone': { bn: 'মোবাইল নাম্বার', en: 'Mobile number' },
   'studentAuth.parentPhone': { bn: 'পিতা/মাতার মোবাইল নাম্বার', en: "Parent's mobile number" },
   'studentAuth.password': { bn: 'পাসওয়ার্ড', en: 'Password' },

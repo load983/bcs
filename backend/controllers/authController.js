@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { generateStudentsExcel } = require('../utils/excelExport');
 const { grantTrialIfEnabled } = require('../utils/trial');
 const { sendEmail, sendSms } = require('../utils/messaging');
+const { allocateStudentRoll } = require('../utils/studentRoll');
 const PHONE_E164_RE = /^\+[1-9]\d{7,14}$/;
 const normalizePhone = (value) => {
   const bn = '০১২৩৪৫৬৭৮৯';
@@ -182,10 +183,11 @@ exports.registerStudent = async (req, res) => {
       const salt = await bcrypt.genSalt(10);
       hashedPassword = await bcrypt.hash(password, salt);
     }
+    const assignedRoll = String(roll || '').trim() || await allocateStudentRoll();
 
     const student = await User.create({
       name,
-      roll,
+      roll: assignedRoll,
       phone,
       parentPhone,
       password: hashedPassword,
@@ -250,7 +252,7 @@ exports.studentQuickLogin = async (req, res) => {
     if (!student) {
       student = await User.create({
         name,
-        roll,
+        roll: String(roll || '').trim() || await allocateStudentRoll(),
         phone,
         role: 'student',
       });

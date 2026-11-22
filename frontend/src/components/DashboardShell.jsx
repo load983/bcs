@@ -196,7 +196,7 @@ export default function DashboardShell({ role, children }) {
           <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-primary-500/15 text-xs font-bold text-primary-600 dark:text-primary-300">
             {[...(user?.name || '?').trim()][0]?.toUpperCase()}
           </span>
-          <span className="truncate">{user?.name}</span>
+          <span className="min-w-0 truncate"><span className="block truncate">{user?.name}</span>{role === 'student' && user?.roll && <span className="block truncate text-xs text-gray-500 dark:text-gray-400">{t('common.roll')}: {user.roll}</span>}</span>
         </div>
         <div className="grid grid-cols-2 gap-2">
           <Link to="/" className="btn !gap-1.5 !rounded-lg border border-amber-500/40 !px-2 !py-2 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400">
@@ -232,7 +232,7 @@ export default function DashboardShell({ role, children }) {
             </span>
             <div className="min-w-0 flex-1">
               <div className="truncate text-base font-semibold leading-tight dark:text-white">{current.label}</div>
-              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{t('shell.welcome', { name: user?.name || '' })}</div>
+              <div className="truncate text-xs text-gray-500 dark:text-gray-400">{t('shell.welcome', { name: user?.name || '' })}{role === 'student' && user?.roll && <> · {t('common.roll')}: {user.roll}</>}</div>
             </div>
             <button type="button" onClick={() => setPalette(true)} className="shell-topbtn hidden w-56 justify-between md:inline-flex">
               <span className="flex items-center gap-2"><Icon name="search" className="h-4 w-4" />{t('shell.quickNavShort')}</span>
