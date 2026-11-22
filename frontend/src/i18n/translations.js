@@ -252,6 +252,7 @@ const entries = {
   'studentAuth.name': { bn: 'নাম', en: 'Name' },
   'studentAuth.roll': { bn: 'রোল নাম্বার', en: 'Roll number' },
   'studentAuth.phone': { bn: 'মোবাইল নাম্বার', en: 'Mobile number' },
+  'studentAuth.parentPhone': { bn: 'পিতা/মাতার মোবাইল নাম্বার', en: "Parent's mobile number" },
   'studentAuth.password': { bn: 'পাসওয়ার্ড', en: 'Password' },
   'studentAuth.accessCode': { bn: 'শ্রেণীর এক্সেস কোড', en: 'Class access code' },
   'studentAuth.accessCodeHint': {

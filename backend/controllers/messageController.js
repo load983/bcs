@@ -10,6 +10,7 @@ const User = require('../models/User');
 const PushSubscription = require('../models/PushSubscription');
 const { getActiveTeacherIds } = require('../utils/subscription');
 const push = require('../utils/push');
+const messaging = require('../utils/messaging');
 
 const uploadDir = path.join(__dirname, '..', 'uploads');
 
@@ -96,6 +97,16 @@ exports.announceExamPublished = async (exam, teacherId) => {
     text: `নতুন পরীক্ষা: ${exam.title}`,
   });
   await pushAnnouncement(ann, teacher?.name || 'শিক্ষক');
+  try {
+    const config = await messaging.config();
+    if (config.smsExamEnabled !== false) {
+      const ids = await audienceIds(teacherId, exam.classRefs);
+      const students = await User.find({ _id: { $in: ids } }).select('phone parentPhone').lean();
+      await messaging.sendSmsToUsers(students, `নতুন পরীক্ষা: ${exam.title}। পরীক্ষা দিতে লগইন করে Exam section খুলুন।`);
+    }
+  } catch (error) {
+    console.error('exam SMS notification failed:', error.message);
+  }
 };
 
 // ==================== শিক্ষক ====================

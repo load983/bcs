@@ -9,7 +9,7 @@ import AnimatedAuthCard, { AaField } from '../../components/AnimatedAuthCard';
 export default function StudentAuthPage() {
   const { t } = useLanguage();
   const [isLogin, setIsLogin] = useState(true);
-  const [formData, setFormData] = useState({ name: '', roll: '', phone: '', password: '', accessCode: '' });
+  const [formData, setFormData] = useState({ name: '', roll: '', phone: '', parentPhone: '', password: '', accessCode: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -107,6 +107,15 @@ export default function StudentAuthPage() {
           icon="fa-solid fa-mobile-screen-button"
           required
           value={formData.phone}
+          onChange={handleChange}
+        />
+        <AaField
+          id="suParentPhone"
+          name="parentPhone"
+          label={t('studentAuth.parentPhone')}
+          icon="fa-solid fa-phone-volume"
+          required
+          value={formData.parentPhone}
           onChange={handleChange}
         />
         <AaField

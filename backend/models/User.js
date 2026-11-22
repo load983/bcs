@@ -14,6 +14,7 @@ const userSchema = new mongoose.Schema(
 
     roll: { type: String },
     phone: { type: String, unique: true, sparse: true }, // Student-এর জন্য
+    parentPhone: { type: String }, // Student-এর অভিভাবকের SMS নম্বর
 
     // Teacher-এর ইউনিক এক্সেস কোড — স্টুডেন্ট এই কোড দিয়ে এই শিক্ষকের সাথে যুক্ত হবে
     accessCode: { type: String, unique: true, sparse: true },

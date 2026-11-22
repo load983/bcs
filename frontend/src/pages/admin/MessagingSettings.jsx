@@ -102,6 +102,16 @@ export default function MessagingSettings({ say }) {
           <input type="checkbox" checked={!!form.smsEnabled} onChange={(event) => set('smsEnabled', event.target.checked)} />
           {t('a.msg.smsEnabled')}
         </label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex gap-2 text-sm">
+            <input type="checkbox" checked={form.smsExamEnabled !== false} onChange={(event) => set('smsExamEnabled', event.target.checked)} />
+            {t('a.msg.smsExamEnabled')}
+          </label>
+          <label className="flex gap-2 text-sm">
+            <input type="checkbox" checked={form.smsResultEnabled !== false} onChange={(event) => set('smsResultEnabled', event.target.checked)} />
+            {t('a.msg.smsResultEnabled')}
+          </label>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label={t('a.msg.twilioSid')} value={form.twilioSid || ''} onChange={(event) => set('twilioSid', event.target.value)} autoComplete="off" />
           <Field label={t('a.msg.twilioToken')} type="password" value={form.twilioToken || ''} onChange={(event) => set('twilioToken', event.target.value)} placeholder={form.hasTwilioToken ? t('a.msg.keepSaved') : ''} autoComplete="new-password" />

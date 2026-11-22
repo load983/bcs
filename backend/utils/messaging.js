@@ -61,5 +61,9 @@ async function sendSms(to, text) {
     return true;
   } catch (e) { console.error('SMS delivery failed:', e.message); return false; }
 }
+async function sendSmsToUsers(users, text) {
+  const phones = [...new Set((users || []).flatMap((user) => [user?.phone, user?.parentPhone]).filter(Boolean))];
+  return Promise.all(phones.map((phone) => sendSms(phone, text)));
+}
 async function notifyUser(user, subject, text, attachments = []) { const [email, sms] = await Promise.all([sendEmail(user.email, subject, text, attachments), sendSms(user.phone, text)]); return { email, sms }; }
-module.exports = { config, encrypt, decrypt, sendEmail, sendSms, notifyUser, smsMetrics, prepareSms };
+module.exports = { config, encrypt, decrypt, sendEmail, sendSms, sendSmsToUsers, notifyUser, smsMetrics, prepareSms };

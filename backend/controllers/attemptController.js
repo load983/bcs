@@ -8,6 +8,7 @@ const User = require('../models/User');
 const PDFDocument = require('pdfkit');
 const { getTeacherStatus } = require('../utils/subscription');
 const { registerFonts, writeText } = require('../utils/pdfFonts');
+const messaging = require('../utils/messaging');
 
 const DIAGRAM_RE = /^\/uploads\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|gif)$/i;
 const DIAGRAM_DATA_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
@@ -352,6 +353,13 @@ exports.submitAttempt = async (req, res) => {
     );
     const resultAttempt = finalized || await Attempt.findById(attempt._id);
     if (!resultAttempt || resultAttempt.status !== 'submitted') return res.status(409).json({ message: 'পরীক্ষার ফল জমা দেওয়া যায়নি, আবার চেষ্টা করুন' });
+    if (finalized && resultsEnabled(exam)) {
+      User.findById(resultAttempt.studentId).select('phone parentPhone').lean().then(async (student) => {
+        const config = await messaging.config();
+        if (config.smsResultEnabled === false) return;
+        await messaging.sendSmsToUsers([student || { phone: resultAttempt.studentPhone }], `ফলাফল: ${exam.title}। প্রাপ্ত নম্বর ${resultAttempt.obtainedMarks}, সঠিক ${resultAttempt.totalCorrect}, ভুল ${resultAttempt.totalWrong}।`);
+      }).catch((error) => console.error('result SMS notification failed:', error.message));
+    }
     res.json(await buildResultPayload(resultAttempt, exam, resultsEnabled(exam)));
   } catch (err) {
     res.status(500).json({ message: err.message });

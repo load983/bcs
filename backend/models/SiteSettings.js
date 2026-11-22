@@ -139,7 +139,7 @@ const siteSettingsSchema = new mongoose.Schema(
     // ---------- ইমেইল/SMS নোটিফিকেশন ----------
     messaging: {
       emailEnabled: { type: Boolean, default: false }, smtpHost: { type: String, default: '' }, smtpPort: { type: Number, default: 587 }, smtpUser: { type: String, default: '' }, smtpPassEnc: { type: String, select: false, default: '' }, fromEmail: { type: String, default: '' }, fromName: { type: String, default: '' },
-      smsEnabled: { type: Boolean, default: false }, twilioSid: { type: String, default: '' }, twilioTokenEnc: { type: String, select: false, default: '' }, twilioFrom: { type: String, default: '' },
+      smsEnabled: { type: Boolean, default: false }, smsExamEnabled: { type: Boolean, default: true }, smsResultEnabled: { type: Boolean, default: true }, twilioSid: { type: String, default: '' }, twilioTokenEnc: { type: String, select: false, default: '' }, twilioFrom: { type: String, default: '' },
     },
     // ---------- AI সহকারী (অ্যাডমিন প্যানেল → AI সহকারী) ----------
     // API key এনক্রিপ্ট করে রাখা হয়; select:false — সাধারণ কোয়েরিতে আসে না, ফ্রন্টএন্ডে কখনো যায় না

@@ -150,12 +150,16 @@ exports.loginAdmin = async (req, res) => {
 // 🔑 নতুন একাউন্ট খোলার সময় শিক্ষকের এক্সেস কোড দেওয়া আবশ্যক — এতে সে ওই শিক্ষকের সাথে সাথে সাথেই যুক্ত হয়ে যায়
 exports.registerStudent = async (req, res) => {
   try {
-    const { name, roll, phone, password, accessCode } = req.body;
+    const { name, roll, password, accessCode } = req.body;
+    const phone = normalizePhone(req.body.phone);
+    const parentPhone = normalizePhone(req.body.parentPhone);
 
     if (!accessCode || !String(accessCode).trim()) {
       return res.status(400).json({ message: 'শিক্ষকের এক্সেস কোড দেওয়া আবশ্যক' });
     }
     if (String(password || '').length < 8) return res.status(400).json({ message: 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' });
+    if (!phone || !PHONE_E164_RE.test(phone)) return res.status(400).json({ message: 'সঠিক শিক্ষার্থীর মোবাইল নম্বর দিন, যেমন 01XXXXXXXXX বা +8801XXXXXXXXX' });
+    if (!parentPhone || !PHONE_E164_RE.test(parentPhone)) return res.status(400).json({ message: 'সঠিক অভিভাবকের মোবাইল নম্বর দিন, যেমন 01XXXXXXXXX বা +8801XXXXXXXXX' });
 
     const code = String(accessCode).trim().toUpperCase();
     const cls = await Class.findOne({ accessCode: code });
@@ -171,6 +175,7 @@ exports.registerStudent = async (req, res) => {
         return res.status(400).json({ message: 'এই মোবাইল নাম্বার দিয়ে ইতঃপূর্বে রেজিস্ট্রেশন করা হয়েছে' });
       }
     }
+    if (phone === parentPhone) return res.status(400).json({ message: 'অভিভাবকের নম্বর শিক্ষার্থীর নম্বর থেকে আলাদা হতে হবে' });
 
     let hashedPassword;
     if (password) {
@@ -182,6 +187,7 @@ exports.registerStudent = async (req, res) => {
       name,
       roll,
       phone,
+      parentPhone,
       password: hashedPassword,
       role: 'student',
       connectedClasses: cls ? [cls._id] : [],
@@ -193,6 +199,7 @@ exports.registerStudent = async (req, res) => {
       name: student.name,
       roll: student.roll,
       phone: student.phone,
+      parentPhone: student.parentPhone,
       role: student.role,
       token: generateToken(student._id, student.role),
     });

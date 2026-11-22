@@ -16,6 +16,8 @@ exports.get = async (req, res) => {
       fromName: config.fromName || '',
       hasSmtpPass: !!config.smtpPass,
       smsEnabled: !!config.smsEnabled,
+      smsExamEnabled: config.smsExamEnabled !== false,
+      smsResultEnabled: config.smsResultEnabled !== false,
       twilioSid: config.twilioSid || '',
       twilioFrom: config.twilioFrom || '',
       hasTwilioToken: !!config.twilioToken,
@@ -45,7 +47,7 @@ exports.save = async (req, res) => {
       }
     }
 
-    for (const field of ['emailEnabled', 'smsEnabled']) {
+    for (const field of ['emailEnabled', 'smsEnabled', 'smsExamEnabled', 'smsResultEnabled']) {
       if (body[field] !== undefined) settings.set(`messaging.${field}`, body[field] === true || body[field] === 'true');
     }
 
