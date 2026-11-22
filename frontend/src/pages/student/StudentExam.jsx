@@ -28,6 +28,7 @@ export default function StudentExam() {
   const failedSavesRef = useRef(new Set());
   const submittedRef = useRef(false);
   const questionRefs = useRef([]);
+  const attachmentPickerRef = useRef(false);
   useEffect(() => {
     const elements = questionRefs.current.filter(Boolean);
     if (!elements.length || typeof IntersectionObserver === 'undefined') return;
@@ -79,15 +80,19 @@ export default function StudentExam() {
   // 🔒 পরীক্ষা চলাকালীন অন্য ট্যাব/ব্রাউজার/অ্যাপে চলে গেলে যতটুকু দেওয়া হয়েছে তা অটো সাবমিট
   useEffect(() => {
     if (!attemptId || result) return;
-    const leave = () => handleSubmit(true);
+    const leave = () => { if (!attachmentPickerRef.current) handleSubmit(true); };
     const onVisibility = () => {
       if (document.hidden) leave();
+      else attachmentPickerRef.current = false;
     };
+    const onWindowFocus = () => { attachmentPickerRef.current = false; };
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('pagehide', leave);
+    window.addEventListener('focus', onWindowFocus);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('pagehide', leave);
+      window.removeEventListener('focus', onWindowFocus);
     };
   }, [attemptId, result, handleSubmit]);
 
@@ -139,13 +144,14 @@ export default function StudentExam() {
   };
 
   const readAnswerFiles = (fileList, questionId) => {
-    const files = [...fileList].slice(0, 5).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type) && file.size <= 10 * 1024 * 1024);
+    const alreadyAttached = shortDrafts[questionId]?.files?.length || 0;
+    const files = [...fileList].slice(0, Math.max(0, 5 - alreadyAttached)).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type) && file.size <= 10 * 1024 * 1024);
     Promise.all(files.map((file) => new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve({ name: file.name, mime: file.type, data: reader.result });
       reader.onerror = () => resolve(null);
       reader.readAsDataURL(file);
-    }))).then((items) => setShortDrafts((d) => ({ ...d, [questionId]: { ...(d[questionId] || {}), files: items.filter(Boolean) } })));
+    }))).then((items) => setShortDrafts((d) => ({ ...d, [questionId]: { ...(d[questionId] || {}), files: [...(d[questionId]?.files || []), ...items.filter(Boolean)].slice(0, 5) } })));
   };
 
   if (!questions.length) {
@@ -200,7 +206,16 @@ export default function StudentExam() {
               {q.type === 'short' ? (
                 <div className="space-y-3">
                   <textarea className="input min-h-36 w-full" disabled={isLocked(q._id) || submitting} value={shortDrafts[q._id]?.text || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), text: e.target.value } }))} placeholder="উত্তর লিখুন…" />
-                  <input type="file" disabled={isLocked(q._id) || submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onChange={(e) => readAnswerFiles(e.target.files, q._id)} />
+                  <div className="flex flex-wrap gap-2">
+                    <label className="cursor-pointer rounded-xl border border-primary-300 px-3 py-2 text-sm font-medium text-primary-700 dark:border-primary-500/40 dark:text-primary-300">
+                      ক্যামেরা দিয়ে ছবি তুলুন
+                      <input className="sr-only" type="file" disabled={isLocked(q._id) || submitting} accept="image/*" capture="environment" onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
+                    </label>
+                    <label className="cursor-pointer rounded-xl border border-gray-300 px-3 py-2 text-sm dark:border-white/15 dark:text-gray-200">
+                      ছবি/PDF আপলোড করুন
+                      <input className="sr-only" type="file" disabled={isLocked(q._id) || submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
+                    </label>
+                  </div>
                   {(shortDrafts[q._id]?.files || []).length > 0 && <p className="text-xs text-gray-500">{shortDrafts[q._id].files.length}টি file প্রস্তুত হয়েছে</p>}
                   <button type="button" className="btn-primary" disabled={isLocked(q._id) || submitting} onClick={() => handleShortSubmit(q._id)}>{isLocked(q._id) ? 'উত্তর জমা হয়েছে' : 'উত্তর জমা দিন'}</button>
                 </div>
