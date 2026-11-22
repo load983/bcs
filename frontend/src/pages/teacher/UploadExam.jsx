@@ -58,8 +58,11 @@ export default function UploadExam() {
           <option value="short">{t('upload.shortType')}</option>
         </select>
         <p className="mt-3 text-xs font-semibold">{t('upload.formatLabel')}</p>
-        <pre className="mt-1 overflow-x-auto rounded-lg bg-white/80 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900/70 dark:text-gray-100">{t(questionType === 'short' ? 'upload.shortDemo' : 'upload.mcqDemo')}</pre>
-        <p className="mt-2 text-xs">{t(questionType === 'short' ? 'upload.shortFormatNote' : 'upload.answerOptional')}</p>
+        <pre className="mt-1 overflow-x-auto rounded-lg bg-white/80 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900/70 dark:text-gray-100">{t('upload.mcqDemo')}</pre>
+        <p className="mt-2 text-xs">{t('upload.answerOptional')}</p>
+        <p className="mt-3 text-xs font-semibold">{t('upload.shortFormatLabel')}</p>
+        <pre className="mt-1 overflow-x-auto rounded-lg bg-white/80 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900/70 dark:text-gray-100">{t('upload.shortDemo')}</pre>
+        <p className="mt-2 text-xs">{t('upload.shortFormatNote')}</p>
       </section>
       <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50/70 px-4 py-3 text-xs leading-relaxed text-primary-800 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-200">
         <strong>{t('upload.richContentTitle')}</strong> {t('upload.richContentNote')}

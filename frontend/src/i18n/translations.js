@@ -372,7 +372,7 @@ const entries = {
   'upload.questionTypeLabel': { bn: 'প্রশ্নের ধরন', en: 'Question type' },
   'upload.mcqType': { bn: 'MCQ', en: 'MCQ' },
   'upload.shortType': { bn: 'Short question', en: 'Short question' },
-  'upload.formatLabel': { bn: 'নির্বাচিত ধরনের ফরম্যাটের উদাহরণ:', en: 'Example for the selected question type:' },
+  'upload.formatLabel': { bn: 'MCQ ফরম্যাটের উদাহরণ:', en: 'MCQ format example:' },
   'upload.mcqDemo': {
     bn: '1. প্রশ্ন এখানে লিখুন?\n(A) অপশন ১  (B) অপশন ২\n(C) অপশন ৩  (D) অপশন ৪\nAnswer: C   অথবা   Ans: (C) অপশন ৩',
     en: '1. Write the question here?\n(A) Option 1  (B) Option 2\n(C) Option 3  (D) Option 4\nAnswer: C   or   Ans: (C) Option 3',
@@ -381,6 +381,7 @@ const entries = {
     bn: '১। সংবিধানের মূলনীতিগুলো কী কী?\nপ্রতিটি মূলনীতি সংক্ষেপে ব্যাখ্যা করুন।\n২। সালোকসংশ্লেষণ কী?',
     en: '1. What are the principles of the constitution?\nBriefly explain each principle.\n2. What is photosynthesis?',
   },
+  'upload.shortFormatLabel': { bn: 'Short question ফরম্যাটের উদাহরণ:', en: 'Short-question format example:' },
   'upload.shortFormatNote': {
     bn: 'প্রতিটি প্রশ্ন 1. / 1) / ১। দিয়ে শুরু করুন। একই প্রশ্নের পরের লাইনের লেখা সেই প্রশ্নের অংশ হবে। Short answer শিক্ষার্থী লিখে বা PDF/image হিসেবে জমা দেবে; শিক্ষক পরে নম্বর দেবেন।',
     en: 'Start each question with 1. / 1) / ১।. Wrapped lines remain part of that question. Students will answer in text or upload a PDF/image, and the teacher can grade it later.',
