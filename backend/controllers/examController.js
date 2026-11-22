@@ -7,6 +7,7 @@ const Exam = require('../models/Exam');
 const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
 const { validateTeacherFeedbackMedia } = require('../utils/teacherFeedbackMedia');
+const { validateExplanationMedia } = require('../utils/explanationMedia');
 const { getAiConfig } = require('../utils/aiConfig');
 const { callModel } = require('../utils/aiProvider');
 const User = require('../models/User');
@@ -198,8 +199,10 @@ const normalizeQuestionOptions = (rawOptions, rawOptionImages, rawCorrectOptionI
 
 const normalizeAuthoringQuestion = (q) => {
   if (!q || typeof q.questionText !== 'string' || !q.questionText.trim()) return null;
+  const explanationMedia = validateExplanationMedia(q.explanationMedia === undefined ? [] : q.explanationMedia);
+  if (!explanationMedia.ok) return null;
   if (q.type === 'short') {
-    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined, questionAudio: cleanQuestionAudio(q.questionAudio), explanationAudio: cleanQuestionAudio(q.explanationAudio) };
+    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined, questionAudio: cleanQuestionAudio(q.questionAudio), explanationAudio: cleanQuestionAudio(q.explanationAudio), explanationMedia: explanationMedia.media };
   }
   const normalized = normalizeQuestionOptions(q.options, q.optionImages, q.correctOptionIndex);
   if (!normalized) return null;
@@ -210,6 +213,7 @@ const normalizeAuthoringQuestion = (q) => {
     explanation: q.explanation ? String(q.explanation).trim() : undefined,
     questionAudio: cleanQuestionAudio(q.questionAudio),
     explanationAudio: cleanQuestionAudio(q.explanationAudio),
+    explanationMedia: explanationMedia.media,
   };
 };
 
@@ -304,6 +308,7 @@ exports.createExam = async (req, res) => {
         explanation: q.explanation,
         questionAudio: q.questionAudio,
         explanationAudio: q.explanationAudio,
+        explanationMedia: q.explanationMedia,
         diagram: cleanDiagram(q.diagram),
         diagramSource: cleanDiagram(q.diagram) ? cleanDiagramSource(q.diagramSource) : undefined,
         diagrams: cleanDiagrams(q.diagrams),
@@ -355,6 +360,7 @@ const sanitizeDraft = async (teacherId, body = {}) => {
       explanation: cutStr(q?.explanation, 5000),
       questionAudio: cleanQuestionAudio(q?.questionAudio) || '',
       explanationAudio: cleanQuestionAudio(q?.explanationAudio) || '',
+      explanationMedia: validateExplanationMedia(q?.explanationMedia === undefined ? [] : q.explanationMedia).media || [],
       optionImages: cleanOptionImages(q?.optionImages, options.length) || [],
       diagram: cleanDiagram(q?.diagram) || '',
       diagramSource: (cleanDiagram(q?.diagram) && cleanDiagramSource(q?.diagramSource)) || '',
@@ -366,7 +372,7 @@ const sanitizeDraft = async (teacherId, body = {}) => {
 
 const draftHasContent = (d) =>
   !!d.title.trim() ||
-  d.questions.some((q) => q.questionText.trim() || q.explanation.trim() || q.questionAudio || q.explanationAudio || q.diagram || (q.diagrams || []).length || q.options.some((o) => o.trim()) || (q.optionImages || []).some(Boolean));
+  d.questions.some((q) => q.questionText.trim() || q.explanation.trim() || q.questionAudio || q.explanationAudio || (q.explanationMedia || []).length || q.diagram || (q.diagrams || []).length || q.options.some((o) => o.trim()) || (q.optionImages || []).some(Boolean));
 
 // পেন্ডিং পরীক্ষা তৈরি/আপডেট (ফর্ম অসম্পূর্ণ থাকলেও চলবে; সীমা গণনায় ধরা হয় না)
 exports.savePending = async (req, res) => {
@@ -459,6 +465,7 @@ exports.finalizePending = async (req, res) => {
         explanation: q.explanation,
         questionAudio: q.questionAudio,
         explanationAudio: q.explanationAudio,
+        explanationMedia: q.explanationMedia,
         diagram: cleanDiagram(q.diagram),
         diagramSource: cleanDiagram(q.diagram) ? cleanDiagramSource(q.diagramSource) : undefined,
         diagrams: cleanDiagrams(q.diagrams),
@@ -680,9 +687,14 @@ exports.updateQuestion = async (req, res) => {
     if (body.order !== undefined && (!Number.isInteger(body.order) || body.order < 0)) {
       return res.status(400).json({ message: 'প্রশ্নের ক্রম সঠিক নয়' });
     }
-    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams', 'questionAudio', 'explanationAudio'].forEach((field) => {
+    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams', 'questionAudio', 'explanationAudio', 'explanationMedia'].forEach((field) => {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
     });
+    if (Object.prototype.hasOwnProperty.call(body, 'explanationMedia')) {
+      const validated = validateExplanationMedia(body.explanationMedia);
+      if (!validated.ok) return res.status(400).json({ message: validated.message });
+      body.explanationMedia = validated.media;
+    }
     for (const field of ['questionAudio', 'explanationAudio']) {
       if (Object.prototype.hasOwnProperty.call(body, field)) {
         body[field] = cleanQuestionAudio(body[field]);

@@ -318,10 +318,11 @@ function QuestionReviewCard({ item }) {
           </div>
         )}
       </div>
-      {(item.explanation || item.explanationAudio) && (
+      {(item.explanation || item.explanationAudio || item.explanationMedia?.length > 0) && (
         <div className="mt-3 rounded-lg bg-primary-50 p-3 text-sm dark:bg-primary-500/10 dark:text-gray-100">
           <strong>{t('result.explanation')}</strong>{item.explanation && <MathText text={item.explanation} />}
           {item.explanationAudio && <audio className="mt-2 w-full" controls preload="none" src={item.explanationAudio}>Audio playback সমর্থিত নয়।</audio>}
+          {!!item.explanationMedia?.length && <div className="mt-3 grid gap-3 sm:grid-cols-2">{item.explanationMedia.map((media, index) => <FeedbackMediaItem key={`${media.name}-${index}`} item={media} />)}</div>}
         </div>
       )}
     </div>

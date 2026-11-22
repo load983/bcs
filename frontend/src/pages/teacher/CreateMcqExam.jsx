@@ -11,6 +11,7 @@ import MathText from '../../components/MathText';
 import FormulaToolbar from '../../components/FormulaToolbar';
 import QuestionDiagram from '../../components/QuestionDiagram';
 import QuestionAudioField from '../../components/QuestionAudioField';
+import ExplanationMediaField from '../../components/ExplanationMediaField';
 import assetUrl from '../../utils/assetUrl';
 import ZoomImage from '../../components/ZoomImage';
 import ChemDiagramList from '../../components/ChemDiagramList';
@@ -37,6 +38,7 @@ const emptyQuestion = () => ({
   explanation: '',
   questionAudio: '',
   explanationAudio: '',
+  explanationMedia: [],
   diagram: '',
   diagramSource: '',
   diagrams: [], // কেমিস্ট্রি ডায়াগ্রাম (ChemistryDiagramPicker)
@@ -45,7 +47,7 @@ const emptyQuestion = () => ({
 // ফর্মে কিছুই লেখা হয়নি কিনা
 const isBlank = (title, questions) =>
   !title.trim() &&
-  questions.every((q) => !q.questionText.trim() && !(q.explanation || '').trim() && !q.questionAudio && !q.explanationAudio && !q.diagram && !(q.diagrams || []).length && q.options.every((o) => !o.trim()) && !(q.optionImages || []).some(Boolean));
+  questions.every((q) => !q.questionText.trim() && !(q.explanation || '').trim() && !q.questionAudio && !q.explanationAudio && !(q.explanationMedia || []).length && !q.diagram && !(q.diagrams || []).length && q.options.every((o) => !o.trim()) && !(q.optionImages || []).some(Boolean));
 
 // সংরক্ষিত অবস্থা মেলানোর জন্য ফর্মের ছাপ (key বাদে)
 const snapshotOf = (title, classIds, questions) =>
@@ -385,6 +387,7 @@ export default function CreateMcqExam() {
         explanation: q.explanation.trim() || undefined,
         questionAudio: q.questionAudio || undefined,
         explanationAudio: q.explanationAudio || undefined,
+        explanationMedia: q.explanationMedia || [],
         optionImages: (q.optionImages || []).some(Boolean) ? q.options.map((_, k) => (q.optionImages || [])[k] || '') : undefined,
         diagram: q.diagram || undefined,
         diagramSource: q.diagram && q.diagramSource ? q.diagramSource : undefined,
@@ -568,14 +571,9 @@ export default function CreateMcqExam() {
                 </div>
               </div>}
 
-              <input
-                data-math
-                placeholder={t('createMcq.explanationPlaceholder')}
-                value={q.explanation}
-                onChange={(e) => updateQuestion(q.key, { explanation: e.target.value })}
-                className="input"
-              />
+              <label className="block text-sm font-medium dark:text-gray-200">লিখিত ব্যাখ্যা (ঐচ্ছিক)<textarea data-math rows={3} placeholder={t('createMcq.explanationPlaceholder')} value={q.explanation} onChange={(e) => updateQuestion(q.key, { explanation: e.target.value })} className="input mt-1 w-full resize-y" /></label>
               <QuestionAudioField label="ব্যাখ্যার voice note" value={q.explanationAudio} onChange={(explanationAudio) => updateQuestion(q.key, { explanationAudio })} />
+              <ExplanationMediaField value={q.explanationMedia || []} onChange={(explanationMedia) => updateQuestion(q.key, { explanationMedia })} />
 
              </div>
 

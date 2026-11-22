@@ -630,6 +630,7 @@ exports.getAttemptReview = async (req, res) => {
         marksAwarded: Number.isFinite(Number(ans?.marksAwarded)) ? Number(ans.marksAwarded) : null,
         status: selectedOptionIndex === null ? 'skipped' : ans.isCorrect ? 'correct' : 'wrong',
         explanation: q.explanation || null,
+        explanationMedia: q.explanationMedia || [],
       };
     });
 
