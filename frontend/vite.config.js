@@ -4,6 +4,23 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  build: {
+    rolldownOptions: {
+      output: {
+        codeSplitting: {
+          groups: [
+            {
+              name: 'vendor',
+              test: /node_modules[\\/]/,
+              minShareCount: 1,
+              minSize: 20 * 1024,
+              maxSize: 400 * 1024,
+            },
+          ],
+        },
+      },
+    },
+  },
   server: {
     port: 5173,
     // The hosted preview uses a generated *.us4.manus.computer hostname.
