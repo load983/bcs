@@ -24,7 +24,7 @@ function cleanText(str) {
 /**
  * PDF থেকে টেক্সট এক্সট্র্যাক্ট করার মূল ফাংশন (File path বা Buffer দুটোই সাপোর্ট করবে)
  */
-async function extractQuestionsFromPdf(pdfSource) {
+async function extractQuestionsFromPdf(pdfSource, questionType = 'mcq') {
   let dataBuffer;
 
   if (Buffer.isBuffer(pdfSource)) {
@@ -80,14 +80,18 @@ async function extractQuestionsFromPdf(pdfSource) {
       'PDF-এর ফন্ট থেকে লেখা ঠিকভাবে পড়া যাচ্ছে না (বাংলা অক্ষর বিকৃত আসছে)। Word/Google Docs থেকে Unicode বাংলা ফন্ট (Noto Sans Bengali, Kalpurush, SolaimanLipi) দিয়ে আবার PDF বানিয়ে আপলোড করো।'
     );
   }
-  let questions = parseMcqText(rawText);
+  let questions = questionType === 'short' ? parseShortQuestionText(rawText) : parseMcqText(rawText);
   if (rawOrderText) {
-    const rawOrderQuestions = parseMcqText(rawOrderText);
-    const score = (items) => [items.filter((item) => item.correctOptionIndex >= 0).length, items.length];
-    const currentScore = score(questions);
-    const rawScore = score(rawOrderQuestions);
-    if (rawScore[0] > currentScore[0] || (rawScore[0] === currentScore[0] && rawScore[1] > currentScore[1])) {
-      questions = rawOrderQuestions;
+    const rawOrderQuestions = questionType === 'short' ? parseShortQuestionText(rawOrderText) : parseMcqText(rawOrderText);
+    if (questionType === 'short') {
+      if (rawOrderQuestions.length > questions.length) questions = rawOrderQuestions;
+    } else {
+      const score = (items) => [items.filter((item) => item.correctOptionIndex >= 0).length, items.length];
+      const currentScore = score(questions);
+      const rawScore = score(rawOrderQuestions);
+      if (rawScore[0] > currentScore[0] || (rawScore[0] === currentScore[0] && rawScore[1] > currentScore[1])) {
+        questions = rawOrderQuestions;
+      }
     }
   }
   // Supplied Physics Engineering PDF-তে diagramগুলো vector artwork—pdfimages
@@ -135,25 +139,27 @@ function docxHtmlToText(html) {
     });
 }
 
-async function extractQuestionsFromDocx(source) {
+async function extractQuestionsFromDocx(source, questionType = 'mcq') {
   const mammoth = require('mammoth');
   const input = Buffer.isBuffer(source) ? { buffer: source } : { path: source };
   const { value } = await mammoth.convertToHtml(input);
-  return parseMcqText(docxHtmlToText(value));
+  const text = docxHtmlToText(value);
+  return questionType === 'short' ? parseShortQuestionText(text) : parseMcqText(text);
 }
 
-async function extractQuestionsFromDoc(source) {
+async function extractQuestionsFromDoc(source, questionType = 'mcq') {
   const WordExtractor = require('word-extractor');
   const doc = await new WordExtractor().extract(source);
-  return parseMcqText(doc.getBody());
+  const text = doc.getBody();
+  return questionType === 'short' ? parseShortQuestionText(text) : parseMcqText(text);
 }
 
 /** ফাইলের এক্সটেনশন দেখে PDF / DOCX / DOC পার্সার বেছে নেয় */
-async function extractQuestionsFromFile(source, originalName = '') {
+async function extractQuestionsFromFile(source, originalName = '', questionType = 'mcq') {
   const name = (originalName || (typeof source === 'string' ? source : '')).toLowerCase();
-  if (name.endsWith('.docx')) return extractQuestionsFromDocx(source);
-  if (name.endsWith('.doc')) return extractQuestionsFromDoc(source);
-  return extractQuestionsFromPdf(source);
+  if (name.endsWith('.docx')) return extractQuestionsFromDocx(source, questionType);
+  if (name.endsWith('.doc')) return extractQuestionsFromDoc(source, questionType);
+  return extractQuestionsFromPdf(source, questionType);
 }
 
 function parseMcqText(rawText) {
@@ -172,6 +178,45 @@ function parseMcqText(rawText) {
   const table = parseTableFormat(text);
   const result = [list, simple, visual, table].reduce((best, next) => (next.length > best.length ? next : best), []);
   return result.map(finalizeQuestion);
+}
+
+/** Numbered short prompts (e.g. "1. ..." or Bengali "১। ...") to open-answer questions. */
+function parseShortQuestionText(rawText) {
+  const normalized = String(rawText || '')
+    .replace(/[০-৯]/g, (d) => String('০১২৩৪৫৬৭৮৯'.indexOf(d)))
+    .replace(/\u000c/g, '\n');
+  const text = unicodeScriptsToSentinels(normalized);
+  const prefixedQuestionStartRegex = /^\s*(?:(?:q(?:uestion)?|প্রশ্ন)\s*\.?\s*)(\d{1,3})\s*[.)।:]?\s*(.*?)\s*$/i;
+  const numberedQuestionStartRegex = /^\s*[\[(]?(\d{1,3})[\])\].।:]\s*(.*?)\s*$/i;
+  const endMarkerRegex = /^(?:answer\s*key|উত্তরমালা|উত্তরসূচি)(?:\s|:|$)/i;
+  const rawQuestions = [];
+  let current = '';
+
+  const finishCurrent = () => {
+    const questionText = cleanText(current);
+    if (questionText) rawQuestions.push(questionText);
+    current = '';
+  };
+
+  for (const rawLine of text.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || /^page\s+\d+\s+of\s+\d+$/i.test(line)) continue;
+    if (endMarkerRegex.test(line)) break;
+    const match = line.match(prefixedQuestionStartRegex) || line.match(numberedQuestionStartRegex);
+    if (match) {
+      finishCurrent();
+      current = match[2] || '';
+    } else if (current) {
+      current = `${current} ${line}`;
+    }
+  }
+  finishCurrent();
+
+  return rawQuestions.map((questionText, order) => ({
+    type: 'short',
+    questionText: sentinelsToLatex(questionText),
+    order,
+  }));
 }
 
 // সেন্টিনেল-চিহ্নিত সূত্রকে চূড়ান্ত LaTeX ($...$, \ce{...}) এ বদলানো
@@ -528,4 +573,5 @@ module.exports = {
   extractQuestionsFromFile,
   docxHtmlToText,
   parseMcqText,
+  parseShortQuestionText,
 };

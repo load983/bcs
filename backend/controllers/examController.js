@@ -81,16 +81,23 @@ exports.uploadExamPdf = async (req, res) => {
       return res.status(400).json({ message: classCheck.error });
     }
 
+    const questionType = req.body.questionType || 'mcq';
+    if (!['mcq', 'short'].includes(questionType)) {
+      if (req.file.path) safeDeleteFile(req.file.path);
+      return res.status(400).json({ message: 'প্রশ্নের ধরন সঠিক নয়' });
+    }
+
     const title = req.body.title || req.file.originalname.replace(/\.(pdf|docx?)$/i, '');
     
     // PDF / Word থেকে প্রশ্ন পার্স করা (ফাইলের এক্সটেনশন দেখে পার্সার বাছাই হয়)
-    const parsedQuestions = await extractQuestionsFromFile(req.file.path || req.file.buffer, req.file.originalname);
+    const parsedQuestions = await extractQuestionsFromFile(req.file.path || req.file.buffer, req.file.originalname, questionType);
 
     if (!parsedQuestions || parsedQuestions.length === 0) {
       if (req.file.path) safeDeleteFile(req.file.path);
       return res.status(400).json({
-        message:
-          'ফাইল থেকে কোনো প্রশ্ন পার্স করা যায়নি। ফরম্যাট চেক করো: "1. প্রশ্ন? A. ... B. ... C. ... D. ... Answer: C"',
+        message: questionType === 'short'
+          ? 'ফাইল থেকে কোনো short question পার্স করা যায়নি। প্রতিটি প্রশ্ন নতুন লাইনে 1. প্রশ্ন বা ১। প্রশ্ন ফরম্যাটে লিখুন।'
+          : 'ফাইল থেকে কোনো MCQ পার্স করা যায়নি। ফরম্যাট চেক করো: "1. প্রশ্ন? A. ... B. ... C. ... D. ... Answer: C"',
       });
     }
 
@@ -111,6 +118,7 @@ exports.uploadExamPdf = async (req, res) => {
     const questionDocs = parsedQuestions.map((q, index) => ({
       ...q,
       exam: exam._id,
+      type: q.type || 'mcq',
       order: q.order !== undefined ? q.order : index,
     }));
 
@@ -587,7 +595,7 @@ exports.publishExam = async (req, res) => {
     // Older/imported records may have a missing or out-of-range answer index;
     // a MongoDB `$lt: 0` query does not catch those cases.
     const questions = await Question.find({ exam: exam._id })
-      .select('questionText options optionImages correctOptionIndex')
+      .select('questionText type options optionImages correctOptionIndex')
       .lean();
     if (questions.length === 0) {
       return res.status(400).json({ message: 'প্রকাশের আগে পরীক্ষায় কমপক্ষে একটি প্রশ্ন যোগ করুন।' });
@@ -596,11 +604,13 @@ exports.publishExam = async (req, res) => {
       const options = Array.isArray(q.options) ? q.options : [];
       const answer = q.correctOptionIndex;
       return !String(q.questionText || '').trim()
-        || options.length < 2
-        || !Number.isInteger(answer)
-        || answer < 0
-        || answer >= options.length
-        || (!String(options[answer] || '').trim() && !String(q.optionImages?.[answer] || '').trim());
+        || (q.type !== 'short' && (
+          options.length < 2
+          || !Number.isInteger(answer)
+          || answer < 0
+          || answer >= options.length
+          || (!String(options[answer] || '').trim() && !String(q.optionImages?.[answer] || '').trim())
+        ));
     }).length;
     if (invalidQuestionCount > 0) {
       return res.status(400).json({ message: `${invalidQuestionCount}টি প্রশ্ন অসম্পূর্ণ বা সঠিক উত্তরবিহীন। প্রকাশের আগে Edit করে ঠিক করুন।` });

@@ -10,6 +10,7 @@ import ClassSelect from '../../components/ClassSelect';
 export default function UploadExam() {
   const { t } = useLanguage();
   const [title, setTitle] = useState('');
+  const [questionType, setQuestionType] = useState('mcq');
   const [file, setFile] = useState(null);
   const [classIds, setClassIds] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -31,6 +32,7 @@ export default function UploadExam() {
     formData.append('pdf', file);
     formData.append('title', title);
     formData.append('classIds', JSON.stringify(classIds));
+    formData.append('questionType', questionType);
 
     const result = await dispatch(uploadExamPdf({
       formData,
@@ -50,14 +52,19 @@ export default function UploadExam() {
       <section className="mb-4 rounded-xl border border-primary-200 bg-primary-50/70 px-4 py-4 text-sm leading-relaxed text-primary-900 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-100">
         <p className="font-semibold">{t('upload.supportedFiles')}</p>
         <p className="mt-1 text-xs text-primary-800/90 dark:text-primary-200/90">{t('upload.searchablePdfNote')}</p>
+        <label className="mt-3 block text-xs font-semibold" htmlFor="upload-question-type">{t('upload.questionTypeLabel')}</label>
+        <select id="upload-question-type" form="upload-exam-form" className="input mt-1 bg-white text-sm dark:bg-gray-900" value={questionType} onChange={(e) => setQuestionType(e.target.value)}>
+          <option value="mcq">{t('upload.mcqType')}</option>
+          <option value="short">{t('upload.shortType')}</option>
+        </select>
         <p className="mt-3 text-xs font-semibold">{t('upload.formatLabel')}</p>
-        <pre className="mt-1 overflow-x-auto rounded-lg bg-white/80 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900/70 dark:text-gray-100">{t('upload.mcqDemo')}</pre>
-        <p className="mt-2 text-xs">{t('upload.answerOptional')}</p>
+        <pre className="mt-1 overflow-x-auto rounded-lg bg-white/80 p-3 font-mono text-xs text-gray-800 dark:bg-gray-900/70 dark:text-gray-100">{t(questionType === 'short' ? 'upload.shortDemo' : 'upload.mcqDemo')}</pre>
+        <p className="mt-2 text-xs">{t(questionType === 'short' ? 'upload.shortFormatNote' : 'upload.answerOptional')}</p>
       </section>
       <div className="mb-4 rounded-xl border border-primary-200 bg-primary-50/70 px-4 py-3 text-xs leading-relaxed text-primary-800 dark:border-primary-500/20 dark:bg-primary-500/10 dark:text-primary-200">
         <strong>{t('upload.richContentTitle')}</strong> {t('upload.richContentNote')}
       </div>
-      <form onSubmit={handleSubmit} className="card space-y-4 p-6">
+      <form id="upload-exam-form" onSubmit={handleSubmit} className="card space-y-4 p-6">
         <input placeholder={t('upload.titlePlaceholder')}
           value={title} onChange={(e) => setTitle(e.target.value)}
           className="input" />
