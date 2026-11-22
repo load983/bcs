@@ -347,26 +347,27 @@ export default function ExamEditor() {
 function Field({ label, children }) { return (<label className="block text-sm"><span className="block mb-1 text-gray-600 dark:text-gray-300">{label}</span>{children}</label>); }
 function Toggle({ label, checked, onChange }) { return (<label className="flex items-center gap-2 text-sm dark:text-gray-200"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4" />{label}</label>); }
 function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelete }) {
+  const questionOptions = Array.isArray(question.options) ? question.options : [];
   const [text, setText] = useState(question.questionText);
-  const [type, setType] = useState(question.type || 'mcq');
-  const [options, setOptions] = useState(question.options || ['', '']);
+  const [type, setType] = useState(question.type || (questionOptions.length ? 'mcq' : 'short'));
+  const [options, setOptions] = useState(questionOptions.length ? questionOptions : ['', '']);
   const [correctIdx, setCorrectIdx] = useState(question.correctOptionIndex);
   const [diagram, setDiagram] = useState(question.diagram || '');
   const [diagramSource, setDiagramSource] = useState(question.diagramSource || '');
   const [chemDiagrams, setChemDiagrams] = useState(question.diagrams || []);
-  const [optionImages, setOptionImages] = useState(() => question.options.map((_, i) => (question.optionImages || [])[i] || ''));
+  const [optionImages, setOptionImages] = useState(() => questionOptions.map((_, i) => (question.optionImages || [])[i] || ''));
   const [validationError, setValidationError] = useState('');
   const { t } = useLanguage();
 
   const resetDraft = () => {
     setText(question.questionText || '');
-    setType(question.type || 'mcq');
-    setOptions(question.options || ['', '']);
+    setType(question.type || (questionOptions.length ? 'mcq' : 'short'));
+    setOptions(questionOptions.length ? questionOptions : ['', '']);
     setCorrectIdx(question.correctOptionIndex);
     setDiagram(question.diagram || '');
     setDiagramSource(question.diagramSource || '');
     setChemDiagrams(question.diagrams || []);
-    setOptionImages((question.options || []).map((_, i) => (question.optionImages || [])[i] || ''));
+    setOptionImages(questionOptions.map((_, i) => (question.optionImages || [])[i] || ''));
     setValidationError('');
   };
 
@@ -405,7 +406,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
           {question.diagram && <ZoomImage src={assetUrl(question.diagram)} className="mt-2 max-h-40 rounded-lg border border-gray-200 bg-white object-contain" />}
           {(question.diagrams || []).length > 0 && <div className="mt-2"><ChemDiagramList items={question.diagrams} compact /></div>}
           {question.type === 'short' ? <p className="mt-2 text-sm text-primary-600">Short question — student লিখিত উত্তর বা image/PDF দিতে পারবে</p> : <><ul className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {question.options.map((opt, i) => (
+            {questionOptions.map((opt, i) => (
               <li key={i} className={i === question.correctOptionIndex ? 'text-green-600 font-semibold' : ''}>
                 {String.fromCharCode(65 + i)}. <MathText text={opt} /> {i === question.correctOptionIndex && '✓'}
                 {(question.optionImages || [])[i] && <ZoomImage src={question.optionImages[i]} className="mt-1 block max-h-20 rounded border border-gray-200 bg-white object-contain" />}
