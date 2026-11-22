@@ -46,7 +46,7 @@ const publicLink = (l) => ({
   externalUrl: l.externalUrl || '',
 });
 const assetPath = (item) => (item.gridFsId ? `/api/site/assets/${item.gridFsId}` : item.path);
-const publicImages = (s, req) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: assetUrlOf(req, assetPath(i)), alt: i.alt || '' }]));
+const publicImages = (s, req) => Object.fromEntries((s.images || []).map((i) => [i.slot, { url: assetUrlOf(req, assetPath(i)), alt: i.alt || '', kind: i.kind || (String(i.contentType || '').startsWith('video/') ? 'video' : 'image'), contentType: i.contentType || '' }]));
 const publicMedia = (s, req) => (s.media || []).map((m) => ({ id: String(m._id), kind: m.kind, url: assetUrlOf(req, assetPath(m)), contentType: m.contentType || '', title: m.title || '', alt: m.alt || '' }));
 
 const gridBucket = () => new mongoose.mongo.GridFSBucket(mongoose.connection.db, { bucketName: 'siteAssets' });
@@ -174,14 +174,14 @@ exports.adminDeleteLogo = async (req, res) => {
   }
 };
 
-// Admin visual slots: homepage hero/promo/feature image বদলানো যায়।
+// Admin visual slots: homepage hero/promo/feature-এ ছবি বা ভিডিও বদলানো যায়।
 exports.imageUpload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => cb(null, siteDir),
     filename: (req, file, cb) => cb(null, `${Date.now()}-${Math.round(Math.random() * 1e9)}${path.extname(file.originalname).toLowerCase()}`),
   }),
-  limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => (/^image\/(png|jpeg|webp|gif)$/.test(file.mimetype) ? cb(null, true) : cb(new Error('শুধুমাত্র PNG, JPG, WEBP বা GIF ছবি আপলোড করা যাবে'))),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => (/^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/.test(file.mimetype) ? cb(null, true) : cb(new Error('PNG/JPG/WEBP/GIF ছবি অথবা MP4/WEBM/OGG ভিডিও দিন'))),
 }).single('image');
 
 exports.adminUploadImage = async (req, res) => {
@@ -189,18 +189,19 @@ exports.adminUploadImage = async (req, res) => {
     const slot = String(req.body.slot || '').trim().toLowerCase();
     if (!SLOT_RE.test(slot) || !req.file) {
       if (req.file) fs.unlink(req.file.path, () => {});
-      return res.status(400).json({ message: 'সঠিক image slot ও ছবি দিন' });
+      return res.status(400).json({ message: 'সঠিক media slot ও ছবি/ভিডিও দিন' });
     }
     const s = await getSettings();
     const old = (s.images || []).find((i) => i.slot === slot);
     s.images = (s.images || []).filter((i) => i.slot !== slot);
     const gridFsId = await storeGridAsset(req.file);
-    s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, gridFsId, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
+    const kind = req.file.mimetype.startsWith('video/') ? 'video' : 'image';
+    s.images.push({ slot, path: `/uploads/site/${req.file.filename}`, gridFsId, kind, contentType: req.file.mimetype, alt: String(req.body.alt || '').trim().slice(0, 160), updatedAt: new Date() });
     await s.save();
     deleteLegacyFile(old);
     await deleteGridAsset(old?.gridFsId);
     fs.unlink(req.file.path, () => {});
-    res.json({ message: 'সাইটের ছবি আপডেট হয়েছে', images: publicImages(s, req) });
+    res.json({ message: 'Homepage media আপডেট হয়েছে', images: publicImages(s, req) });
   } catch (err) {
     if (req.file) fs.unlink(req.file.path, () => {});
     res.status(500).json({ message: err.message || 'ছবি সেভ করা যায়নি' });

@@ -53,13 +53,14 @@ const siteSettingsSchema = new mongoose.Schema(
       contentType: { type: String, default: '' },
       updatedAt: { type: Date },
     },
-    // অ্যাডমিনের বদলানো visual slots: hero, promo ও feature-এ image বসানো যায়।
+    // অ্যাডমিনের বদলানো visual slots: hero, promo ও feature-এ image/video বসানো যায়।
     images: {
       type: [{
         _id: false,
         slot: { type: String, required: true },
         path: { type: String, default: '' },
         gridFsId: { type: mongoose.Schema.Types.ObjectId },
+        kind: { type: String, enum: ['image', 'video'], default: 'image' },
         contentType: { type: String, default: '' },
         alt: { type: String, default: '' },
         updatedAt: { type: Date },

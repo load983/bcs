@@ -193,7 +193,7 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
   const uploadSlot = async (slot, e) => {
     const file = e.target.files?.[0]; e.target.value = '';
     if (!file) return;
-    if (!/^image\/(png|jpeg|webp|gif)$/.test(file.type) || file.size > 5 * 1024 * 1024) return say('PNG/JPG/WEBP/GIF ছবি, সর্বোচ্চ ৫ MB');
+    if (!/^(image\/(png|jpeg|webp|gif)|video\/(mp4|webm|ogg))$/.test(file.type) || file.size > 50 * 1024 * 1024) return say('PNG/JPG/WEBP/GIF ছবি অথবা MP4/WEBM/OGG ভিডিও, সর্বোচ্চ ৫০ MB');
     const fd = new FormData(); fd.append('image', file); fd.append('slot', slot); fd.append('alt', slot);
     setBusy(true);
     setUploadProgress(0);
@@ -242,14 +242,17 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
       </div>
 
       <div className="card space-y-3 p-4">
-        <div><h3 className="font-semibold dark:text-white">সাইটের visual images</h3><p className="text-sm text-gray-500">Homepage-এর hero, promotion ও feature অংশে ছবি বসান।</p></div>
+        <div><h3 className="font-semibold dark:text-white">Homepage hero, promotion ও feature media</h3><p className="text-sm text-gray-500">প্রতিটি অংশে ছবি অথবা ভিডিও দিন। ছবি/ভিডিও সর্বোচ্চ ৫০ MB। ছবি crop করে দেখানো হবে; প্রস্তাবিত মাপের কাছাকাছি অনুপাত রাখুন।</p></div>
         <div className="grid gap-3 sm:grid-cols-3">
           {['hero', 'promo', 'feature'].map((slot) => (
             <div key={slot} className="rounded-xl border border-gray-200 p-3 dark:border-white/10">
-              <div className="mb-2 text-sm font-medium dark:text-gray-200">{slot}</div>
-              {images[slot]?.url && <img src={assetUrl(images[slot].url)} alt={images[slot].alt || slot} className="mb-2 h-24 w-full rounded-lg object-cover" />}
+              <div className="mb-1 text-sm font-medium dark:text-gray-200">{{ hero: 'Hero', promo: 'Promotion (How it works)', feature: 'Feature' }[slot]}</div>
+              <p className="mb-2 text-xs text-gray-500">{{ hero: 'ছবি: 1200 × 600 px', promo: 'ছবি: 1600 × 500 px', feature: 'ছবি: 1200 × 400 px' }[slot]} · ভিডিও: 16:9 সুপারিশ</p>
+              {images[slot]?.url && (images[slot].kind === 'video' || images[slot].contentType?.startsWith('video/')
+                ? <video src={assetUrl(images[slot].url)} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
+                : <img src={assetUrl(images[slot].url)} alt={images[slot].alt || slot} className="mb-2 h-24 w-full rounded-lg object-cover" />)}
               <div className="flex flex-wrap gap-2">
-                <label className="btn-secondary cursor-pointer !px-2 !py-1 text-xs">Upload<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" className="sr-only" onChange={(e) => uploadSlot(slot, e)} disabled={busy} /></label>
+                <label className="btn-secondary cursor-pointer !px-2 !py-1 text-xs">ছবি / ভিডিও আপলোড<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={(e) => uploadSlot(slot, e)} disabled={busy} /></label>
                 {images[slot]?.url && <button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeSlot(slot)} disabled={busy}>Remove</button>}
               </div>
             </div>

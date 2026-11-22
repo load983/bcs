@@ -118,7 +118,7 @@ router.delete('/support/threads/:id', support.adminDeleteThread);
 router.get('/site', site.adminGet);
 router.post('/site/logo', (req, res, next) => site.logoUpload(req, res, (err) => (err ? res.status(400).json({ message: err.code === 'LIMIT_FILE_SIZE' ? 'লোগো সর্বোচ্চ ১ MB হতে পারবে' : err.message }) : next())), site.adminUploadLogo);
 router.delete('/site/logo', site.adminDeleteLogo);
-router.post('/site/image', (req, res, next) => site.imageUpload(req, res, (err) => (err ? res.status(400).json({ message: err.code === 'LIMIT_FILE_SIZE' ? 'সাইটের ছবি সর্বোচ্চ ৫ MB হতে পারবে' : err.message }) : next())), site.adminUploadImage);
+router.post('/site/image', (req, res, next) => site.imageUpload(req, res, (err) => (err ? res.status(400).json({ message: err.code === 'LIMIT_FILE_SIZE' ? 'Homepage ছবি/ভিডিও সর্বোচ্চ ৫০ MB হতে পারবে' : err.message }) : next())), site.adminUploadImage);
 router.delete('/site/image/:slot', site.adminDeleteImage);
 router.post('/site/media', (req, res, next) => site.mediaUpload(req, res, (err) => (err ? res.status(400).json({ message: err.code === 'LIMIT_FILE_SIZE' ? 'Media ফাইল সর্বোচ্চ ৫০ MB হতে পারবে' : err.message }) : next())), site.adminUploadMedia);
 router.delete('/site/media/:id', site.adminDeleteMedia);
