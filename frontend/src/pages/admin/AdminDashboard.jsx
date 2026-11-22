@@ -16,6 +16,7 @@ import Plugins from './Plugins';
 import ActivityLog from './ActivityLog';
 import RevenueDashboard from './RevenueDashboard';
 import AdminUsers from './AdminUsers';
+import RoleBackupPanel from '../../components/RoleBackupPanel';
 import { downloadFile } from '../../utils/download';
 import { useLanguage } from '../../context/LanguageContext';
 import { useDialog, useToast, Badge, Icon, Avatar } from './adminUi';
@@ -53,7 +54,7 @@ export default function AdminDashboard() {
   const { t, locale } = useLanguage();
   const fmt = (d) => (d ? new Date(d).toLocaleDateString(locale) : '-');
   // সক্রিয় ট্যাব URL-এ থাকে (?tab=...) — সাইডবারের লিংক এটাই বদলায়
-  const ADMIN_TABS = ['overview', 'teachers', 'users', 'payments', 'revenue', 'plans', 'trial', 'messages', 'contact', 'ai', 'customize', 'plugins', 'activity'];
+  const ADMIN_TABS = ['overview', 'teachers', 'users', 'payments', 'revenue', 'plans', 'trial', 'messages', 'contact', 'ai', 'customize', 'plugins', 'activity', 'backup'];
   const [searchParams, setSearchParams] = useSearchParams();
   const tab = ADMIN_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'overview';
   const setTab = (k) => setSearchParams(k === 'overview' ? {} : { tab: k });
@@ -166,6 +167,7 @@ export default function AdminDashboard() {
       {tab === 'activity' && <ActivityLog say={say} />}
       {tab === 'ai' && <AiSettings say={say} />}
       {tab === 'customize' && <CustomizeWebsite say={say} />}
+      {tab === 'backup' && <RoleBackupPanel role="admin" />}
 
       {/* ---------- ওভারভিউ ---------- */}
       {tab === 'overview' && stats && (

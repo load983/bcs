@@ -27,6 +27,7 @@ const supportRoutes = require('./routes/supportRoutes');
 const siteRoutes = require('./routes/siteRoutes');
 const messageRoutes = require('./routes/messageRoutes');
 const teacherBackupRoutes = require('./routes/teacherBackupRoutes');
+const roleBackupRoutes = require('./routes/roleBackupRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const teacherNotificationRoutes = require('./routes/teacherNotificationRoutes');
 const { startExpiryReminderJob } = require('./utils/expiryReminders');
@@ -129,6 +130,7 @@ app.use('/api/teacher-notifications', teacherNotificationRoutes); // শিক�
 app.use('/api/messages', messageRoutes); // শিক্ষকের মেসেজ/নোটিফিকেশন ও স্টুডেন্টের ডিভাইস পুশ
 app.use('/api/attempts', attemptRoutes); // স্টুডেন্টের এক্সাম দেয়া, সাবমিট, রেজাল্ট
 app.use('/api/teacher-backup', teacherBackupRoutes); // শিক্ষক ZIP backup export/restore
+app.use('/api/role-backup', roleBackupRoutes); // Admin ও student ZIP backup export/restore
 
 // Production container-এ একই origin থেকে React SPA serve করি। API/asset route
 // আগে মাউন্ট করা আছে, তাই এগুলো SPA fallback দিয়ে ঢেকে যাবে না।

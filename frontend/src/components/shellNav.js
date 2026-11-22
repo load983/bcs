@@ -26,6 +26,7 @@ export function buildNav(role, t, badges = {}) {
           { key: 'ai', label: t('a.tab.ai'), icon: 'ai', to: q('ai') },
           { key: 'customize', label: t('a.tab.customize'), icon: 'brush', to: q('customize') },
           { key: 'activity', label: t('a.tab.activity'), icon: 'file', to: q('activity') },
+          { key: 'backup', label: t('a.tab.backup'), icon: 'file', to: q('backup') },
           { key: 'guide', label: t('guide.menu'), icon: 'file', to: '/admin/guide' },
         ] },
       ],

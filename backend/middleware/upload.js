@@ -77,4 +77,9 @@ uploader.teacherBackup = multer({
     else cb(new Error('শুধুমাত্র ZIP backup file আপলোড করা যাবে'), false);
   },
 });
+uploader.roleBackup = multer({
+  storage,
+  limits: { fileSize: Number(process.env.ROLE_BACKUP_MAX_BYTES || process.env.TEACHER_BACKUP_MAX_BYTES || 1024 * 1024 * 1024), files: 1 },
+  fileFilter: (req, file, cb) => (/\.zip$/i.test(file.originalname || '') && ['application/zip', 'application/x-zip-compressed', 'application/octet-stream'].includes(file.mimetype) ? cb(null, true) : cb(new Error('শুধুমাত্র ZIP backup file আপলোড করা যাবে'), false)),
+});
 module.exports = uploader;

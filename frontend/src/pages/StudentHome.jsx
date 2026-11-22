@@ -7,6 +7,7 @@ import axiosClient from '../api/axiosClient';
 import { useLanguage } from '../context/LanguageContext';
 import QuickStart from '../components/QuickStart';
 import MyDataExportButton from '../components/MyDataExportButton';
+import RoleBackupPanel from '../components/RoleBackupPanel';
 
 export default function StudentHome() {
   const { t } = useLanguage();
@@ -129,6 +130,7 @@ export default function StudentHome() {
             {t('studentHome.subtitle')}
           </p>
           {isStudent && <div className="mb-4"><MyDataExportButton /></div>}
+          {isStudent && <RoleBackupPanel role="student" />}
 
           {/* সার্চ বার (শুধু লগইন করা স্টুডেন্টের জন্য) */}
           {isStudent && (

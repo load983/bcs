@@ -13,6 +13,7 @@ export const extraEntries = {
   'backup.confirmRestore': { bn: 'এই ZIP restore করবেন? বিদ্যমান ডেটা overwrite বা delete হবে না। একই ID-র record থাকলে সেটি skip হবে।', en: 'Restore this ZIP? Existing data will not be overwritten or deleted. Records with matching IDs will be skipped.' },
   'backup.zipOnly': { bn: 'শুধুমাত্র এই সিস্টেম থেকে তৈরি backup ZIP আপলোড করুন।', en: 'Please select a backup ZIP created by this system.' },
   'backup.failed': { bn: 'Backup/restore ব্যর্থ হয়েছে। আবার চেষ্টা করুন।', en: 'Backup/restore failed. Please try again.' },
+  'a.tab.backup': { bn: 'Full Backup', en: 'Full backup' },
   // ------------------------------------------------------------ প্রশ্নের ডায়াগ্রাম
   'diagram.upload': { bn: 'ডায়াগ্রাম আপলোড', en: 'Upload diagram' },
   'diagram.create': { bn: 'ডায়াগ্রাম তৈরি করুন', en: 'Create diagram' },
