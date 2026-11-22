@@ -15,6 +15,7 @@ const examSchema = new mongoose.Schema(
 
     // Exam Settings (শিক্ষক যা On/Off করবে)
     settings: {
+      questionType: { type: String, enum: ['mcq', 'short'], default: 'mcq' },
       totalTimeMinutes: { type: Number, default: 30 },
       marksPerQuestion: { type: Number, default: 1 },
       totalQuestionsToUse: { type: Number, default: 0 }, // 0 মানে সব প্রশ্ন

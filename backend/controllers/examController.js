@@ -111,6 +111,7 @@ exports.uploadExamPdf = async (req, res) => {
       examCode,
       status: 'draft',
       settings: {
+        questionType,
         totalTimeMinutes: 10, // ডিফল্ট সময় ১০ মিনিট দেওয়া হলো
       }
     });
@@ -604,7 +605,9 @@ exports.publishExam = async (req, res) => {
       if (!String(q.questionText || '').trim()) return true;
       // Short questions are open-ended: they intentionally have no options or
       // correctOptionIndex. Their answers are reviewed and graded manually.
-      if (q.type === 'short') return false;
+      const isShortQuestion = q.type === 'short'
+        || (exam.settings?.questionType === 'short' && (!Array.isArray(q.options) || q.options.length === 0));
+      if (isShortQuestion) return false;
       const options = Array.isArray(q.options) ? q.options : [];
       const answer = q.correctOptionIndex;
       return options.length < 2
