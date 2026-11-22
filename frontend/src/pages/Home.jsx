@@ -3,6 +3,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import Reveal from '../components/Reveal';
+import ProtectedVideo from '../components/ProtectedVideo';
 import { useSite } from '../context/SiteContext';
 
 const FEATURES = [
@@ -26,7 +27,7 @@ const OPTIONS = ['H₂O', 'CO₂', 'NaCl', 'O₂'];
 function HomepageVisual({ item, alt, className }) {
   if (!item?.url) return null;
   if (item.kind === 'video' || item.contentType?.startsWith('video/')) {
-    return <video src={item.url} controls playsInline preload="metadata" className={`${className} bg-black`} aria-label={alt} />;
+    return <ProtectedVideo src={item.url} controls playsInline preload="metadata" className={`${className} bg-black`} aria-label={alt} />;
   }
   return <img src={item.url} alt={item.alt || alt} className={className} />;
 }
@@ -169,7 +170,7 @@ export default function Home() {
         <Reveal type="up" className="mb-8 text-center"><h2 className="section-title">{t('home.mediaTitle')}</h2><p className="mt-2 text-sm text-gray-500 dark:text-gray-400">{t('home.mediaSub')}</p></Reveal>
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {media.map((item) => <Reveal key={item.id} type="up" className="card overflow-hidden p-2">
-            {item.kind === 'video' ? <video src={item.url} controls playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black object-cover" aria-label={item.title || 'Homepage video'} /> : <img src={item.url} alt={item.alt || item.title || 'Homepage image'} className="aspect-video w-full rounded-xl object-cover" />}
+            {item.kind === 'video' ? <ProtectedVideo src={item.url} controls playsInline preload="metadata" className="aspect-video w-full rounded-xl bg-black object-cover" aria-label={item.title || 'Homepage video'} /> : <img src={item.url} alt={item.alt || item.title || 'Homepage image'} className="aspect-video w-full rounded-xl object-cover" />}
             {item.title && <p className="px-2 py-2 text-sm font-medium dark:text-white">{item.title}</p>}
           </Reveal>)}
         </div>

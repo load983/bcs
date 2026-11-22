@@ -7,6 +7,7 @@ import assetUrl from '../../utils/assetUrl';
 import { useLanguage } from '../../context/LanguageContext';
 import useTeacherFeatures from '../../hooks/useTeacherFeatures';
 import UploadProgress from '../../components/UploadProgress';
+import ProtectedVideo from '../../components/ProtectedVideo';
 
 const MAX_TEXT = 2000;
 const MAX_MEDIA_FILES = 8;
@@ -196,7 +197,7 @@ export default function MessagesTab({ classes }) {
               {previews.map((item, index) => (
                 <div key={`${files[index]?.name}-${index}`} className="relative overflow-hidden rounded-lg border border-gray-200 p-2 dark:border-gray-700">
                   {item.kind === 'video'
-                    ? <video src={item.url} controls className="h-28 w-full rounded object-cover" />
+                    ? <ProtectedVideo src={item.url} controls className="h-28 w-full rounded object-cover" />
                     : <img src={item.url} alt={files[index]?.name || ''} className="h-28 w-full rounded object-cover" />}
                   <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">{files[index]?.name}</p>
                   <button type="button" aria-label={t('msg.removeAttachment')} className="mt-1 text-xs text-red-600 hover:underline" onClick={() => setFiles((current) => current.filter((_, i) => i !== index))}>
@@ -292,7 +293,7 @@ export default function MessagesTab({ classes }) {
                   {(m.media || (m.imageUrl ? [{ url: m.imageUrl, kind: 'image' }] : [])).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-3">
                       {(m.media || [{ url: m.imageUrl, kind: 'image' }]).map((media, index) => media.kind === 'video'
-                        ? <video key={`${media.url}-${index}`} src={assetUrl(media.url)} controls className="max-h-60 max-w-full rounded-lg" />
+                        ? <ProtectedVideo key={`${media.url}-${index}`} src={assetUrl(media.url)} controls className="max-h-60 max-w-full rounded-lg" />
                         : <img key={`${media.url}-${index}`} src={assetUrl(media.url)} alt="" loading="lazy" className="max-h-60 rounded-lg" />)}
                     </div>
                   )}

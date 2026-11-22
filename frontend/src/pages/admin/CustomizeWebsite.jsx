@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useSite } from '../../context/SiteContext';
 import { useDialog } from './adminUi';
 import UploadProgress from '../../components/UploadProgress';
+import ProtectedVideo from '../../components/ProtectedVideo';
 
 const BRAND_KEYS = ['brand.name', 'brand.short', 'brand.splash'];
 const PAGE_SIZE = 40;
@@ -301,10 +302,10 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
               <p className="mb-2 text-xs text-gray-500">{{ hero: 'ছবি: 1200 × 600 px', promo: 'ছবি: 1600 × 500 px', feature: 'ছবি: 1200 × 400 px' }[slot]} · ভিডিও: 16:9 সুপারিশ</p>
               {pendingSlots[slot]?.url
                 ? (pendingSlots[slot].file.type.startsWith('video/')
-                  ? <video src={pendingSlots[slot].url} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
+                  ? <ProtectedVideo src={pendingSlots[slot].url} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
                   : pendingSlots[slot].file.type.startsWith('image/') && <img src={pendingSlots[slot].url} alt="Selected media preview" className="mb-2 h-24 w-full rounded-lg object-cover" />)
                 : images[slot]?.url && (images[slot].kind === 'video' || images[slot].contentType?.startsWith('video/')
-                  ? <video src={assetUrl(images[slot].url)} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
+                  ? <ProtectedVideo src={assetUrl(images[slot].url)} controls playsInline preload="metadata" className="mb-2 h-24 w-full rounded-lg bg-black object-cover" />
                   : <img src={assetUrl(images[slot].url)} alt={images[slot].alt || slot} className="mb-2 h-24 w-full rounded-lg object-cover" />)}
               {pendingSlots[slot] && <div className="mb-2 space-y-1 text-xs">
                 <p className="text-gray-500">{pendingSlots[slot].file.name} · {(pendingSlots[slot].file.size / (1024 * 1024)).toFixed(2)} MB{pendingSlots[slot].width ? ` · ${pendingSlots[slot].width} × ${pendingSlots[slot].height} px` : ''}</p>
@@ -329,14 +330,14 @@ function BrandTab({ say, saving, logoUrl, setLogoUrl, refreshSite, overrides, se
         <div><h3 className="font-semibold dark:text-white">Homepage ছবি ও ভিডিও গ্যালারি</h3><p className="text-sm text-gray-500">যত ইচ্ছা ছবি/ভিডিও যোগ করুন—সব homepage-এ দেখা যাবে। প্রতি ফাইল সর্বোচ্চ ৫০ MB।</p></div>
         <label className="btn-primary inline-flex w-fit cursor-pointer">+ ছবি / ভিডিও বাছুন<input type="file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,video/ogg" className="sr-only" onChange={selectGalleryMedia} disabled={busy} /></label>
         {pendingGallery && <div className="max-w-md rounded-xl border border-gray-200 p-3 dark:border-white/10">
-          {pendingGallery.file.type.startsWith('video/') ? <video src={pendingGallery.url} controls playsInline preload="metadata" className="mb-2 aspect-video w-full rounded-lg bg-black object-cover" /> : pendingGallery.file.type.startsWith('image/') && <img src={pendingGallery.url} alt="Selected gallery media preview" className="mb-2 aspect-video w-full rounded-lg object-cover" />}
+          {pendingGallery.file.type.startsWith('video/') ? <ProtectedVideo src={pendingGallery.url} controls playsInline preload="metadata" className="mb-2 aspect-video w-full rounded-lg bg-black object-cover" /> : pendingGallery.file.type.startsWith('image/') && <img src={pendingGallery.url} alt="Selected gallery media preview" className="mb-2 aspect-video w-full rounded-lg object-cover" />}
           <p className="text-xs text-gray-500">{pendingGallery.file.name} · {(pendingGallery.file.size / (1024 * 1024)).toFixed(2)} MB{pendingGallery.width ? ` · ${pendingGallery.width} × ${pendingGallery.height} px` : ''}</p>
           {pendingGallery.error && <p role="alert" className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-700 dark:bg-red-500/10 dark:text-red-300">সতর্কতা: {pendingGallery.error}</p>}
           {pendingGallery.warning && <p role="status" className="mt-2 rounded-lg bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">সতর্কতা: {pendingGallery.warning}</p>}
           {!pendingGallery.error && !pendingGallery.warning && <p className="mt-2 text-xs text-emerald-700 dark:text-emerald-300">ফরম্যাট ও মাপ ঠিক আছে।</p>}
           <div className="mt-2 flex gap-2"><button type="button" className="btn-primary !px-2 !py-1 text-xs" onClick={uploadMedia} disabled={busy || Boolean(pendingGallery.error)}>আপলোড নিশ্চিত</button><button type="button" className="btn-secondary !px-2 !py-1 text-xs" onClick={() => { URL.revokeObjectURL(pendingGallery.url); setPendingGallery(null); }} disabled={busy}>বাতিল</button></div>
         </div>}
-        {media?.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{media.map((item) => <div key={item.id} className="overflow-hidden rounded-xl border border-gray-200 p-2 dark:border-white/10">{item.kind === 'video' ? <video src={assetUrl(item.url)} controls className="h-28 w-full rounded-lg bg-black object-cover" /> : <img src={assetUrl(item.url)} alt={item.alt || item.title} className="h-28 w-full rounded-lg object-cover" />}<div className="mt-2 flex items-center justify-between gap-2"><span className="truncate text-xs text-gray-600 dark:text-gray-300">{item.title || item.kind}</span><button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeMedia(item.id)} disabled={busy}>Remove</button></div></div>)}</div>}
+        {media?.length > 0 && <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{media.map((item) => <div key={item.id} className="overflow-hidden rounded-xl border border-gray-200 p-2 dark:border-white/10">{item.kind === 'video' ? <ProtectedVideo src={assetUrl(item.url)} controls className="h-28 w-full rounded-lg bg-black object-cover" /> : <img src={assetUrl(item.url)} alt={item.alt || item.title} className="h-28 w-full rounded-lg object-cover" />}<div className="mt-2 flex items-center justify-between gap-2"><span className="truncate text-xs text-gray-600 dark:text-gray-300">{item.title || item.kind}</span><button type="button" className="btn-danger !px-2 !py-1 text-xs" onClick={() => removeMedia(item.id)} disabled={busy}>Remove</button></div></div>)}</div>}
       </div>
 
       <div className="card space-y-4 p-4">

@@ -105,7 +105,15 @@ exports.getAsset = async (req, res) => {
     const id = new mongoose.Types.ObjectId(req.params.id);
     const file = await gridBucket().find({ _id: id }).next();
     if (!file) return res.status(404).end();
-    res.set({ 'Content-Type': file.contentType || 'application/octet-stream', 'Cache-Control': 'public, max-age=31536000, immutable', 'Cross-Origin-Resource-Policy': 'cross-origin', 'X-Content-Type-Options': 'nosniff' });
+    const isVideo = String(file.contentType || '').startsWith('video/');
+    res.set({
+      'Content-Type': file.contentType || 'application/octet-stream',
+      'Content-Disposition': 'inline',
+      'Cache-Control': isVideo ? 'private, no-store' : 'public, max-age=31536000, immutable',
+      'Cross-Origin-Resource-Policy': 'cross-origin',
+      'X-Content-Type-Options': 'nosniff',
+      ...(isVideo ? { 'X-Download-Options': 'noopen' } : {}),
+    });
     gridBucket().openDownloadStream(id).on('error', () => { if (!res.headersSent) res.status(404).end(); }).pipe(res);
   } catch (err) { res.status(404).end(); }
 };

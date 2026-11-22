@@ -133,7 +133,17 @@ app.use('/uploads', (req, res, next) => {
   const extension = path.extname(requestPath).toLowerCase();
   if (!PUBLIC_UPLOAD_EXTENSIONS.has(extension)) return res.status(404).end();
   return next();
-}, express.static(uploadDir, { index: false, dotfiles: 'deny' }));
+}, express.static(uploadDir, {
+  index: false,
+  dotfiles: 'deny',
+  setHeaders: (res, filePath) => {
+    if (/\.(mp4|webm|mov|m4v)$/i.test(filePath)) {
+      res.setHeader('Content-Disposition', 'inline');
+      res.setHeader('X-Download-Options', 'noopen');
+      res.setHeader('Cache-Control', 'private, no-store');
+    }
+  },
+}));
 
 // রাউট গুলো মাউন্ট করা হলো
 app.use('/api/auth', authRoutes);       // লগইন/রেজিস্ট্রেশন (Teacher & Student)

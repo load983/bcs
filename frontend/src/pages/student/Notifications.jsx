@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import axiosClient from '../../api/axiosClient';
 import { useLanguage } from '../../context/LanguageContext';
 import { getPushState, enablePush, disablePush } from '../../utils/push';
+import ProtectedVideo from '../../components/ProtectedVideo';
 
 export default function Notifications() {
   const { t, locale } = useLanguage();
@@ -113,7 +114,7 @@ export default function Notifications() {
               {(m.media || (m.imageUrl ? [{ url: m.imageUrl, kind: 'image' }] : [])).length > 0 && (
                 <div className="mt-3 space-y-3">
                   {(m.media || [{ url: m.imageUrl, kind: 'image' }]).map((media, index) => media.kind === 'video'
-                    ? <video key={`${media.url}-${index}`} src={media.url} controls preload="metadata" className="max-h-96 w-full rounded-xl bg-black" />
+                    ? <ProtectedVideo key={`${media.url}-${index}`} src={media.url} controls preload="metadata" className="max-h-96 w-full rounded-xl bg-black" />
                     : <button key={`${media.url}-${index}`} type="button" onClick={() => setZoom(media.url)} aria-label={t('msg.openImage')} className="block w-full cursor-zoom-in rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500"><img src={media.url} alt={t('msg.imageAlt')} loading="lazy" className="max-h-80 w-full rounded-xl object-cover" /></button>)}
                 </div>
               )}
