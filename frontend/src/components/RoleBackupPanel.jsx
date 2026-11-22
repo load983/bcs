@@ -25,7 +25,7 @@ export default function RoleBackupPanel({ role = 'student' }) {
     if (!/\.zip$/i.test(file.name)) { setError('শুধুমাত্র ZIP backup upload করুন।'); return; }
     if (!window.confirm(admin ? 'Admin full backup restore করবেন? Existing data overwrite বা delete হবে না।' : 'নিজের student backup restore করবেন? Existing data overwrite বা delete হবে না।')) return;
     setBusy('restore'); setMessage(''); setError(''); setProgress(0);
-    try { const form = new FormData(); form.append('backup', file); const { data } = await axiosClient.post(`${base}/restore`, form, { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (e) => e.total && setProgress(Math.round(e.loaded / e.total * 100)) }); setMessage(data.message || 'Restore সম্পন্ন হয়েছে।'); }
+    try { const form = new FormData(); form.append('backup', file); const { data } = await axiosClient.post(`${base}/restore`, form, { headers: { 'Content-Type': 'multipart/form-data' }, onUploadProgress: (e) => e.total && setProgress(Math.round(e.loaded / e.total * 100)) }); setMessage([data.message || 'Restore সম্পন্ন হয়েছে।', data.warning].filter(Boolean).join(' ')); }
     catch (e) { setError(e.response?.data?.message || 'Restore করা যায়নি।'); }
     finally { setBusy(''); setProgress(null); }
   };

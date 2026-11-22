@@ -3,23 +3,25 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosClient from '../../api/axiosClient';
 import { translate } from '../../context/LanguageContext';
+import { getStoredItem, removeStoredItem, setStoredItem } from '../../utils/safeStorage';
 
 // LocalStorage থেকে নিরাপদভাবে ডেটা পার্স করার হেলপার ফাংশন
 const getInitialUser = () => {
   try {
-    const rawUser = localStorage.getItem('user');
+    const rawUser = getStoredItem('user');
     if (!rawUser || rawUser === 'undefined') return null;
     return JSON.parse(rawUser);
   } catch (error) {
     console.error('LocalStorage parsing error:', error);
-    localStorage.removeItem('user');
+    removeStoredItem('user');
     return null;
   }
 };
 
 const savedUser = getInitialUser();
-const savedToken = localStorage.getItem('token') && localStorage.getItem('token') !== 'undefined'
-  ? localStorage.getItem('token')
+const storedToken = getStoredItem('token');
+const savedToken = storedToken && storedToken !== 'undefined'
+  ? storedToken
   : null;
 
 export const teacherLogin = createAsyncThunk('auth/teacherLogin', async (payload, { rejectWithValue }) => {
@@ -74,8 +76,8 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.token = null;
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
+      removeStoredItem('token');
+      removeStoredItem('user');
     },
   },
   extraReducers: (builder) => {
@@ -86,8 +88,8 @@ const authSlice = createSlice({
       const { token, ...user } = action.payload;
       state.user = user;
       state.token = token;
-      localStorage.setItem('token', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      setStoredItem('token', token);
+      setStoredItem('user', JSON.stringify(user));
     };
     const onPending = (state) => {
       state.status = 'loading';

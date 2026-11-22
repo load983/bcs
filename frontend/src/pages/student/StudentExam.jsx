@@ -73,11 +73,9 @@ export default function StudentExam() {
       if (document.hidden) leave();
     };
     document.addEventListener('visibilitychange', onVisibility);
-    window.addEventListener('blur', leave);
     window.addEventListener('pagehide', leave);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
-      window.removeEventListener('blur', leave);
       window.removeEventListener('pagehide', leave);
     };
   }, [attemptId, result, handleSubmit]);
@@ -115,11 +113,14 @@ export default function StudentExam() {
     if (isLocked(questionId) || submitting) return;
     const draft = shortDrafts[questionId] || { text: '', files: [] };
     if (!draft.text.trim() && !draft.files.length) return;
+    failedSavesRef.current.delete(questionId);
+    setSaveError(failedSavesRef.current.size ? t('exam.answerSaveFailed') : '');
     setLockedQ((m) => ({ ...m, [questionId]: true }));
     const savePromise = dispatch(saveAnswer({ attemptId, questionId, selectedOptionIndex: null, answerText: draft.text, answerFiles: draft.files }));
     pendingSavesRef.current.set(questionId, savePromise);
     savePromise.then((res) => {
       if (res.meta?.requestStatus === 'rejected') {
+        failedSavesRef.current.add(questionId);
         setLockedQ((m) => { const n = { ...m }; delete n[questionId]; return n; });
         setSaveError(res.payload || t('exam.answerSaveFailed'));
       }

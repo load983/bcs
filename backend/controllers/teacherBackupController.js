@@ -11,6 +11,7 @@ const Attempt = require('../models/Attempt');
 const Announcement = require('../models/Announcement');
 const ExamFeedback = require('../models/ExamFeedback');
 const Diagram = require('../models/Diagram');
+const { sanitizeSvg } = require('../utils/svgSanitize');
 
 const BACKUP_FORMAT = 'fu-teacher-classroom-backup';
 const BACKUP_VERSION = 1;
@@ -143,6 +144,16 @@ function remapFiles(value, filePaths) {
   return value;
 }
 
+function restoredMediaLocation(ext, teacherId, restoreId, filename) {
+  if (String(ext).toLowerCase() === '.svg') {
+    return { directory: path.join(UPLOADS_DIR, 'diagrams'), url: `/uploads/diagrams/${filename}` };
+  }
+  return {
+    directory: path.join(UPLOADS_DIR, 'teacher-backups', String(teacherId), String(restoreId)),
+    url: `/uploads/teacher-backups/${teacherId}/${restoreId}/${filename}`,
+  };
+}
+
 exports.exportBackup = async (req, res) => {
   try {
     const teacherId = req.user.id;
@@ -255,18 +266,22 @@ exports.restoreBackup = async (req, res) => {
     validateRecords(data);
 
     const restoreId = `${Date.now()}-${crypto.randomBytes(6).toString('hex')}`;
-    const mediaDir = path.join(UPLOADS_DIR, 'teacher-backups', String(req.user.id), restoreId);
     const filePaths = new Map();
     for (const entry of entries) {
       if (!entry.name.startsWith('files/')) continue;
-      const bytes = await zip.file(entry.name).async('nodebuffer');
+      let bytes = await zip.file(entry.name).async('nodebuffer');
       const ext = path.extname(entry.name).slice(0, 12).replace(/[^.a-z0-9]/gi, '');
+      if (ext.toLowerCase() === '.svg') {
+        try { bytes = Buffer.from(sanitizeSvg(bytes.toString('utf8')), 'utf8'); }
+        catch (error) { throw Object.assign(new Error(`Backup SVG নিরাপদ নয়: ${error.message}`), { status: 400 }); }
+      }
       const filename = `${crypto.randomBytes(16).toString('hex')}${ext}`;
-      const destination = path.join(mediaDir, filename);
-      fs.mkdirSync(mediaDir, { recursive: true });
+      const location = restoredMediaLocation(ext, req.user.id, restoreId, filename);
+      const destination = path.join(location.directory, filename);
+      fs.mkdirSync(location.directory, { recursive: true });
       fs.writeFileSync(destination, bytes, { flag: 'wx' });
       createdFiles.push(destination);
-      filePaths.set(entry.name, `/uploads/teacher-backups/${req.user.id}/${restoreId}/${filename}`);
+      filePaths.set(entry.name, location.url);
     }
     remapFiles(data, filePaths);
 
@@ -456,10 +471,12 @@ exports.restoreBackup = async (req, res) => {
     for (const createdPath of createdFiles) { try { fs.unlinkSync(createdPath); } catch (_) {} }
     console.error('Teacher backup restore failed:', err.message);
     const transactionUnsupported = /Transaction numbers are only allowed|replica set|does not support transactions/i.test(err.message || '');
-    const status = transactionUnsupported ? 503 : (/অন্য account|format\/version|অচেনা|সঠিক নয়|নেই|duplicate|সীমা|অন্য exam|referenced media|অনিরাপদ property/i.test(err.message) ? 400 : 500);
+    const status = transactionUnsupported ? 503 : (err.status || (/অন্য account|format\/version|অচেনা|সঠিক নয়|নেই|duplicate|সীমা|অন্য exam|referenced media|অনিরাপদ property|SVG নিরাপদ নয়/i.test(err.message) ? 400 : 500));
     res.status(status).json({ message: transactionUnsupported ? 'এই সার্ভারের MongoDB deployment transaction সমর্থন করে না; restore করা যায়নি। Replica set বা transaction-enabled MongoDB ব্যবহার করুন।' : (err.message || 'Backup restore করা যায়নি') });
   } finally {
     if (session) await session.endSession().catch(() => {});
     if (archivePath) { try { fs.unlinkSync(archivePath); } catch (_) {} }
   }
 };
+
+exports._test = { restoredMediaLocation };

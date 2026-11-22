@@ -1,6 +1,7 @@
 // ================== api/axiosClient.js ==================
 import axios from 'axios';
 import { translateMessage, getLang } from '../context/LanguageContext';
+import { getStoredItem } from '../utils/safeStorage';
 
 const getBaseUrl = () => {
   // Published container serves both React and Express from one origin.
@@ -19,7 +20,7 @@ const axiosClient = axios.create({
 });
 
 axiosClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = getStoredItem('token');
   if (token && token !== 'undefined') {
     config.headers.Authorization = `Bearer ${token}`;
   }

@@ -1,4 +1,5 @@
 const fs = require('fs');
+const crypto = require('crypto');
 const JSZip = require('jszip');
 const mongoose = require('mongoose');
 const User = require('../models/User');
@@ -27,10 +28,26 @@ const json = (v) => JSON.parse(JSON.stringify(v));
 const id = (v) => String(v || '');
 const own = (doc, uid) => id(doc.teacher) === id(uid) || id(doc.owner) === id(uid) || id(doc.studentId) === id(uid) || id(doc.user) === id(uid);
 
+function studentBackupSignature(manifest, serializedData, secret = process.env.ROLE_BACKUP_SIGNING_SECRET || process.env.JWT_SECRET || '') {
+  if (String(secret).length < 16) throw new Error('ROLE_BACKUP_SIGNING_SECRET বা কমপক্ষে ১৬ অক্ষরের JWT_SECRET সেট করুন');
+  const signedText = [FORMAT, String(VERSION), String(manifest.role || ''), String(manifest.ownerId || ''), String(manifest.createdAt || ''), serializedData].join('\n');
+  return crypto.createHmac('sha256', String(secret)).update(signedText, 'utf8').digest('hex');
+}
+
+function hasValidStudentBackupSignature(manifest, serializedData, secret) {
+  if (typeof manifest.signature !== 'string' || !/^[a-f0-9]{64}$/i.test(manifest.signature)) return false;
+  const expected = Buffer.from(studentBackupSignature(manifest, serializedData, secret), 'hex');
+  const actual = Buffer.from(manifest.signature, 'hex');
+  return actual.length === expected.length && crypto.timingSafeEqual(actual, expected);
+}
+
 function sendZip(res, name, payload) {
   const zip = new JSZip();
-  zip.file('manifest.json', JSON.stringify({ format: FORMAT, version: VERSION, role: payload.role, ownerId: payload.ownerId, createdAt: new Date().toISOString(), collections: Object.keys(payload.data) }, null, 2));
-  zip.file('data.json', JSON.stringify(payload.data));
+  const manifest = { format: FORMAT, version: VERSION, role: payload.role, ownerId: payload.ownerId, createdAt: new Date().toISOString(), collections: Object.keys(payload.data) };
+  const serializedData = JSON.stringify(payload.data);
+  if (payload.role === 'student') manifest.signature = studentBackupSignature(manifest, serializedData);
+  zip.file('manifest.json', JSON.stringify(manifest, null, 2));
+  zip.file('data.json', serializedData);
   return zip.generateAsync({ type: 'nodebuffer', compression: 'DEFLATE', compressionOptions: { level: 6 } }).then((buffer) => {
     res.set({ 'Content-Type': 'application/zip', 'Content-Disposition': `attachment; filename="${name}.zip"`, 'Cache-Control': 'private, no-store', 'X-Content-Type-Options': 'nosniff' });
     res.send(buffer);
@@ -70,9 +87,11 @@ async function readArchive(req) {
   for (const entry of entries) { if (!['manifest.json', 'data.json'].includes(entry.name)) throw Object.assign(new Error('ZIP-এ অচেনা file path আছে'), { status: 400 }); expanded += entry._data?.uncompressedSize || 0; if (expanded > MAX_UNCOMPRESSED) throw Object.assign(new Error('ZIP extract size সীমা ছাড়িয়েছে'), { status: 400 }); }
   const manifestFile = zip.file('manifest.json'); const dataFile = zip.file('data.json');
   if (!manifestFile || !dataFile) throw Object.assign(new Error('ZIP-এ manifest.json অথবা data.json নেই'), { status: 400 });
-  const manifest = JSON.parse(await manifestFile.async('string')); const data = JSON.parse(await dataFile.async('string'));
+  const manifest = JSON.parse(await manifestFile.async('string'));
+  const serializedData = await dataFile.async('string');
+  const data = JSON.parse(serializedData);
   if (manifest.format !== FORMAT || manifest.version !== VERSION) throw Object.assign(new Error('এই ZIP backup format/version সমর্থিত নয়'), { status: 400 });
-  return { manifest, data };
+  return { manifest, data, serializedData };
 }
 function clean(doc) {
   const scrub = (value) => {
@@ -103,24 +122,30 @@ exports.restoreAdmin = async (req, res) => {
 exports.restoreStudent = async (req, res) => {
   const file = req.file?.path;
   try {
-    const { manifest, data } = await readArchive(req);
+    const { manifest, data, serializedData } = await readArchive(req);
     const uid = req.user.id;
     if (manifest.role !== 'student' || id(manifest.ownerId) !== id(uid)) throw Object.assign(new Error('এই backup অন্য student account-এর'), { status: 400 });
+    const signaturePresent = typeof manifest.signature === 'string' && manifest.signature.length > 0;
+    const integrityVerified = hasValidStudentBackupSignature(manifest, serializedData);
+    if (signaturePresent && !integrityVerified) throw Object.assign(new Error('Backup signature যাচাই হয়নি; ZIP পরিবর্তিত বা ক্ষতিগ্রস্ত'), { status: 400 });
     const me = await User.findById(uid); if (!me || me.role !== 'student') throw Object.assign(new Error('Student account পাওয়া যায়নি'), { status: 404 });
     const profile = data.profile || {};
     if (profile.name) me.name = String(profile.name).slice(0, 120);
     if (profile.roll) me.roll = String(profile.roll).slice(0, 80);
     // Preserve current password; restore only the exported hash when valid and no password exists.
-    if (!me.password && /^\$2[aby]\$\d{2}\$/.test(String(profile.password || ''))) me.password = profile.password;
-    const validClasses = await Class.find({ _id: { $in: Array.isArray(data.classes) ? data.classes.map((c) => c._id) : [] } }).select('_id').lean();
-    me.connectedClasses = [...new Set([...(me.connectedClasses || []).map(id), ...validClasses.map((c) => id(c._id))])];
+    if (integrityVerified && !me.password && /^\$2[aby]\$\d{2}\$/.test(String(profile.password || ''))) me.password = profile.password;
+    // Class enrollment is deliberately never restored: students must use the current
+    // access code, so an old backup cannot undo a teacher's membership revocation.
     await me.save();
     const stats = { profile: 1, attempts: 0, feedback: 0, skipped: 0 };
     for (const [key, Model] of [['attempts', Attempt], ['feedback', ExamFeedback]]) for (const doc of Array.isArray(data[key]) ? data[key] : []) {
+      if (!integrityVerified) { stats.skipped++; continue; }
       if (id(doc.studentId) !== id(uid)) { stats.skipped++; continue; }
       try { await Model.create(clean(doc)); stats[key]++; } catch (e) { if (e.code === 11000 || e.name === 'ValidationError') stats.skipped++; else throw e; }
     }
-    res.json({ message: 'Student backup restore সম্পন্ন। Existing data overwrite/delete করা হয়নি।', stats });
+    res.json({ message: 'Student backup restore সম্পন্ন। Existing data overwrite/delete করা হয়নি।', stats, integrityVerified, warning: integrityVerified ? undefined : 'পুরোনো unsigned backup: নিরাপত্তার জন্য শুধু profile restore হয়েছে; attempts ও feedback বাদ দেওয়া হয়েছে এবং class membership যোগ করা হয়নি।' });
   } catch (e) { res.status(e.status || 500).json({ message: e.message || 'Student backup restore করা যায়নি' }); }
   finally { if (file) { try { fs.unlinkSync(file); } catch (_) {} } }
 };
+
+exports._test = { studentBackupSignature, hasValidStudentBackupSignature };
