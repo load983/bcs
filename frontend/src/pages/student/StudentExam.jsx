@@ -201,7 +201,7 @@ export default function StudentExam() {
             </div>
           ) : (
           <div className="space-y-3">
-            {q.options.map((opt, i) => {
+            {(Array.isArray(q.options) ? q.options : []).map((opt, i) => {
               const locked = isLocked(q._id);
               const selected = answersMap[q._id] === i;
               return (

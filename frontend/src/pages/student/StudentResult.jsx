@@ -277,6 +277,7 @@ export default function StudentResult() {
 
 function QuestionReviewCard({ item }) {
   const { t } = useLanguage();
+  const options = Array.isArray(item.options) ? item.options : [];
   const badge =
     item.status === 'correct'
       ? { text: t('common.correct'), cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' }
@@ -296,7 +297,7 @@ function QuestionReviewCard({ item }) {
       {item.diagram && <ZoomImage src={assetUrl(item.diagram)} className="mb-3 max-h-80 max-w-full rounded-lg border border-gray-200 bg-white object-contain p-1" />}
       {item.diagrams && item.diagrams.length > 0 && <div className="mb-3"><ChemDiagramList items={item.diagrams} /></div>}
       <div className="space-y-2">
-        {item.options.map((opt, i) => {
+        {options.map((opt, i) => {
           const isCorrect = i === item.correctOptionIndex;
           const isSelected = i === item.selectedOptionIndex;
           let cls = 'border border-gray-200 dark:border-white/10';
@@ -311,6 +312,11 @@ function QuestionReviewCard({ item }) {
             </div>
           );
         })}
+        {options.length === 0 && (item.answerText || item.answerFiles?.length > 0) && (
+          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
+            <strong>{t('result.yourAnswer')}:</strong> {item.answerText || 'ফাইল সংযুক্ত করা হয়েছে'}
+          </div>
+        )}
       </div>
       {item.explanation && (
         <div className="mt-3 rounded-lg bg-primary-50 p-3 text-sm dark:bg-primary-500/10 dark:text-gray-100">

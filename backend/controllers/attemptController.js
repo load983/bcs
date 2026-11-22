@@ -133,6 +133,7 @@ exports.joinExam = async (req, res) => {
     const optionOrderMap = {};
     if (exam.settings?.shuffleOptions) {
       questions.forEach((q) => {
+        if (q.type === 'short' || !Array.isArray(q.options) || q.options.length < 2) return;
         const indices = shuffleArray(q.options.map((_, i) => i));
         optionOrderMap[q._id.toString()] = indices;
       });
@@ -178,7 +179,9 @@ function buildStudentExamPayload(exam, attempt, questions) {
     const order = optionOrderMap[q._id.toString()];
     const options = order ? order.map((i) => q.options[i]) : (q.options || []);
     const imgs = q.optionImages && q.optionImages.length ? (order ? order.map((i) => q.optionImages[i] || '') : q.optionImages) : undefined;
-    return { _id: q._id, type: q.type || 'mcq', maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
+    const isShortQuestion = q.type === 'short'
+      || (exam.settings?.questionType === 'short' && options.length === 0);
+    return { _id: q._id, type: isShortQuestion ? 'short' : (q.type || 'mcq'), maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
   });
 
   // সময় ০ বা undefined হলে ডিফল্ট ১০ মিনিট দেখাবে
@@ -244,7 +247,9 @@ exports.saveAnswer = async (req, res) => {
 
     // অপশন ইনডেক্স: null (স্কিপ) অথবা প্রশ্নের অপশন-সংখ্যার মধ্যে একটি পূর্ণসংখ্যা
     const question = await Question.findById(qid).select('type options');
-    if (question?.type === 'short') {
+    const isShortQuestion = question?.type === 'short'
+      || (exam.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
+    if (isShortQuestion) {
       const text = String(answerText || '').trim().slice(0, 20000);
       const files = Array.isArray(answerFiles) ? answerFiles.slice(0, 5).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(String(file?.mime || '')) && String(file?.data || '').startsWith('data:') && String(file.data).length <= 14 * 1024 * 1024).map((file) => ({ name: String(file.name || 'answer').slice(0, 120), mime: String(file.mime), data: String(file.data) })) : [];
       if (!text && !files.length) return res.status(400).json({ message: 'উত্তর লিখুন অথবা ছবি/PDF upload করুন' });
@@ -335,7 +340,9 @@ exports.submitAttempt = async (req, res) => {
     attempt.questionOrder.forEach((qId) => {
       const q = qMap[qId.toString()];
       const ans = attempt.answers.find((a) => a.question.toString() === qId.toString());
-      if (q?.type === 'short') {
+      const isShortQuestion = q?.type === 'short'
+        || (exam.settings?.questionType === 'short' && (!Array.isArray(q?.options) || q.options.length === 0));
+      if (isShortQuestion) {
         if (!ans || (!String(ans.answerText || '').trim() && !ans.answerFiles?.length)) {
           return;
         }
@@ -599,6 +606,9 @@ exports.getAttemptReview = async (req, res) => {
         optionImages: q.optionImages && q.optionImages.length ? q.optionImages : undefined,
         correctOptionIndex: q.correctOptionIndex,
         selectedOptionIndex,
+        answerText: ans?.answerText || '',
+        answerFiles: ans?.answerFiles || [],
+        marksAwarded: Number.isFinite(Number(ans?.marksAwarded)) ? Number(ans.marksAwarded) : null,
         status: selectedOptionIndex === null ? 'skipped' : ans.isCorrect ? 'correct' : 'wrong',
         explanation: q.explanation || null,
       };

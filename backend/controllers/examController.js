@@ -835,8 +835,10 @@ exports.gradeShortAnswers = async (req, res) => {
     if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
     const exam = await Exam.findById(attempt.exam);
     if (!exam || exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
-    const questions = await Question.find({ exam: exam._id }).select('type _id');
-    const shortIds = new Set(questions.filter((q) => q.type === 'short').map((q) => String(q._id)));
+    const questions = await Question.find({ exam: exam._id }).select('type options _id');
+    const shortIds = new Set(questions.filter((q) => q.type === 'short'
+      || (exam.settings?.questionType === 'short' && (!Array.isArray(q.options) || q.options.length === 0)))
+      .map((q) => String(q._id)));
     const marks = req.body?.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feedback')) {
       attempt.teacherFeedback = String(req.body.feedback || '').trim().slice(0, 5000);

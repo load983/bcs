@@ -215,6 +215,7 @@ export default function PastExams() {
 }
 
 function ReviewItem({ item, t }) {
+  const options = Array.isArray(item.options) ? item.options : [];
   const badge =
     item.status === 'correct'
       ? { text: t('common.correct'), cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' }
@@ -232,7 +233,7 @@ function ReviewItem({ item, t }) {
         <span className={`badge shrink-0 ${badge.cls}`}>{badge.text}</span>
       </div>
       <div className="space-y-1.5">
-        {item.options.map((opt, i) => {
+        {options.map((opt, i) => {
           const isCorrect = i === item.correctOptionIndex;
           const isSelected = i === item.selectedOptionIndex;
           let cls = 'border border-gray-200 dark:border-white/10';
@@ -246,6 +247,11 @@ function ReviewItem({ item, t }) {
             </div>
           );
         })}
+        {options.length === 0 && (item.answerText || item.answerFiles?.length > 0) && (
+          <div className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm dark:border-white/10 dark:text-gray-200">
+            <strong>{t('result.yourAnswer')}:</strong> {item.answerText || 'ফাইল সংযুক্ত করা হয়েছে'}
+          </div>
+        )}
       </div>
       {item.explanation && (
         <div className="mt-2 rounded-lg bg-primary-50 p-2.5 text-sm dark:bg-primary-500/10 dark:text-gray-100">
