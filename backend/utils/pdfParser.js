@@ -204,7 +204,7 @@ function parseShortQuestionText(rawText) {
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim();
-    if (!line || /^page\s+\d+\s+of\s+\d+$/i.test(line)) continue;
+    if (!line || /page\s+\d+\s+of\s+\d+/i.test(line)) continue;
     if (answerKeyHeaderRegex.test(line)) {
       finishCurrent();
       inAnswerKey = true;
