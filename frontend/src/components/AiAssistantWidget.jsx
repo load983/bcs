@@ -79,6 +79,8 @@ export default function AiAssistantWidget() {
   });
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const panelRef = useRef(null);
+  const buttonRef = useRef(null);
   const abortRef = useRef(null);
   const dragRef = useRef(null);
   const suppressClickRef = useRef(false);
@@ -100,6 +102,20 @@ export default function AiAssistantWidget() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, loading, open]);
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 150); }, [open]);
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    if (!open) return undefined;
+    const dismissOutside = (event) => {
+      if (panelRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    const dismissOnEscape = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside, true);
+      document.removeEventListener('keydown', dismissOnEscape);
+    };
+  }, [open]);
 
   if (hidden) return null;
 
@@ -161,12 +177,15 @@ export default function AiAssistantWidget() {
     <>
       {/* ---------- ডান পাশের vertical AI Assistant tab ---------- */}
       <button
+        ref={buttonRef}
         onClick={toggleOpen}
         onPointerDown={handleRailPointerDown}
         onPointerMove={handleRailPointerMove}
         onPointerUp={handleRailPointerUp}
         style={{ top: `${railTop}%` }}
-        aria-label={L.title}
+        aria-label={open ? (lang === 'en' ? 'Close AI assistant' : 'AI সহকারী বন্ধ করুন') : L.title}
+        aria-expanded={open}
+        aria-controls="ai-assistant-panel"
         className="support-rail-button support-rail-ai bg-gradient-to-b from-violet-600 to-primary-600 text-white shadow-lg shadow-violet-600/40 hover:brightness-110"
       >
         <span aria-hidden="true" className="text-xl leading-none">{open ? '✕' : aiLocked ? '🔒' : '✨'}</span>
@@ -174,7 +193,7 @@ export default function AiAssistantWidget() {
 
       {/* ---------- চ্যাট প্যানেল ---------- */}
       {open && (
-        <div className="card fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] left-4 z-50 flex h-[min(75vh,36rem)] w-[min(92vw,23rem)] animate-scale-in flex-col overflow-hidden md:bottom-20">
+        <div ref={panelRef} id="ai-assistant-panel" className="card fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] right-4 z-50 flex h-[min(75vh,36rem)] w-[min(92vw,23rem)] animate-scale-in flex-col overflow-hidden md:bottom-20">
           <div className="flex items-center justify-between gap-2 bg-gradient-to-r from-violet-600 to-primary-600 px-4 py-3 text-white">
             <div className="min-w-0">
               <div className="font-bold">✨ {L.title}</div>

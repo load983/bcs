@@ -55,6 +55,8 @@ export default function HelplineWidget() {
     } catch { return 54; }
   });
   const bottomRef = useRef(null);
+  const panelRef = useRef(null);
+  const buttonRef = useRef(null);
   const lastIdRef = useRef('');
   const visitorId = useRef(getVisitorId());
   const dragRef = useRef(null);
@@ -120,6 +122,20 @@ export default function HelplineWidget() {
   }, [hidden, open, tab, user?.role]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open, tab]);
+  useEffect(() => {
+    if (!open) return undefined;
+    const dismissOutside = (event) => {
+      if (panelRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
+      setOpen(false);
+    };
+    const dismissOnEscape = (event) => { if (event.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', dismissOutside, true);
+    document.addEventListener('keydown', dismissOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', dismissOutside, true);
+      document.removeEventListener('keydown', dismissOnEscape);
+    };
+  }, [open]);
 
   if (hidden) return null;
 
@@ -173,12 +189,15 @@ export default function HelplineWidget() {
     <>
       {/* ---------- ডান পাশের vertical helpline tab ---------- */}
       <button
+        ref={buttonRef}
         onClick={toggleOpen}
         onPointerDown={handleRailPointerDown}
         onPointerMove={handleRailPointerMove}
         onPointerUp={handleRailPointerUp}
         style={{ top: `${railTop}%` }}
-        aria-label={t('helpline.title')}
+        aria-label={open ? (locale.startsWith('en') ? 'Close help panel' : 'সহায়তা প্যানেল বন্ধ করুন') : t('helpline.title')}
+        aria-expanded={open}
+        aria-controls="helpline-panel"
         className="support-rail-button support-rail-helpline bg-primary-600 text-white shadow-lg shadow-primary-600/40 hover:bg-primary-700"
       >
         <span aria-hidden="true" className="text-xl leading-none">{open ? '✕' : '🎧'}</span>
@@ -189,7 +208,7 @@ export default function HelplineWidget() {
 
       {/* ---------- প্যানেল ---------- */}
       {open && (
-        <div className="card fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-20 flex h-[min(75vh,34rem)] w-[min(92vw,22rem)] animate-scale-in flex-col overflow-hidden">
+        <div ref={panelRef} id="helpline-panel" className="card fixed bottom-[calc(9rem+env(safe-area-inset-bottom))] right-4 z-50 md:bottom-20 flex h-[min(75vh,34rem)] w-[min(92vw,22rem)] animate-scale-in flex-col overflow-hidden">
           <div className="bg-gradient-to-r from-primary-600 to-primary-700 px-4 py-3 text-white">
             <div className="font-bold">🎧 {t('helpline.title')}</div>
             <div className="text-xs opacity-90">{info?.helplineNote || t('helpline.subtitle')}</div>
