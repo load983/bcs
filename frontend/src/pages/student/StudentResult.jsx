@@ -252,7 +252,10 @@ export default function StudentResult() {
               ) : filteredItems.length === 0 ? (
                 <p className="text-center text-gray-500 dark:text-gray-400">{t('result.emptyCategory')}</p>
               ) : (
-                filteredItems.map((item) => <QuestionReviewCard key={item.serial} item={item} />)
+                <>
+                  {review.teacherFeedback && <div className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><p className="text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য</p><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-primary-900 dark:text-primary-100">{review.teacherFeedback}</p></div>}
+                  {filteredItems.map((item) => <QuestionReviewCard key={item.serial} item={item} />)}
+                </>
               )}
             </>
           )}

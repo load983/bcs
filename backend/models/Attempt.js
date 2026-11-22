@@ -43,6 +43,7 @@ const attemptSchema = new mongoose.Schema(
     totalWrong: { type: Number, default: 0 },
     totalSkipped: { type: Number, default: 0 },
     obtainedMarks: { type: Number, default: 0 },
+    teacherFeedback: { type: String, default: '' },
 
     status: { type: String, enum: ['in-progress', 'submitted'], default: 'in-progress' },
   },

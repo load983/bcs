@@ -604,7 +604,7 @@ exports.getAttemptReview = async (req, res) => {
       };
     });
 
-    res.json({ examTitle: exam.title, items });
+    res.json({ examTitle: exam.title, teacherFeedback: attempt.teacherFeedback || '', items });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }

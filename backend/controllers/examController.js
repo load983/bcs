@@ -835,6 +835,9 @@ exports.gradeShortAnswers = async (req, res) => {
     const questions = await Question.find({ exam: exam._id }).select('type _id');
     const shortIds = new Set(questions.filter((q) => q.type === 'short').map((q) => String(q._id)));
     const marks = req.body?.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feedback')) {
+      attempt.teacherFeedback = String(req.body.feedback || '').trim().slice(0, 5000);
+    }
     const max = Number(exam.settings?.marksPerQuestion) || 1;
     attempt.answers.forEach((answer) => {
       const id = String(answer.question);
