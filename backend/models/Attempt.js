@@ -14,6 +14,14 @@ const answerSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+const teacherFeedbackMediaSchema = new mongoose.Schema(
+  {
+    name: { type: String, maxlength: 180 },
+    mime: { type: String, maxlength: 80 },
+    data: { type: String, maxlength: 5_700_000 },
+  },
+  { _id: false }
+);
 
 const attemptSchema = new mongoose.Schema(
   {
@@ -44,6 +52,7 @@ const attemptSchema = new mongoose.Schema(
     totalSkipped: { type: Number, default: 0 },
     obtainedMarks: { type: Number, default: 0 },
     teacherFeedback: { type: String, default: '' },
+    teacherFeedbackMedia: { type: [teacherFeedbackMediaSchema], default: [] },
 
     status: { type: String, enum: ['in-progress', 'submitted'], default: 'in-progress' },
   },

@@ -12,6 +12,7 @@ import ZoomImage from '../../components/ZoomImage';
 import ExamFeedbackForm from '../../components/ExamFeedbackForm';
 import PdfPreviewModal from '../../components/PdfPreviewModal';
 import { downloadBlob, fetchFileBlob } from '../../utils/download';
+import FeedbackMediaItem from '../../components/FeedbackMediaItem';
 
 export default function StudentResult() {
   const { t } = useLanguage();
@@ -249,12 +250,10 @@ export default function StudentResult() {
 
               {reviewLoading || !review ? (
                 <p className="text-center text-gray-500 dark:text-gray-400">{t('common.loading')}</p>
-              ) : filteredItems.length === 0 ? (
-                <p className="text-center text-gray-500 dark:text-gray-400">{t('result.emptyCategory')}</p>
               ) : (
                 <>
-                  {review.teacherFeedback && <div className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><p className="text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য</p><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-primary-900 dark:text-primary-100">{review.teacherFeedback}</p></div>}
-                  {filteredItems.map((item) => <QuestionReviewCard key={item.serial} item={item} />)}
+                  {(review.teacherFeedback || review.teacherFeedbackMedia?.length > 0) && <div className="rounded-2xl border border-primary-200 bg-primary-50/70 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><p className="text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য</p>{review.teacherFeedback && <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-primary-900 dark:text-primary-100">{review.teacherFeedback}</p>}{!!review.teacherFeedbackMedia?.length && <div className="mt-3 grid gap-3 sm:grid-cols-2">{review.teacherFeedbackMedia.map((item, index) => <FeedbackMediaItem key={`${item.name}-${index}`} item={item} />)}</div>}</div>}
+                  {filteredItems.length === 0 ? <p className="text-center text-gray-500 dark:text-gray-400">{t('result.emptyCategory')}</p> : filteredItems.map((item) => <QuestionReviewCard key={item.serial} item={item} />)}
                 </>
               )}
             </>

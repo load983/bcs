@@ -633,7 +633,7 @@ exports.getAttemptReview = async (req, res) => {
       };
     });
 
-    res.json({ examTitle: exam.title, teacherFeedback: attempt.teacherFeedback || '', items });
+    res.json({ examTitle: exam.title, teacherFeedback: attempt.teacherFeedback || '', teacherFeedbackMedia: attempt.teacherFeedbackMedia || [], items });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -645,6 +645,7 @@ exports.getAttemptReview = async (req, res) => {
 exports.getMyAttempts = async (req, res) => {
   try {
     const attempts = await Attempt.find({ studentId: req.user.id, status: 'submitted' })
+      .select('-teacherFeedbackMedia')
       .sort({ submittedAt: -1 })
       .lean();
 

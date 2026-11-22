@@ -7,6 +7,15 @@ import { fetchExamResults, fetchExamById } from '../../features/exam/examSlice';
 import axiosClient from '../../api/axiosClient';
 import { useLanguage } from '../../context/LanguageContext';
 import useTeacherFeatures from '../../hooks/useTeacherFeatures';
+import FeedbackMediaItem from '../../components/FeedbackMediaItem';
+
+const FEEDBACK_MEDIA_TYPES = new Set([
+  'image/jpeg', 'image/png', 'image/webp', 'image/gif',
+  'audio/webm', 'audio/mp4', 'audio/mpeg', 'audio/mp3', 'audio/aac', 'audio/ogg', 'audio/wav', 'audio/x-wav',
+  'video/mp4', 'video/webm', 'video/quicktime',
+]);
+const FEEDBACK_MEDIA_FILE_LIMIT = 4 * 1024 * 1024;
+const FEEDBACK_MEDIA_TOTAL_LIMIT = 8_500_000;
 
 function ScoreDistributionChart({ bins, title, maxCount, lang }) {
   const label = lang === 'en' ? 'Students' : 'শিক্ষার্থী';
@@ -73,6 +82,8 @@ export default function ResultDashboard() {
   const [suggesting, setSuggesting] = useState(false);
   const [bulkMark, setBulkMark] = useState('');
   const [reviewFeedback, setReviewFeedback] = useState('');
+  const [reviewFeedbackMedia, setReviewFeedbackMedia] = useState([]);
+  const [feedbackMediaError, setFeedbackMediaError] = useState('');
   const [reviewBusy, setReviewBusy] = useState(false);
   const canViewFeedback = !!status && has('examFeedback');
   const submittedResults = results.filter((r) => r.status === 'submitted');
@@ -150,15 +161,48 @@ export default function ResultDashboard() {
       setReviewRubrics(rubrics);
       setSuggestionReasons({});
       setReviewFeedback(data.teacherFeedback || '');
+      setReviewFeedbackMedia(data.teacherFeedbackMedia || []);
+      setFeedbackMediaError('');
     } catch (err) { window.alert(err.response?.data?.message || 'Answer load করা যায়নি'); }
     finally { setReviewBusy(false); }
+  };
+
+  const readFeedbackMedia = (fileList) => {
+    setFeedbackMediaError('');
+    const selected = [...fileList];
+    const remaining = Math.max(0, 3 - reviewFeedbackMedia.length);
+    const files = selected.filter((file) => FEEDBACK_MEDIA_TYPES.has(file.type)).slice(0, remaining);
+    if (selected.length && !files.length) {
+      setFeedbackMediaError(remaining ? 'সমর্থিত image/audio/video বাছুন (প্রতিটি সর্বোচ্চ ৪ MB)।' : 'সর্বোচ্চ ৩টি media সংযুক্ত করা যাবে।');
+      return;
+    }
+    if (files.some((file) => file.size > FEEDBACK_MEDIA_FILE_LIMIT)) {
+      setFeedbackMediaError('প্রতিটি image/audio/video সর্বোচ্চ ৪ MB হতে পারবে।');
+      return;
+    }
+    Promise.all(files.map((file) => new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve({ name: file.name, mime: file.type, data: String(reader.result || '') });
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    }))).then((items) => {
+      let total = reviewFeedbackMedia.reduce((sum, item) => sum + String(item.data || '').length, 0);
+      const accepted = [];
+      for (const item of items.filter(Boolean)) {
+        if (total + item.data.length > FEEDBACK_MEDIA_TOTAL_LIMIT) continue;
+        accepted.push(item);
+        total += item.data.length;
+      }
+      if (accepted.length < files.length) setFeedbackMediaError('Feedback media-এর মোট আকার বেশি; ছোট ফাইল ব্যবহার করুন।');
+      setReviewFeedbackMedia((current) => [...current, ...accepted].slice(0, 3));
+    });
   };
 
   const saveReview = async () => {
     if (!reviewAttempt) return;
     setReviewBusy(true);
     try {
-      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks, rubrics: reviewRubrics, feedback: reviewFeedback });
+      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks, rubrics: reviewRubrics, feedback: reviewFeedback, feedbackMedia: reviewFeedbackMedia });
       setReviewAttempt(null);
       dispatch(fetchExamResults(id));
     } catch (err) { window.alert(err.response?.data?.message || 'Marks save করা যায়নি'); }
@@ -346,7 +390,13 @@ export default function ResultDashboard() {
               </article>;
             })}
           </>}
-          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-500/20 dark:bg-primary-500/10"><label className="block text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য<textarea className="input mt-2 min-h-24 w-full resize-y bg-white dark:bg-gray-900" maxLength={5000} placeholder="খাতার সামগ্রিক মন্তব্য লিখুন…" value={reviewFeedback} onChange={(e) => setReviewFeedback(e.target.value)} /><span className="mt-1 block text-right text-xs text-gray-500 dark:text-gray-400">{reviewFeedback.length}/5000</span></label></div>
+          <div className="rounded-2xl border border-primary-200 bg-primary-50/60 p-4 dark:border-primary-500/20 dark:bg-primary-500/10">
+            <label className="block text-sm font-semibold text-primary-900 dark:text-primary-100">শিক্ষকের feedback / মন্তব্য<textarea className="input mt-2 min-h-24 w-full resize-y bg-white dark:bg-gray-900" maxLength={5000} placeholder="খাতার সামগ্রিক মন্তব্য লিখুন…" value={reviewFeedback} onChange={(e) => setReviewFeedback(e.target.value)} /><span className="mt-1 block text-right text-xs text-gray-500 dark:text-gray-400">{reviewFeedback.length}/5000</span></label>
+            <label className="mt-3 inline-flex cursor-pointer rounded-xl border border-primary-300 bg-white px-3 py-2 text-sm font-medium text-primary-700 dark:border-primary-500/40 dark:bg-gray-900 dark:text-primary-300">ছবি / audio / video যোগ করুন<input className="sr-only" type="file" multiple accept="image/*,audio/*,video/mp4,video/webm,video/quicktime" disabled={reviewBusy} onChange={(e) => { readFeedbackMedia(e.target.files); e.target.value = ''; }} /></label>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">সর্বোচ্চ ৩টি ফাইল; প্রতিটি ৪ MB পর্যন্ত।</p>
+            {feedbackMediaError && <p className="mt-2 text-xs text-red-600" role="alert">{feedbackMediaError}</p>}
+            {!!reviewFeedbackMedia.length && <div className="mt-3 grid gap-3 sm:grid-cols-2">{reviewFeedbackMedia.map((item, index) => <FeedbackMediaItem key={`${item.name}-${index}`} item={item} compact onRemove={() => setReviewFeedbackMedia((items) => items.filter((_, i) => i !== index))} />)}</div>}
+          </div>
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-200 pt-4 dark:border-white/10"><p className="text-lg font-bold dark:text-white">মোট প্রাপ্ত নম্বর: {reviewedTotal} / {reviewAnswers.length * shortMax}</p><button className="btn-primary" onClick={saveReview} disabled={reviewBusy}>{reviewBusy ? 'Saving…' : 'Save marks & feedback'}</button></div>
         </div>
       </section>}

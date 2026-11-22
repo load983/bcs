@@ -6,6 +6,7 @@ const crypto = require('crypto'); // nanoid-এর ESM কনফ্লিক্�
 const Exam = require('../models/Exam');
 const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
+const { validateTeacherFeedbackMedia } = require('../utils/teacherFeedbackMedia');
 const { getAiConfig } = require('../utils/aiConfig');
 const { callModel } = require('../utils/aiProvider');
 const User = require('../models/User');
@@ -831,7 +832,7 @@ exports.getExamResults = async (req, res) => {
       });
     }
 
-    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).sort({ obtainedMarks: -1 }).lean();
+    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).select('-teacherFeedbackMedia').sort({ obtainedMarks: -1 }).lean();
     const questions = await Question.find({ exam: exam._id }).select('_id type').lean();
     const shortIds = new Set(questions.filter((question) => question.type === 'short').map((question) => String(question._id)));
     const withProgress = attempts.map((attempt) => {
@@ -863,7 +864,7 @@ exports.getAttemptDetails = async (req, res) => {
 
 exports.suggestShortAnswerMarks = async (req, res) => {
   try {
-    const attempt = await Attempt.findById(req.params.attemptId).populate('answers.question');
+    const attempt = await Attempt.findById(req.params.attemptId).select('-teacherFeedbackMedia').populate('answers.question');
     if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
     const exam = await Exam.findById(attempt.exam);
     if (!exam || String(exam.teacher) !== String(req.user.id)) return res.status(403).json({ message: 'অনুমতি নেই' });
@@ -920,6 +921,11 @@ exports.gradeShortAnswers = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feedback')) {
       attempt.teacherFeedback = String(req.body.feedback || '').trim().slice(0, 5000);
     }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feedbackMedia')) {
+      const validated = validateTeacherFeedbackMedia(req.body.feedbackMedia);
+      if (!validated.ok) return res.status(400).json({ message: validated.message });
+      attempt.teacherFeedbackMedia = validated.media;
+    }
     const max = Number(exam.settings?.marksPerQuestion) || 1;
     attempt.answers.forEach((answer) => {
       const id = String(answer.question);
@@ -934,7 +940,9 @@ exports.gradeShortAnswers = async (req, res) => {
     const negative = exam.settings?.negativeMarking?.enabled ? (Number(attempt.totalWrong) || 0) * (Number(exam.settings?.negativeMarking?.marksPerWrong) || 0) : 0;
     attempt.obtainedMarks = Math.round((mcqMarks + shortMarks - negative) * 100) / 100;
     await attempt.save();
-    res.json({ message: 'Short question-এর নম্বর সংরক্ষিত হয়েছে', attempt });
+    const responseAttempt = attempt.toObject();
+    delete responseAttempt.teacherFeedbackMedia;
+    res.json({ message: 'Short question-এর নম্বর সংরক্ষিত হয়েছে', attempt: responseAttempt });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
@@ -948,7 +956,7 @@ exports.exportResultsExcel = async (req, res) => {
       return res.status(403).json({ message: 'অনুমতি নেই' });
     }
 
-    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' });
+    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).select('-teacherFeedbackMedia');
     const workbook = await generateResultExcel(exam, attempts, req.query.lang);
 
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
