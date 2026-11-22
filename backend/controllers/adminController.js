@@ -6,6 +6,7 @@ const PromoCode = require('../models/PromoCode');
 const { usedCount } = require('../utils/promo');
 const Subscription = require('../models/Subscription');
 const Exam = require('../models/Exam');
+const Attempt = require('../models/Attempt');
 const { generateTeachersExcel, generatePaymentsExcel } = require('../utils/excelExport');
 const { DAY, getTeacherStatus, activateSubscription } = require('../utils/subscription');
 const { paidMatch, payDateExpr, dhakaMonthStart } = require('../utils/revenue');
@@ -64,6 +65,52 @@ exports.getStats = async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ message: 'স্ট্যাটস আনতে সমস্যা হয়েছে' });
+  }
+};
+
+// ---------- Exam analytics (admin read-only) ----------
+exports.getExamAnalytics = async (req, res) => {
+  try {
+    const [examStatuses, attemptStatuses, scoreSummary, uniqueStudents, topExams] = await Promise.all([
+      Exam.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Attempt.aggregate([{ $group: { _id: '$status', count: { $sum: 1 } } }]),
+      Attempt.aggregate([
+        { $match: { status: 'submitted' } },
+        { $group: { _id: null, count: { $sum: 1 }, averageScore: { $avg: '$obtainedMarks' }, positiveScore: { $sum: { $cond: [{ $gt: ['$obtainedMarks', 0] }, 1, 0] } } } },
+      ]),
+      Attempt.aggregate([
+        { $match: { status: 'submitted', studentId: { $ne: null } } },
+        { $group: { _id: '$studentId' } },
+        { $count: 'count' },
+      ]),
+      Attempt.aggregate([
+        { $match: { status: 'submitted' } },
+        { $group: { _id: '$exam', attempts: { $sum: 1 }, averageScore: { $avg: '$obtainedMarks' } } },
+        { $sort: { attempts: -1 } },
+        { $limit: 10 },
+        { $lookup: { from: 'exams', localField: '_id', foreignField: '_id', as: 'exam' } },
+        { $unwind: { path: '$exam', preserveNullAndEmptyArrays: true } },
+        { $lookup: { from: 'users', localField: 'exam.teacher', foreignField: '_id', as: 'teacher' } },
+        { $unwind: { path: '$teacher', preserveNullAndEmptyArrays: true } },
+        { $project: { _id: 1, title: { $ifNull: ['$exam.title', 'Deleted exam'] }, teacherName: { $ifNull: ['$teacher.name', ''] }, attempts: 1, averageScore: { $round: ['$averageScore', 2] } } },
+      ]),
+    ]);
+
+    const byId = (rows) => Object.fromEntries(rows.map((row) => [row._id || 'unknown', row.count]));
+    const exams = byId(examStatuses);
+    const attempts = byId(attemptStatuses);
+    const score = scoreSummary[0] || { count: 0, averageScore: 0, positiveScore: 0 };
+    const totalAttempts = Object.values(attempts).reduce((sum, n) => sum + n, 0);
+
+    res.json({
+      exams: { total: Object.values(exams).reduce((sum, n) => sum + n, 0), published: exams.published || 0, draft: exams.draft || 0, closed: exams.closed || 0 },
+      attempts: { total: totalAttempts, submitted: attempts.submitted || 0, inProgress: attempts['in-progress'] || 0, completionRate: totalAttempts ? Math.round(((attempts.submitted || 0) / totalAttempts) * 1000) / 10 : 0 },
+      scores: { submitted: score.count || 0, average: Math.round(Number(score.averageScore || 0) * 100) / 100, positiveRate: score.count ? Math.round((score.positiveScore / score.count) * 1000) / 10 : 0 },
+      uniqueStudents: uniqueStudents[0]?.count || 0,
+      topExams,
+    });
+  } catch (err) {
+    res.status(500).json({ message: 'Exam analytics আনতে সমস্যা হয়েছে' });
   }
 };
 

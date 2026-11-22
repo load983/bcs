@@ -16,6 +16,7 @@ export function buildNav(role, t, badges = {}) {
         { key: 'money', label: t('a.grp.money'), items: [
           { key: 'payments', label: t('a.tab.payments'), icon: 'card', to: q('payments'), badge: badges.payments },
           { key: 'revenue', label: t('a.tab.revenue'), icon: 'chart', to: q('revenue') },
+          { key: 'analytics', label: t('a.tab.analytics'), icon: 'chart', to: q('analytics') },
           { key: 'plans', label: t('a.tab.plans'), icon: 'tag', to: q('plans') },
         ] },
         { key: 'platform', label: t('a.grp.platform'), items: [

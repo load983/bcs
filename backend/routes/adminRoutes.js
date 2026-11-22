@@ -41,6 +41,7 @@ router.use(auditAdmin); // প্রতিটি সফল পরিবর্ত
 router.get('/activity-log', activityLog.list);
 
 router.get('/stats', ctrl.getStats);
+router.get('/exam-analytics', ctrl.getExamAnalytics);
 router.get('/revenue', revenue.getRevenue); // আয়ের ড্যাশবোর্ড (চার্টের ডেটা)
 router.get('/teachers', ctrl.getTeachers);
 router.get('/teachers/export', ctrl.exportTeachersExcel);
