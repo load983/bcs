@@ -4,7 +4,7 @@
 export const extraEntries = {
   'backup.title': { bn: 'শিক্ষকের ডেটা Backup ও Restore', en: 'Teacher data backup & restore' },
   'backup.description': { bn: 'ক্লাস, পরীক্ষা, প্রশ্ন, attempt/result, student roster, মেসেজ ও প্রয়োজনীয় ছবি/মিডিয়া ZIP-এ সংরক্ষণ বা পুনরুদ্ধার করুন। Restore বিদ্যমান ডেটা মুছে বা overwrite করবে না।', en: 'Save or restore classes, exams, questions, attempts/results, student roster, messages, and referenced media in a ZIP. Restore does not delete or overwrite existing data.' },
-  'backup.credentialsNote': { bn: 'নিরাপত্তার জন্য student/teacher password, login credential ও share/access code ZIP-এ রাখা হয় না। Restore-এ access/share code নতুন করে তৈরি হবে।', en: 'For security, student/teacher passwords, login credentials, and share/access codes are not included. Access/share codes are regenerated on restore.' },
+  'backup.credentialsNote': { bn: 'Student login চালু রাখার জন্য password plaintext নয়—নিরাপদ hash/encrypted credential হিসেবে রাখা হয়। Class, exam ও share/access code রাখা হয়; ZIP-টি password-protected নয়, তাই নিরাপদে সংরক্ষণ করুন।', en: 'Student login is preserved using password hashes/encrypted credentials, never plaintext passwords. Class, exam and share/access codes are included; the ZIP is not password-protected, so store it securely.' },
   'backup.download': { bn: 'ZIP Backup ডাউনলোড', en: 'Download ZIP backup' },
   'backup.restore': { bn: 'ZIP আপলোড করে Restore', en: 'Upload ZIP & restore' },
   'backup.working': { bn: 'অপেক্ষা করুন…', en: 'Working…' },

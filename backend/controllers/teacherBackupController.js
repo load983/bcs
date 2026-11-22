@@ -165,7 +165,7 @@ exports.exportBackup = async (req, res) => {
     const studentOr = [{ connectedTeachers: teacherId }, { _id: { $in: referencedStudentIds } }];
     if (classIds.length) studentOr.push({ connectedClasses: { $in: classIds } });
     const students = await User.find({ role: 'student', $or: studentOr })
-      .select('_id name phone roll connectedTeachers connectedClasses bannedByTeachers createdAt updatedAt')
+      .select('_id name phone roll password initialPasswordEnc connectedTeachers connectedClasses bannedByTeachers createdAt updatedAt')
       .lean();
 
     const cleanClasses = asJson(classes).map((item) => { delete item.accessCode; return item; });
@@ -180,6 +180,8 @@ exports.exportBackup = async (req, res) => {
       classIds: (student.connectedClasses || []).map(String).filter((id) => ownClasses.has(id)),
       legacyConnected: (student.connectedTeachers || []).some((id) => String(id) === String(teacherId)),
       bannedByTeacher: (student.bannedByTeachers || []).some((id) => String(id) === String(teacherId)),
+      passwordHash: student.password || '',
+      initialPasswordEnc: student.initialPasswordEnc || '',
       createdAt: student.createdAt,
       updatedAt: student.updatedAt,
     }));
@@ -205,7 +207,8 @@ exports.exportBackup = async (req, res) => {
       records: countData(data),
       mediaFiles: includedFiles.size,
       missingMediaReferences: [...missingFiles],
-      passwordsAndShareCodesIncluded: false,
+      passwordsAndShareCodesIncluded: true,
+      credentialNote: 'Plaintext passwords are never included; bcrypt hashes and encrypted initial credentials preserve student login.',
     };
     zip.file('manifest.json', JSON.stringify(manifest, null, 2));
     zip.file('data.json', JSON.stringify(data));
@@ -294,7 +297,12 @@ exports.restoreBackup = async (req, res) => {
           suffix++;
           name = `${String(item.name || 'Restored class').trim().slice(0, 80)} (restored ${suffix})`;
         }
-        const payload = { ...item, _id: sourceId, teacher: req.user.id, name, accessCode: await generateUniqueClassCode(usedClassCodes) };
+        const originalAccessCode = String(item.accessCode || '').trim();
+        const accessCodeAvailable = originalAccessCode && !usedClassCodes.has(originalAccessCode)
+          && !(await Class.exists({ accessCode: originalAccessCode }))
+          && !(await User.exists({ accessCode: originalAccessCode }));
+        if (accessCodeAvailable) usedClassCodes.add(originalAccessCode);
+        const payload = { ...item, _id: sourceId, teacher: req.user.id, name, accessCode: accessCodeAvailable ? originalAccessCode : await generateUniqueClassCode(usedClassCodes) };
         delete payload.__v;
         await Class.create([payload], { session });
         classMap.set(sourceId, new mongoose.Types.ObjectId(sourceId));
@@ -311,8 +319,11 @@ exports.restoreBackup = async (req, res) => {
           continue;
         }
         const payload = { ...item, _id: sourceId, teacher: req.user.id, classRefs: (item.classRefs || []).map((id) => classMap.get(String(id))) };
-        payload.examCode = await generateUniqueExamCode(usedExamCodes);
-        payload.accessCode = item.accessCode ? crypto.randomBytes(3).toString('hex').toUpperCase() : undefined;
+        const originalExamCode = String(item.examCode || '').trim();
+        const examCodeAvailable = originalExamCode && !usedExamCodes.has(originalExamCode) && !(await Exam.exists({ examCode: originalExamCode }));
+        if (examCodeAvailable) usedExamCodes.add(originalExamCode);
+        payload.examCode = examCodeAvailable ? originalExamCode : await generateUniqueExamCode(usedExamCodes);
+        payload.accessCode = item.accessCode ? String(item.accessCode).trim() : undefined;
         delete payload.__v;
         await Exam.create([payload], { session });
         examMap.set(sourceId, new mongoose.Types.ObjectId(sourceId));
@@ -355,6 +366,8 @@ exports.restoreBackup = async (req, res) => {
             connectedTeachers: item.legacyConnected ? [req.user.id] : [],
             connectedClasses: [],
           };
+          if (/^\$2[aby]\$\d{2}\$/.test(String(item.passwordHash || ''))) payload.password = String(item.passwordHash);
+          if (item.initialPasswordEnc && typeof item.initialPasswordEnc === 'string') payload.initialPasswordEnc = item.initialPasswordEnc;
           if (item.phone && !phoneTaken) payload.phone = item.phone;
           await User.create([payload], { session });
           stats.students++;
@@ -437,7 +450,7 @@ exports.restoreBackup = async (req, res) => {
     res.json({
       message: 'Backup restore সম্পন্ন হয়েছে। আগে থেকেই থাকা record overwrite বা delete করা হয়নি।',
       restored: stats,
-      credentialsRestored: false,
+      credentialsRestored: true,
     });
   } catch (err) {
     for (const createdPath of createdFiles) { try { fs.unlinkSync(createdPath); } catch (_) {} }
