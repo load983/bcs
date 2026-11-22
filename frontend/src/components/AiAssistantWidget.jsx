@@ -9,6 +9,7 @@ import axiosClient from '../api/axiosClient';
 import { useLanguage } from '../context/LanguageContext';
 import MathText from './MathText';
 import { openHelpline } from './HelplineWidget';
+import { clampWidgetPosition, loadWidgetPosition, saveWidgetPosition } from '../utils/floatingWidgetPosition';
 import useTeacherFeatures from '../hooks/useTeacherFeatures';
 
 const STORE_KEY = 'ai-assistant-chat';
@@ -71,12 +72,7 @@ export default function AiAssistantWidget() {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [railTop, setRailTop] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem(RAIL_TOP_KEY));
-      return Number.isFinite(saved) ? Math.min(92, Math.max(8, saved)) : 46;
-    } catch { return 46; }
-  });
+  const [railPosition, setRailPosition] = useState(() => loadWidgetPosition(RAIL_TOP_KEY, { x: 88, y: 46 }));
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const panelRef = useRef(null);
@@ -102,6 +98,11 @@ export default function AiAssistantWidget() {
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [messages, loading, open]);
   useEffect(() => { if (open) setTimeout(() => inputRef.current?.focus(), 150); }, [open]);
   useEffect(() => () => abortRef.current?.abort(), []);
+  useEffect(() => {
+    const keepInView = () => setRailPosition((position) => clampWidgetPosition(position.x, position.y));
+    window.addEventListener('resize', keepInView);
+    return () => window.removeEventListener('resize', keepInView);
+  }, []);
   useEffect(() => {
     if (!open) return undefined;
     const dismissOutside = (event) => {
@@ -151,21 +152,22 @@ export default function AiAssistantWidget() {
 
   const handleRailPointerDown = (e) => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragRef.current = { startY: e.clientY, startTop: railTop, top: railTop, moved: false };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startPosition: railPosition, position: railPosition, moved: false };
   };
   const handleRailPointerMove = (e) => {
     if (!dragRef.current) return;
-    const delta = ((e.clientY - dragRef.current.startY) / window.innerHeight) * 100;
-    if (Math.abs(delta) > 1) dragRef.current.moved = true;
-    dragRef.current.top = Math.min(92, Math.max(8, dragRef.current.startTop + delta));
-    setRailTop(dragRef.current.top);
+    const deltaX = ((e.clientX - dragRef.current.startX) / window.innerWidth) * 100;
+    const deltaY = ((e.clientY - dragRef.current.startY) / window.innerHeight) * 100;
+    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) dragRef.current.moved = true;
+    dragRef.current.position = clampWidgetPosition(dragRef.current.startPosition.x + deltaX, dragRef.current.startPosition.y + deltaY);
+    setRailPosition(dragRef.current.position);
   };
   const handleRailPointerUp = (e) => {
     if (!dragRef.current) return;
     suppressClickRef.current = dragRef.current.moved;
-    const finalTop = dragRef.current.top;
+    const finalPosition = dragRef.current.position;
     dragRef.current = null;
-    try { localStorage.setItem(RAIL_TOP_KEY, String(finalTop)); } catch { /* ignore */ }
+    saveWidgetPosition(RAIL_TOP_KEY, finalPosition);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
   const toggleOpen = () => {
@@ -182,7 +184,7 @@ export default function AiAssistantWidget() {
         onPointerDown={handleRailPointerDown}
         onPointerMove={handleRailPointerMove}
         onPointerUp={handleRailPointerUp}
-        style={{ top: `${railTop}%` }}
+        style={{ left: `${railPosition.x}%`, top: `${railPosition.y}%` }}
         aria-label={open ? (lang === 'en' ? 'Close AI assistant' : 'AI সহকারী বন্ধ করুন') : L.title}
         aria-expanded={open}
         aria-controls="ai-assistant-panel"

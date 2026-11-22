@@ -254,7 +254,7 @@ input, button, textarea, select {
   /* AI Assistant ও Helpline-এর compact, draggable floating actions */
   .support-rail-button {
     position: fixed;
-    right: 0.75rem;
+    right: auto;
     top: 50%;
     z-index: 50;
     display: flex;
@@ -271,7 +271,7 @@ input, button, textarea, select {
   }
 
   .support-rail-ai,
-  .support-rail-helpline { transform: none; }
+  .support-rail-helpline { transform: translate(-50%, -50%); }
   .support-rail-button:active { cursor: grabbing; }
   .support-rail-badge {
     position: absolute;

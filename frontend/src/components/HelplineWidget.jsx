@@ -9,6 +9,7 @@ import { useSelector } from 'react-redux';
 import axiosClient from '../api/axiosClient';
 import { useLanguage } from '../context/LanguageContext';
 import { buildContactList } from '../utils/contactLinks';
+import { clampWidgetPosition, loadWidgetPosition, saveWidgetPosition } from '../utils/floatingWidgetPosition';
 
 const VISITOR_KEY = 'helpline-visitor-id';
 const OPEN_EVENT = 'open-helpline';
@@ -48,12 +49,7 @@ export default function HelplineWidget() {
   const [guest, setGuest] = useState({ name: '', phone: '' });
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
-  const [railTop, setRailTop] = useState(() => {
-    try {
-      const saved = Number(localStorage.getItem(RAIL_TOP_KEY));
-      return Number.isFinite(saved) ? Math.min(92, Math.max(8, saved)) : 54;
-    } catch { return 54; }
-  });
+  const [railPosition, setRailPosition] = useState(() => loadWidgetPosition(RAIL_TOP_KEY, { x: 88, y: 54 }));
   const bottomRef = useRef(null);
   const panelRef = useRef(null);
   const buttonRef = useRef(null);
@@ -123,6 +119,11 @@ export default function HelplineWidget() {
 
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages, open, tab]);
   useEffect(() => {
+    const keepInView = () => setRailPosition((position) => clampWidgetPosition(position.x, position.y));
+    window.addEventListener('resize', keepInView);
+    return () => window.removeEventListener('resize', keepInView);
+  }, []);
+  useEffect(() => {
     if (!open) return undefined;
     const dismissOutside = (event) => {
       if (panelRef.current?.contains(event.target) || buttonRef.current?.contains(event.target)) return;
@@ -163,21 +164,22 @@ export default function HelplineWidget() {
   const time = (d) => new Date(d).toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
   const handleRailPointerDown = (e) => {
     e.currentTarget.setPointerCapture?.(e.pointerId);
-    dragRef.current = { startY: e.clientY, startTop: railTop, top: railTop, moved: false };
+    dragRef.current = { startX: e.clientX, startY: e.clientY, startPosition: railPosition, position: railPosition, moved: false };
   };
   const handleRailPointerMove = (e) => {
     if (!dragRef.current) return;
-    const delta = ((e.clientY - dragRef.current.startY) / window.innerHeight) * 100;
-    if (Math.abs(delta) > 1) dragRef.current.moved = true;
-    dragRef.current.top = Math.min(92, Math.max(8, dragRef.current.startTop + delta));
-    setRailTop(dragRef.current.top);
+    const deltaX = ((e.clientX - dragRef.current.startX) / window.innerWidth) * 100;
+    const deltaY = ((e.clientY - dragRef.current.startY) / window.innerHeight) * 100;
+    if (Math.abs(deltaX) > 1 || Math.abs(deltaY) > 1) dragRef.current.moved = true;
+    dragRef.current.position = clampWidgetPosition(dragRef.current.startPosition.x + deltaX, dragRef.current.startPosition.y + deltaY);
+    setRailPosition(dragRef.current.position);
   };
   const handleRailPointerUp = (e) => {
     if (!dragRef.current) return;
     suppressClickRef.current = dragRef.current.moved;
-    const finalTop = dragRef.current.top;
+    const finalPosition = dragRef.current.position;
     dragRef.current = null;
-    try { localStorage.setItem(RAIL_TOP_KEY, String(finalTop)); } catch { /* ignore */ }
+    saveWidgetPosition(RAIL_TOP_KEY, finalPosition);
     e.currentTarget.releasePointerCapture?.(e.pointerId);
   };
   const toggleOpen = () => {
@@ -194,7 +196,7 @@ export default function HelplineWidget() {
         onPointerDown={handleRailPointerDown}
         onPointerMove={handleRailPointerMove}
         onPointerUp={handleRailPointerUp}
-        style={{ top: `${railTop}%` }}
+        style={{ left: `${railPosition.x}%`, top: `${railPosition.y}%` }}
         aria-label={open ? (locale.startsWith('en') ? 'Close help panel' : 'সহায়তা প্যানেল বন্ধ করুন') : t('helpline.title')}
         aria-expanded={open}
         aria-controls="helpline-panel"
