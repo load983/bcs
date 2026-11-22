@@ -8,6 +8,42 @@ import axiosClient from '../../api/axiosClient';
 import { useLanguage } from '../../context/LanguageContext';
 import useTeacherFeatures from '../../hooks/useTeacherFeatures';
 
+function ScoreDistributionChart({ bins, title, maxCount, lang }) {
+  const label = lang === 'en' ? 'Students' : 'শিক্ষার্থী';
+  const chartW = 720;
+  const chartH = 250;
+  const left = 38;
+  const top = 20;
+  const plotW = chartW - left - 12;
+  const plotH = 174;
+  const gap = 8;
+  const barW = (plotW - gap * (bins.length - 1)) / bins.length;
+  return (
+    <section className="card mb-5 p-5">
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="text-lg font-semibold dark:text-white">{title}</h2>
+        <span className="text-xs text-gray-500 dark:text-gray-400">{label}</span>
+      </div>
+      {bins.length === 0 || bins.every((bin) => bin.count === 0) ? <p className="py-8 text-center text-sm text-gray-500">—</p> : (
+        <div className="w-full overflow-x-auto">
+          <svg viewBox={`0 0 ${chartW} ${chartH}`} role="img" aria-label={title} className="min-w-[540px] w-full">
+            {[0, 0.5, 1].map((fraction) => {
+              const y = top + plotH * (1 - fraction);
+              return <g key={fraction}><line x1={left} y1={y} x2={chartW - 12} y2={y} stroke="currentColor" className="text-gray-200 dark:text-white/10" strokeDasharray={fraction === 0 ? undefined : '3 4'} /><text x={left - 7} y={y + 4} textAnchor="end" className="fill-gray-400" fontSize="10">{Math.round(maxCount * fraction)}</text></g>;
+            })}
+            {bins.map((bin, index) => {
+              const height = bin.count ? Math.max(2, (bin.count / maxCount) * (plotH - 8)) : 0;
+              const x = left + index * (barW + gap);
+              const y = top + plotH - height;
+              return <g key={bin.label}><rect x={x} y={y} width={barW} height={height} rx="5" className="fill-primary-600" /><text x={x + barW / 2} y={Math.max(top + 10, y - 5)} textAnchor="middle" className="fill-gray-500 dark:fill-gray-300" fontSize="10">{bin.count}</text><text x={x + barW / 2} y={top + plotH + 18} textAnchor="middle" className="fill-gray-500 dark:fill-gray-400" fontSize="9">{bin.label}</text></g>;
+            })}
+          </svg>
+        </div>
+      )}
+    </section>
+  );
+}
+
 export default function ResultDashboard() {
   const { t, lang } = useLanguage();
   const { status, has, warnLocked, lockedMessage } = useTeacherFeatures();
@@ -18,7 +54,18 @@ export default function ResultDashboard() {
   const [feedbackData, setFeedbackData] = useState(null);
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackError, setFeedbackError] = useState('');
+  const [pdfBusy, setPdfBusy] = useState(false);
   const canViewFeedback = !!status && has('examFeedback');
+  const submittedResults = results.filter((r) => r.status === 'submitted');
+  const observedQuestionCount = Math.max(0, ...submittedResults.map((r) => (Number(r.totalCorrect) || 0) + (Number(r.totalWrong) || 0) + (Number(r.totalSkipped) || 0)));
+  const questionsInExam = observedQuestionCount || Number(currentExam?.settings?.totalQuestionsToUse) || 1;
+  const maxScore = Math.max(questionsInExam * (Number(currentExam?.settings?.marksPerQuestion) || 1), ...submittedResults.map((r) => Number(r.obtainedMarks) || 0), 1);
+  const scoreBins = Array.from({ length: 10 }, (_, index) => ({ label: `${index * 10}–${(index + 1) * 10}%`, count: 0 }));
+  submittedResults.forEach((result) => {
+    const pct = Math.max(0, Math.min(99.99, ((Number(result.obtainedMarks) || 0) / maxScore) * 100));
+    scoreBins[Math.floor(pct / 10)].count += 1;
+  });
+  const maxBinCount = Math.max(1, ...scoreBins.map((bin) => bin.count));
 
   useEffect(() => {
     dispatch(fetchExamById(id));
@@ -53,6 +100,25 @@ export default function ResultDashboard() {
     link.remove();
   };
 
+  const handlePdfExport = async () => {
+    if (!has('exportResults')) return warnLocked('exportResults');
+    setPdfBusy(true);
+    try {
+      const res = await axiosClient.get(`/exams/${id}/results/pdf?lang=${lang}`, { responseType: 'blob' });
+      const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${currentExam?.title || 'results'}-results.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 1000);
+    } catch (err) {
+      const message = err.response?.data?.message || (lang === 'en' ? 'Could not create the results PDF.' : 'রেজাল্ট PDF তৈরি করা যায়নি।');
+      window.alert(message);
+    } finally { setPdfBusy(false); }
+  };
+
   if (resultsExamId === id && resultsDisabledMessage) {
     return (
       <div className="mx-auto max-w-6xl py-2">
@@ -66,15 +132,20 @@ export default function ResultDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl py-2">
-      <div className="flex justify-between items-center mb-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold tracking-tight dark:text-white sm:text-3xl">{t('resultDash.title')} — {currentExam?.title}</h1>
-        <button onClick={handleExport} className={`btn-primary ${has('exportResults') ? '' : 'opacity-60'}`}>
-          {has('exportResults') ? '' : '🔒 '}{t('resultDash.export')}
-        </button>
+        <div className="flex flex-wrap justify-end gap-2">
+          <button onClick={handleExport} className={`btn-secondary ${has('exportResults') ? '' : 'opacity-60'}`}>
+            {has('exportResults') ? '' : '🔒 '}{t('resultDash.export')}
+          </button>
+          <button onClick={handlePdfExport} disabled={pdfBusy} className={`btn-primary ${has('exportResults') ? '' : 'opacity-60'}`}>
+            {has('exportResults') ? '' : '🔒 '}{pdfBusy ? t('resultDash.pdfPreparing') : t('resultDash.pdfExport')}
+          </button>
+        </div>
       </div>
 
       {(() => {
-        const done = results.filter((r) => r.status === 'submitted');
+        const done = submittedResults;
         const marks = done.map((r) => Number(r.obtainedMarks) || 0);
         const avg = marks.length ? (marks.reduce((a, b) => a + b, 0) / marks.length).toFixed(1) : '-';
         const top = marks.length ? Math.max(...marks) : '-';
@@ -89,6 +160,8 @@ export default function ResultDashboard() {
           </div>
         );
       })()}
+
+      <ScoreDistributionChart bins={scoreBins} maxCount={maxBinCount} title={t('resultDash.graphTitle')} lang={lang} />
 
       <section className="card mb-5 space-y-4 p-5">
         <div>

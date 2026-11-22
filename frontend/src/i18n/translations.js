@@ -400,6 +400,9 @@ const entries = {
   // ---------------------------------------------------------------- result dashboard (teacher)
   'resultDash.title': { bn: 'রেজাল্ট ড্যাশবোর্ড', en: 'Result Dashboard' },
   'resultDash.export': { bn: '📊 Excel এ এক্সপোর্ট করো', en: '📊 Export to Excel' },
+  'resultDash.pdfExport': { bn: '📄 গ্রাফসহ PDF ডাউনলোড', en: '📄 Download PDF with graph' },
+  'resultDash.pdfPreparing': { bn: 'PDF তৈরি হচ্ছে…', en: 'Preparing PDF…' },
+  'resultDash.graphTitle': { bn: 'নম্বর অনুযায়ী শিক্ষার্থীর বণ্টন', en: 'Student score distribution' },
   'resultDash.colName': { bn: 'নাম', en: 'Name' },
   'resultDash.colRoll': { bn: 'রোল', en: 'Roll' },
   'resultDash.colCorrect': { bn: 'সঠিক', en: 'Correct' },

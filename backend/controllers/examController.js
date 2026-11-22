@@ -816,6 +816,95 @@ exports.exportResultsExcel = async (req, res) => {
   }
 };
 
+// GET /exams/:id/results/pdf — ফলাফলের সারাংশ, নম্বর-বণ্টন গ্রাফ ও শিক্ষার্থী তালিকা
+exports.exportResultsPdf = async (req, res) => {
+  try {
+    const exam = await Exam.findById(req.params.id);
+    if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
+    if (exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
+
+    const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).sort({ obtainedMarks: -1 });
+    const questionCount = await Question.countDocuments({ exam: exam._id });
+    const marksPerQuestion = Number(exam.settings?.marksPerQuestion) || 1;
+    const configuredQuestionCount = Number(exam.settings?.totalQuestionsToUse) || questionCount;
+    const observedQuestionCount = Math.max(0, ...attempts.map((a) => (Number(a.totalCorrect) || 0) + (Number(a.totalWrong) || 0) + (Number(a.totalSkipped) || 0)));
+    const questionsUsed = observedQuestionCount || Math.min(questionCount, configuredQuestionCount);
+    const maxMarks = Math.max(questionsUsed * marksPerQuestion, ...attempts.map((a) => Number(a.obtainedMarks) || 0), 1);
+    const bins = Array.from({ length: 10 }, (_, i) => ({ label: `${i * 10}–${(i + 1) * 10}%`, count: 0 }));
+    attempts.forEach((attempt) => {
+      const percentage = Math.max(0, Math.min(99.99, ((Number(attempt.obtainedMarks) || 0) / maxMarks) * 100));
+      bins[Math.floor(percentage / 10)].count += 1;
+    });
+    const average = attempts.length ? attempts.reduce((sum, a) => sum + (Number(a.obtainedMarks) || 0), 0) / attempts.length : 0;
+    const en = String(req.query.lang || '').toLowerCase() === 'en';
+    const filename = `${exam.title || 'exam'}-results.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="results.pdf"; filename*=UTF-8''${encodeURIComponent(filename)}`);
+    const doc = new PDFDocument({ size: 'A4', margin: 42, bufferPages: true, info: { Title: `${exam.title} results` } });
+    doc.on('error', (err) => { if (!res.headersSent) res.status(500).end(err.message); });
+    doc.pipe(res);
+    const fonts = registerFonts(doc);
+    const writeAt = (text, x, y, options = {}) => {
+      doc.x = x; doc.y = y;
+      writeText(doc, fonts, String(text ?? ''), { lineBreak: false, ...options });
+    };
+    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const left = doc.page.margins.left;
+    const summaryTitle = en ? 'Exam Results Report' : 'পরীক্ষার ফলাফল প্রতিবেদন';
+    const avgLabel = en ? 'Average marks' : 'গড় নম্বর';
+    const topLabel = en ? 'Highest marks' : 'সর্বোচ্চ নম্বর';
+    const totalLabel = en ? 'Submitted students' : 'জমাদানকারী';
+    const graphTitle = en ? 'Score distribution' : 'নম্বরের বণ্টন';
+    writeAt(exam.title, left, 42, { width: pageWidth, align: 'center' });
+    doc.y = 68;
+    writeAt(summaryTitle, left, 68, { width: pageWidth, align: 'center' });
+    doc.font(fonts.latin).fontSize(10).fillColor('#475569');
+    doc.text(`${totalLabel}: ${attempts.length}     ${avgLabel}: ${average.toFixed(1)}     ${topLabel}: ${attempts.length ? Math.max(...attempts.map((a) => Number(a.obtainedMarks) || 0)) : 0}`, left, 98, { width: pageWidth, align: 'center' });
+
+    // Vector bar graph so it remains sharp in the downloaded PDF.
+    writeAt(graphTitle, left, 132, { width: pageWidth, align: 'center' });
+    const chartTop = 158;
+    const chartHeight = 145;
+    const baseline = chartTop + chartHeight;
+    const gap = 8;
+    const barWidth = (pageWidth - gap * 9) / 10;
+    const maxCount = Math.max(1, ...bins.map((b) => b.count));
+    doc.strokeColor('#94a3b8').lineWidth(0.7).moveTo(left, baseline).lineTo(left + pageWidth, baseline).stroke();
+    bins.forEach((bin, i) => {
+      const height = bin.count ? Math.max(3, (bin.count / maxCount) * (chartHeight - 25)) : 0;
+      const x = left + i * (barWidth + gap);
+      if (height) doc.save().fillColor('#2563eb').rect(x, baseline - height, barWidth, height).fill().restore();
+      doc.font(fonts.latin).fontSize(8).fillColor('#334155').text(String(bin.count), x, baseline - height - 14, { width: barWidth, align: 'center', lineBreak: false });
+      doc.font(fonts.latin).fontSize(7).fillColor('#475569').text(bin.label, x - 2, baseline + 5, { width: barWidth + 4, align: 'center', lineBreak: false });
+    });
+
+    const rowsTitle = en ? 'Student results' : 'শিক্ষার্থীদের ফলাফল';
+    writeAt(rowsTitle, left, baseline + 32, { width: pageWidth });
+    let y = baseline + 54;
+    const columns = en ? ['Student', 'Roll', 'Correct', 'Wrong', 'Skipped', 'Marks'] : ['শিক্ষার্থী', 'রোল', 'সঠিক', 'ভুল', 'স্কিপ', 'নম্বর'];
+    const widths = [180, 70, 65, 55, 55, pageWidth - 425];
+    const drawTableHeader = () => {
+      let x = left;
+      doc.save().fillColor('#e2e8f0').rect(left, y - 3, pageWidth, 22).fill().restore();
+      columns.forEach((label, i) => { writeAt(label, x + 3, y, { width: widths[i] - 6 }); x += widths[i]; });
+      y += 24;
+    };
+    drawTableHeader();
+    attempts.forEach((attempt) => {
+      if (y > doc.page.height - 58) { doc.addPage(); y = 44; drawTableHeader(); }
+      const values = [attempt.studentName || '-', attempt.studentRoll || '-', attempt.totalCorrect ?? 0, attempt.totalWrong ?? 0, attempt.totalSkipped ?? 0, attempt.obtainedMarks ?? 0];
+      let x = left;
+      values.forEach((value, i) => { writeAt(value, x + 3, y, { width: widths[i] - 6 }); x += widths[i]; });
+      doc.strokeColor('#e2e8f0').lineWidth(0.4).moveTo(left, y + 17).lineTo(left + pageWidth, y + 17).stroke();
+      y += 22;
+    });
+    if (!attempts.length) writeAt(en ? 'No submitted results yet.' : 'এখনো কোনো জমা দেওয়া ফল নেই।', left, y + 4, { width: pageWidth });
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message || 'PDF তৈরি করা যায়নি' });
+  }
+};
+
 // ---------- ৮.৫ শিক্ষকের নিজের তৈরি পরীক্ষার PDF ডাউনলোড ----------
 // GET /exams/:id/pdf?answers=1  → উত্তরসহ (সঠিক অপশন চিহ্নিত + ব্যাখ্যা), না দিলে শুধু প্রশ্নপত্র
 exports.downloadExamPdf = async (req, res) => {

@@ -88,5 +88,6 @@ router.put('/:id/questions/reorder', requireFeature('editQuestions'), ctrl.reord
 router.get('/:id/pdf', requireFeature('downloadExamPdf'), ctrl.downloadExamPdf);
 router.get('/:id/results', requireFeature('results'), ctrl.getExamResults);
 router.get('/:id/results/export', requireFeature('exportResults'), ctrl.exportResultsExcel);
+router.get('/:id/results/pdf', requireFeature('exportResults'), ctrl.exportResultsPdf);
 
 module.exports = router;
