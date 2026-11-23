@@ -15,7 +15,10 @@ export default function RoleBackupPanel({ role = 'student' }) {
     try {
       const { data } = await axiosClient.get(`${base}/export`, { responseType: 'blob' });
       const url = URL.createObjectURL(data); const link = document.createElement('a'); link.href = url;
-      link.download = `${role}-backup-${new Date().toISOString().slice(0, 10)}.zip`; link.click(); URL.revokeObjectURL(url);
+      link.download = `${role}-backup-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(link); link.click(); link.remove();
+      // Give mobile and in-app browsers time to start consuming the Blob.
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
       setMessage('ZIP backup download শুরু হয়েছে।');
     } catch (e) { setError(e.response?.data?.message || 'Backup তৈরি করা যায়নি।'); }
     finally { setBusy(''); }
