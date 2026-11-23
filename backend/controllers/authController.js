@@ -19,8 +19,8 @@ const normalizePhone = (value) => {
 };
 
 // JWT টোকেন জেনারেট করার হেল্পার ফাংশন (role-ও টোকেনে ঢোকানো হচ্ছে, নাহলে authorize() মিডলওয়্যার কাজ করে না)
-const generateToken = (id, role) => {
-  return jwt.sign({ id, role }, process.env.JWT_SECRET, {
+const generateToken = (id, role, tokenVersion = 0) => {
+  return jwt.sign({ id, role, tokenVersion: Number(tokenVersion) || 0 }, process.env.JWT_SECRET, {
     expiresIn: '30d',
   });
 };
@@ -77,7 +77,7 @@ exports.registerTeacher = async (req, res) => {
       phone: teacher.phone,
       role: teacher.role,
       accessCode: teacher.accessCode,
-      token: generateToken(teacher._id, teacher.role),
+      token: generateToken(teacher._id, teacher.role, teacher.tokenVersion),
     });
   } catch (err) {
     if (err?.code === 11000) return res.status(400).json({ message: 'এই ইমেইল বা মোবাইল নম্বর দিয়ে ইতঃপূর্বে অ্যাকাউন্ট খোলা হয়েছে' });
@@ -91,7 +91,7 @@ exports.loginTeacher = async (req, res) => {
     const email = String(req.body.email || '').trim().toLowerCase();
     const password = String(req.body.password || '');
 
-    const teacher = await User.findOne({ email, role: 'teacher' });
+    const teacher = await User.findOne({ email, role: 'teacher' }).select('+tokenVersion');
     if (!teacher) {
       return res.status(401).json({ message: 'ভুল ইমেইল বা পাসওয়ার্ড' });
     }
@@ -114,7 +114,7 @@ exports.loginTeacher = async (req, res) => {
       phone: teacher.phone,
       role: teacher.role,
       accessCode: teacher.accessCode,
-      token: generateToken(teacher._id, teacher.role),
+      token: generateToken(teacher._id, teacher.role, teacher.tokenVersion),
     });
   } catch (err) {
     res.status(500).json({ message: 'সার্ভার এরর, লগইনে সমস্যা হয়েছে' });
@@ -130,7 +130,7 @@ exports.loginAdmin = async (req, res) => {
       return res.status(401).json({ message: 'ভুল ইমেইল বা পাসওয়ার্ড' });
     }
 
-    const admin = await User.findOne({ email, role: 'admin' });
+    const admin = await User.findOne({ email, role: 'admin' }).select('+tokenVersion');
     if (!admin || !(await bcrypt.compare(password || '', admin.password || ''))) {
       return res.status(401).json({ message: 'ভুল ইমেইল বা পাসওয়ার্ড' });
     }
@@ -140,7 +140,7 @@ exports.loginAdmin = async (req, res) => {
       name: admin.name,
       email: admin.email,
       role: admin.role,
-      token: generateToken(admin._id, admin.role),
+      token: generateToken(admin._id, admin.role, admin.tokenVersion),
     });
   } catch (err) {
     res.status(500).json({ message: 'সার্ভার এরর, লগইনে সমস্যা হয়েছে' });
@@ -206,7 +206,7 @@ exports.registerStudent = async (req, res) => {
       phone: student.phone,
       parentPhone: student.parentPhone,
       role: student.role,
-      token: generateToken(student._id, student.role),
+      token: generateToken(student._id, student.role, student.tokenVersion),
     });
   } catch (err) {
     res.status(500).json({ message: 'স্টুডেন্ট রেজিস্টার করতে সমস্যা হয়েছে' });
@@ -218,7 +218,7 @@ exports.loginStudent = async (req, res) => {
   try {
     const { phone, password } = req.body;
 
-    const student = await User.findOne({ phone, role: 'student' });
+    const student = await User.findOne({ phone, role: 'student' }).select('+tokenVersion');
     if (!student) {
       return res.status(401).json({ message: 'ভুল মোবাইল নম্বর বা পাসওয়ার্ড' });
     }
@@ -235,7 +235,7 @@ exports.loginStudent = async (req, res) => {
       roll: student.roll,
       phone: student.phone,
       role: student.role,
-      token: generateToken(student._id, student.role),
+      token: generateToken(student._id, student.role, student.tokenVersion),
     });
   } catch (err) {
     res.status(500).json({ message: 'সার্ভার এরর, লগইনে সমস্যা হয়েছে' });
@@ -249,7 +249,7 @@ exports.studentQuickLogin = async (req, res) => {
 
     let student = null;
     if (phone) {
-      student = await User.findOne({ phone, role: 'student' });
+      student = await User.findOne({ phone, role: 'student' }).select('+tokenVersion');
     }
 
     if (!student) {
@@ -267,7 +267,7 @@ exports.studentQuickLogin = async (req, res) => {
       roll: student.roll,
       phone: student.phone,
       role: student.role,
-      token: generateToken(student._id, student.role),
+      token: generateToken(student._id, student.role, student.tokenVersion),
     });
   } catch (err) {
     res.status(500).json({ message: 'কুইক লগইনে সমস্যা হয়েছে' });
@@ -492,9 +492,9 @@ exports.resetPassword = async (req, res) => {
     const token = String(req.body.token || ''); const password = String(req.body.password || '');
     if (password.length < 8) return res.status(400).json({ message: 'পাসওয়ার্ড কমপক্ষে ৮ অক্ষরের হতে হবে' });
     const hash = crypto.createHash('sha256').update(token).digest('hex');
-    const user = await User.findOne({ passwordResetTokenHash: hash, passwordResetExpires: { $gt: new Date() }, role: 'teacher' }).select('+passwordResetTokenHash +passwordResetExpires');
+    const user = await User.findOne({ passwordResetTokenHash: hash, passwordResetExpires: { $gt: new Date() }, role: 'teacher' }).select('+passwordResetTokenHash +passwordResetExpires +tokenVersion');
     if (!user) return res.status(400).json({ message: 'লিংকটি অবৈধ বা মেয়াদোত্তীর্ণ' });
-    user.password = await bcrypt.hash(password, 10); user.passwordResetTokenHash = undefined; user.passwordResetExpires = undefined; await user.save();
+    user.password = await bcrypt.hash(password, 10); user.tokenVersion = (Number(user.tokenVersion) || 0) + 1; user.passwordResetTokenHash = undefined; user.passwordResetExpires = undefined; await user.save();
     res.json({ message: 'পাসওয়ার্ড সফলভাবে পরিবর্তন হয়েছে' });
   } catch (e) { res.status(500).json({ message: 'পাসওয়ার্ড পরিবর্তন করা যায়নি' }); }
 };

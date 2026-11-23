@@ -355,6 +355,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
   const [questionAudio, setQuestionAudio] = useState(question.questionAudio || '');
   const [explanationAudio, setExplanationAudio] = useState(question.explanationAudio || '');
   const [explanationMedia, setExplanationMedia] = useState(question.explanationMedia || []);
+  const [gradingRubric, setGradingRubric] = useState(question.gradingRubric || '');
   const [type, setType] = useState(question.type || (questionOptions.length ? 'mcq' : 'short'));
   const [options, setOptions] = useState(questionOptions.length ? questionOptions : ['', '']);
   const [correctIdx, setCorrectIdx] = useState(question.correctOptionIndex);
@@ -371,6 +372,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
     setQuestionAudio(question.questionAudio || '');
     setExplanationAudio(question.explanationAudio || '');
     setExplanationMedia(question.explanationMedia || []);
+    setGradingRubric(question.gradingRubric || '');
     setType(question.type || (questionOptions.length ? 'mcq' : 'short'));
     setOptions(questionOptions.length ? questionOptions : ['', '']);
     setCorrectIdx(question.correctOptionIndex);
@@ -401,7 +403,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
       return;
     }
     setValidationError('');
-    onSave({ type, questionText: text, explanation, questionAudio, explanationAudio, explanationMedia, options: type === 'short' ? [] : options, correctOptionIndex: type === 'short' ? undefined : correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages: type === 'short' ? undefined : optionImages });
+    onSave({ type, questionText: text, explanation, gradingRubric: type === 'short' ? gradingRubric : '', questionAudio, explanationAudio, explanationMedia, options: type === 'short' ? [] : options, correctOptionIndex: type === 'short' ? undefined : correctIdx, diagram, diagramSource, diagrams: chemDiagrams, optionImages: type === 'short' ? undefined : optionImages });
   };
 
   const handleCancel = () => {
@@ -440,7 +442,7 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
       <QuestionAudioField label="প্রশ্নের voice note" value={questionAudio} onChange={setQuestionAudio} />
       <QuestionDiagram compact value={diagram} source={diagramSource} onChange={(p) => { setDiagram(p.diagram); setDiagramSource(p.diagramSource); }} chem={{ items: chemDiagrams, onInsert: (d, { insertEquation } = {}) => { setChemDiagrams((a) => [...a.filter((x) => x.svg !== d.svg), d].slice(-8)); if (insertEquation && d.equation) setText((tx) => (tx.trim() ? `${tx.trimEnd()}\n${d.equation}` : d.equation)); }, onRemove: (i) => setChemDiagrams((a) => a.filter((_, k) => k !== i)) }} />
       <div className="space-y-2"><label className="block text-sm font-medium dark:text-gray-200">লিখিত ব্যাখ্যা (ঐচ্ছিক)<textarea className="input mt-1 w-full resize-y" rows={3} value={explanation} onChange={(e) => setExplanation(e.target.value)} /></label><QuestionAudioField label="ব্যাখ্যার voice note (ঐচ্ছিক)" value={explanationAudio} onChange={setExplanationAudio} /><ExplanationMediaField value={explanationMedia} onChange={setExplanationMedia} /><p className="text-xs text-gray-500">ব্যাখ্যার লেখা, voice note, ছবি ও video ফলাফল প্রকাশ/teacher review-এর পর শিক্ষার্থীরা দেখতে পাবে।</p></div>
-      {type === 'short' ? <p className="rounded-lg bg-primary-100 p-3 text-sm text-primary-700">Options লাগবে না। Student answer লিখবে বা image/PDF upload করবে।</p> : <>
+      {type === 'short' ? <div className="space-y-2"><p className="rounded-lg bg-primary-100 p-3 text-sm text-primary-700">শিক্ষার্থী লিখিত উত্তর বা image/PDF দেবে; শিক্ষক হাতে নম্বর দেবেন।</p><label className="block text-sm font-medium dark:text-gray-200">শিক্ষকের marking rubric / নম্বর দেওয়ার নির্দেশনা (ঐচ্ছিক)<textarea maxLength={3000} rows={3} value={gradingRubric} onChange={(e) => setGradingRubric(e.target.value)} className="input mt-1 w-full resize-y" /></label></div> : <>
       <fieldset role="radiogroup" aria-labelledby={`correct-answer-label-${question._id}`} className="space-y-2">
         <legend id={`correct-answer-label-${question._id}`} className="text-sm font-medium dark:text-gray-200">{t('editor.correctAnswer')}</legend>
         {options.map((opt, i) => (

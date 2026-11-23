@@ -205,7 +205,7 @@ const normalizeAuthoringQuestion = (q) => {
   const explanationMedia = validateExplanationMedia(q.explanationMedia === undefined ? [] : q.explanationMedia);
   if (!explanationMedia.ok) return null;
   if (q.type === 'short') {
-    return { ...q, type: 'short', questionText: q.questionText.trim(), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined, questionAudio: cleanQuestionAudio(q.questionAudio), explanationAudio: cleanQuestionAudio(q.explanationAudio), explanationMedia: explanationMedia.media };
+    return { ...q, type: 'short', questionText: q.questionText.trim(), gradingRubric: String(q.gradingRubric || '').slice(0, 3000), options: undefined, optionImages: undefined, correctOptionIndex: undefined, explanation: q.explanation ? String(q.explanation).trim() : undefined, questionAudio: cleanQuestionAudio(q.questionAudio), explanationAudio: cleanQuestionAudio(q.explanationAudio), explanationMedia: explanationMedia.media };
   }
   const normalized = normalizeQuestionOptions(q.options, q.optionImages, q.correctOptionIndex);
   if (!normalized) return null;
@@ -306,6 +306,7 @@ exports.createExam = async (req, res) => {
         exam: exam._id,
         questionText: q.questionText,
         type: q.type || 'mcq',
+        gradingRubric: String(q.gradingRubric || '').slice(0, 3000),
         options: q.options,
         correctOptionIndex: q.correctOptionIndex,
         explanation: q.explanation,
@@ -463,6 +464,9 @@ exports.finalizePending = async (req, res) => {
       valid.map((q, index) => ({
         exam: exam._id,
         questionText: q.questionText,
+        type: q.type || 'mcq',
+        gradingRubric: q.gradingRubric,
+        gradingRubricAudio: q.gradingRubricAudio,
         options: q.options,
         correctOptionIndex: q.correctOptionIndex,
         explanation: q.explanation,
@@ -687,10 +691,14 @@ exports.updateQuestion = async (req, res) => {
       body.questionText = body.questionText.trim();
     }
     if (body.explanation !== undefined) body.explanation = String(body.explanation).trim();
+    if (Object.prototype.hasOwnProperty.call(req.body, 'gradingRubric')) {
+      if (typeof req.body.gradingRubric !== 'string') return res.status(400).json({ message: 'রুব্রিকের লেখা সঠিক নয়' });
+      body.gradingRubric = req.body.gradingRubric.slice(0, 3000);
+    }
     if (body.order !== undefined && (!Number.isInteger(body.order) || body.order < 0)) {
       return res.status(400).json({ message: 'প্রশ্নের ক্রম সঠিক নয়' });
     }
-    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams', 'questionAudio', 'explanationAudio', 'explanationMedia'].forEach((field) => {
+    ['type', 'options', 'optionImages', 'correctOptionIndex', 'diagram', 'diagramSource', 'diagrams', 'questionAudio', 'explanationAudio', 'explanationMedia', 'gradingRubric'].forEach((field) => {
       if (Object.prototype.hasOwnProperty.call(req.body, field)) body[field] = req.body[field];
     });
     if (Object.prototype.hasOwnProperty.call(body, 'explanationMedia')) {
@@ -1185,7 +1193,7 @@ exports.downloadExamPdf = async (req, res) => {
           }
         } catch (e) { /* ছবি বসানো না গেলেও PDF তৈরি চলবে */ }
       }
-      q.options.forEach((opt, i) => {
+      (Array.isArray(q.options) ? q.options : []).forEach((opt, i) => {
         const correct = withAnswers && i === q.correctOptionIndex;
         doc.fillColor(correct ? '#047857' : 'black');
         W(`      ${String.fromCharCode(65 + i)}. ${opt}${correct ? '  ✓' : ''}`, 10.5);

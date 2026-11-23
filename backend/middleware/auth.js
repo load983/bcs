@@ -32,7 +32,7 @@ const isRevokedAccount = (account) => {
 };
 
 const getAccount = (id) => User.findById(id)
-  .select('role status active isActive enabled banned isBanned disabled isDisabled deleted isDeleted deletedAt')
+  .select('role status active isActive enabled banned isBanned disabled isDisabled deleted isDeleted deletedAt +tokenVersion')
   .lean();
 
 const invalidTokenResponse = (res) => res.status(401).json({ message: 'টোকেনের মেয়াদ শেষ অথবা অবৈধ' });
@@ -43,17 +43,22 @@ const protect = async (req, res, next) => {
     return res.status(401).json({ message: 'লগইন করা আবশ্যক (টোকেন পাওয়া যায়নি)' });
   }
   const token = authHeader.split(' ')[1];
+  let decoded;
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const account = await getAccount(decoded.id);
-    if (isRevokedAccount(account)) return invalidTokenResponse(res);
-    // Roles can change after login (for example, an admin demotion). Never
-    // authorize using the stale role embedded in an otherwise valid JWT.
-    req.user = { ...decoded, id: String(account._id), role: account.role };
-    next();
+    decoded = jwt.verify(token, process.env.JWT_SECRET);
   } catch (err) {
     return invalidTokenResponse(res);
   }
+  let account;
+  try { account = await getAccount(decoded.id); }
+  catch (err) {
+    console.error('Authentication account lookup failed:', err.message);
+    return res.status(503).json({ message: 'লগইন যাচাই সাময়িকভাবে করা যাচ্ছে না' });
+  }
+  if (isRevokedAccount(account) || Number(decoded.tokenVersion || 0) !== Number(account.tokenVersion || 0)) return invalidTokenResponse(res);
+  // Roles and token version can change after login; never trust stale JWT claims.
+  req.user = { ...decoded, id: String(account._id), role: account.role };
+  next();
 };
 
 // শুধু নির্দিষ্ট role (যেমন 'teacher') এক্সেস দেয়ার জন্য
@@ -73,11 +78,16 @@ const optionalAuth = async (req, res, next) => {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const account = await getAccount(decoded.id);
-      if (!isRevokedAccount(account)) {
+      if (!isRevokedAccount(account) && Number(decoded.tokenVersion || 0) === Number(account.tokenVersion || 0)) {
         req.user = { ...decoded, id: String(account._id), role: account.role };
       }
     } catch (err) {
-      // অবৈধ/মেয়াদোত্তীর্ণ/রিভোকড টোকেন হলে req.user সেট না করেই এগিয়ে যাবে
+      // Optional auth ignores malformed tokens, but a database failure must not
+      // silently turn a protected identity-dependent request into an anonymous one.
+      if (!(err instanceof jwt.JsonWebTokenError) && !(err instanceof jwt.TokenExpiredError)) {
+        console.error('Optional authentication account lookup failed:', err.message);
+        return res.status(503).json({ message: 'লগইন যাচাই সাময়িকভাবে করা যাচ্ছে না' });
+      }
     }
   }
   next();

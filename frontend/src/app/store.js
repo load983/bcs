@@ -25,13 +25,13 @@ store.subscribe(() => {
       if (state.attempt.attemptId) store.dispatch(resetAttempt());
       return;
     }
-    const { attemptId, examTitle, totalTimeMinutes, startedAt, questions, answersMap, result, review } = state.attempt;
+    const { attemptId, examTitle, totalTimeMinutes, startedAt, deadlineAt, serverNow, clientReceivedAt, questions, answersMap, result, review } = state.attempt;
     if (!attemptId) {
       sessionStorage.removeItem('student-attempt-state');
       return;
     }
     sessionStorage.setItem('student-attempt-state', JSON.stringify({
-      ownerId: currentUserId, attemptId, examTitle, totalTimeMinutes, startedAt, questions, answersMap, result, review,
+      ownerId: currentUserId, attemptId, examTitle, totalTimeMinutes, startedAt, deadlineAt, serverNow, clientReceivedAt, questions, answersMap, result, review,
     }));
   } catch {
     // Best effort only; storage restrictions must not stop the app.

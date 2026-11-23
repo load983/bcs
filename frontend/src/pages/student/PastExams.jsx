@@ -26,6 +26,9 @@ export default function PastExams() {
   const [reviewLoadingId, setReviewLoadingId] = useState(null);
   const [feedbackOpenId, setFeedbackOpenId] = useState(null);
   const [pdfPreview, setPdfPreview] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [downloadingOriginalId, setDownloadingOriginalId] = useState(null);
+  const [originalDownloadError, setOriginalDownloadError] = useState(null);
 
   useEffect(() => {
     if (!isStudent) {
@@ -78,10 +81,29 @@ export default function PastExams() {
     }
   };
 
+  const handleDownloadOriginal = async (attemptId, examTitle) => {
+    setDownloadingOriginalId(attemptId);
+    setOriginalDownloadError(null);
+    try {
+      const { data } = await axiosClient.get(`/attempts/${attemptId}/source-pdf`, { responseType: 'blob' });
+      const safeTitle = String(examTitle || 'exam').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'exam';
+      downloadBlob(data, `${safeTitle}-original.pdf`);
+    } catch {
+      setOriginalDownloadError({ attemptId, message: 'মূল PDF ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।' });
+    } finally {
+      setDownloadingOriginalId(null);
+    }
+  };
+
   const closePdfPreview = () => {
     if (pdfPreview?.url) window.URL.revokeObjectURL(pdfPreview.url);
     setPdfPreview(null);
   };
+
+  const normalizedSearch = searchQuery.trim().toLocaleLowerCase();
+  const filteredAttempts = attempts.filter((attempt) =>
+    String(attempt.examTitle || '').toLocaleLowerCase().includes(normalizedSearch)
+  );
 
   if (!isStudent) {
     return (
@@ -121,6 +143,19 @@ export default function PastExams() {
           </div>
         </header>
 
+        {!loading && attempts.length > 0 && (
+          <label className="mb-4 block">
+            <span className="sr-only">পরীক্ষার নাম দিয়ে খুঁজুন</span>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="পরীক্ষার নাম দিয়ে খুঁজুন…"
+              className="input w-full"
+            />
+          </label>
+        )}
+
         {loading ? (
           <div className="py-16 text-center text-gray-400 dark:text-gray-500">
             <div className="mb-3 inline-block h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
@@ -141,7 +176,8 @@ export default function PastExams() {
           </div>
         ) : (
           <div className="space-y-4">
-            {attempts.map((a) => {
+            {filteredAttempts.length === 0 && <p className="card p-5 text-center text-sm text-gray-500 dark:text-gray-400">এই নামে কোনো পরীক্ষা পাওয়া যায়নি।</p>}
+            {filteredAttempts.map((a) => {
               const review = reviewMap[a.attemptId];
               const isExpanded = expandedId === a.attemptId;
               const submittedDate = a.submittedAt ? new Date(a.submittedAt).toLocaleString() : '';
@@ -158,7 +194,7 @@ export default function PastExams() {
                       <div className="rounded-2xl bg-primary-50 px-4 py-2 text-right dark:bg-primary-500/10">
                         <p className="gradient-text text-2xl font-extrabold">{t('result.marks', { n: a.obtainedMarks })}</p>
                         <p className="text-xs text-gray-500 dark:text-gray-400">
-                          {t('result.stats', { correct: a.totalCorrect, wrong: a.totalWrong, skipped: a.totalSkipped })}
+                          {a.isShortExam ? `স্কিপ: ${a.totalSkipped ?? 0}` : t('result.stats', { correct: a.totalCorrect, wrong: a.totalWrong, skipped: a.totalSkipped })}
                         </p>
                       </div>
                     ) : (
@@ -180,6 +216,11 @@ export default function PastExams() {
                         {t('result.downloadPdf')}
                       </button>
                     )}
+                    {a.hasOriginalSource && (
+                      <button onClick={() => handleDownloadOriginal(a.attemptId, a.examTitle)} disabled={downloadingOriginalId === a.attemptId} className="btn-secondary text-sm disabled:opacity-60">
+                        {downloadingOriginalId === a.attemptId ? 'ডাউনলোড হচ্ছে…' : 'মূল PDF ডাউনলোড'}
+                      </button>
+                    )}
                     {a.showLeaderboard && (
                       <Link to={`/exams/${a.examId}/leaderboard`} className="btn-secondary text-sm">
                         {t('leaderboard.view')}
@@ -191,6 +232,7 @@ export default function PastExams() {
                       </Link>
                     )}
                   </div>
+                  {originalDownloadError?.attemptId === a.attemptId && <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">{originalDownloadError.message}</p>}
 
                   {isExpanded && (
                     <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 dark:border-white/10">

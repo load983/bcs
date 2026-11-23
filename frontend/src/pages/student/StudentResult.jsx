@@ -142,9 +142,11 @@ export default function StudentResult() {
 
         {result.showInstantly ? (
           <div className="mb-6 space-y-4">
-            {(() => {
-              const total = (result.totalCorrect || 0) + (result.totalWrong || 0) + (result.totalSkipped || 0);
-              const pct = total ? Math.round(((result.totalCorrect || 0) / total) * 100) : 0;
+            {!result.isShortExam && (() => {
+              const totalMarks = Number(result.totalMarks) || 0;
+              const pct = totalMarks
+                ? Math.max(0, Math.min(100, Math.round((Number(result.obtainedMarks || 0) / totalMarks) * 100)))
+                : 0;
               return (
                 <div className="relative mx-auto h-32 w-32">
                   <svg viewBox="0 0 36 36" className="h-full w-full -rotate-90" aria-hidden="true">
@@ -156,10 +158,12 @@ export default function StudentResult() {
               );
             })()}
             <p className="gradient-text text-3xl font-extrabold">{t('result.marks', { n: result.obtainedMarks })}</p>
-            <div className="grid grid-cols-3 gap-2 text-center">
-              {[['result.c', result.totalCorrect, 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'],
-                ['result.w', result.totalWrong, 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'],
-                ['result.s', result.totalSkipped, 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300']].map(([k, v, c]) => (
+            <div className={`grid ${result.isShortExam ? 'grid-cols-1' : 'grid-cols-3'} gap-2 text-center`}>
+              {(result.isShortExam
+                ? [['result.s', result.totalSkipped, 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300']]
+                : [['result.c', result.totalCorrect, 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-300'],
+                  ['result.w', result.totalWrong, 'bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300'],
+                  ['result.s', result.totalSkipped, 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300']]).map(([k, v, c]) => (
                 <div key={k} className={`rounded-xl px-2 py-2 ${c}`}>
                   <div className="text-xl font-semibold tabular-nums">{v ?? 0}</div>
                   <div className="text-xs">{t(k)}</div>
@@ -240,8 +244,10 @@ export default function StudentResult() {
               <div className="flex flex-wrap justify-center gap-2">
                 {[
                   ['all', t('result.filterAll', { n: counts.all })],
-                  ['correct', t('result.filterCorrect', { n: counts.correct })],
-                  ['wrong', t('result.filterWrong', { n: counts.wrong })],
+                  ...(!result.isShortExam ? [
+                    ['correct', t('result.filterCorrect', { n: counts.correct })],
+                    ['wrong', t('result.filterWrong', { n: counts.wrong })],
+                  ] : []),
                   ['skipped', t('result.filterSkipped', { n: counts.skipped })],
                   ['answered', `সংক্ষিপ্ত উত্তর (${counts.answered})`],
                 ].map(([key, label]) => (

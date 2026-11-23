@@ -18,7 +18,7 @@ const sameFiles = (left = [], right = []) => left.length === right.length
 
 export default function StudentExam() {
   const { t } = useLanguage();
-  const { attemptId, examTitle, totalTimeMinutes, startedAt, questions, answersMap, shortAnswers, result } =
+  const { attemptId, examTitle, totalTimeMinutes, startedAt, deadlineAt, serverNow, clientReceivedAt, questions, answersMap, shortAnswers, result } =
     useSelector((s) => s.attempt);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -266,7 +266,7 @@ export default function StudentExam() {
       <div className="glass -mx-4 mb-4 px-4 pb-3 pt-3 sm:mx-0 sm:rounded-2xl sm:px-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <h1 className="truncate text-lg font-semibold dark:text-white">{examTitle}</h1>
-          <Timer startedAt={startedAt} totalMinutes={totalTimeMinutes} onTimeUp={() => handleSubmit(true)} />
+          <Timer startedAt={startedAt} deadlineAt={deadlineAt} serverNow={serverNow} clientReceivedAt={clientReceivedAt} totalMinutes={totalTimeMinutes} onTimeUp={() => handleSubmit(true)} />
         </div>
         <div className="flex items-center gap-3">
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200/80 dark:bg-white/10">
@@ -294,7 +294,8 @@ export default function StudentExam() {
               {q.diagrams?.length > 0 && <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>}
               {q.type === 'short' ? (
                 <div className="space-y-3">
-                  <textarea className="input min-h-36 w-full" disabled={submitting} value={shortDrafts[q._id]?.answerText || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), answerText: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+                  <textarea className="input min-h-36 w-full" maxLength={20000} disabled={submitting} value={shortDrafts[q._id]?.answerText || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), answerText: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+                  <p className="text-right text-xs text-gray-500">{(shortDrafts[q._id]?.answerText || '').length}/20,000</p>
                   <div className="flex flex-wrap gap-2">
                     <label className="cursor-pointer rounded-xl border border-primary-300 px-3 py-2 text-sm font-medium text-primary-700 dark:border-primary-500/40 dark:text-primary-300">
                       ক্যামেরা দিয়ে ছবি তুলুন

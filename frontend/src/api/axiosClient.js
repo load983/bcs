@@ -38,8 +38,16 @@ axiosClient.interceptors.response.use(
     if (res.data && typeof res.data.message === 'string') res.data.message = translateMessage(res.data.message);
     return res;
   },
-  (error) => {
-    const d = error.response?.data;
+  async (error) => {
+    let d = error.response?.data;
+    // Axios returns non-2xx JSON bodies as Blob when the request expects ZIP/PDF.
+    // Decode structured errors (such as subscription 402) before handling them.
+    if (typeof Blob !== 'undefined' && d instanceof Blob) {
+      try {
+        d = JSON.parse(await d.text());
+        error.response.data = d;
+      } catch { /* Keep non-JSON error bodies unchanged. */ }
+    }
     if (d && typeof d.message === 'string') d.message = translateMessage(d.message);
     if (error.response?.status === 402 && d?.code === 'SUBSCRIPTION_REQUIRED') {
       if (!window.location.pathname.startsWith('/teacher/subscribe')) {

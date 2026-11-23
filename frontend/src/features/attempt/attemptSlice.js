@@ -7,7 +7,7 @@ import { translate } from '../../context/LanguageContext';
 export const joinExam = createAsyncThunk('attempt/join', async (payload, { rejectWithValue }) => {
   try {
     const { data } = await axiosClient.post('/attempts/join', payload);
-    return data;
+    return { ...data, clientReceivedAt: Date.now() };
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || translate('attempt.joinFailed'));
   }
@@ -16,7 +16,7 @@ export const joinExam = createAsyncThunk('attempt/join', async (payload, { rejec
 export const resumeAttempt = createAsyncThunk('attempt/resume', async (attemptId, { rejectWithValue }) => {
   try {
     const { data } = await axiosClient.get(`/attempts/${attemptId}/resume`);
-    return data;
+    return { ...data, clientReceivedAt: Date.now() };
   } catch (err) {
     return rejectWithValue(err.response?.data?.message || 'পরীক্ষার উত্তর ফেরত আনা যায়নি');
   }
@@ -75,7 +75,7 @@ export const fetchReview = createAsyncThunk('attempt/fetchReview', async (attemp
 });
 
 const emptyAttemptState = {
-  attemptId: null, examTitle: '', totalTimeMinutes: 0, startedAt: null,
+  attemptId: null, examTitle: '', totalTimeMinutes: 0, startedAt: null, deadlineAt: null, serverNow: null, clientReceivedAt: null,
   questions: [], answersMap: {}, shortAnswers: {}, result: null, review: null, status: 'idle', error: null,
 };
 const loadSavedAttempt = () => {
@@ -116,6 +116,9 @@ const attemptSlice = createSlice({
         state.examTitle = action.payload.examTitle;
         state.totalTimeMinutes = action.payload.totalTimeMinutes;
         state.startedAt = action.payload.startedAt;
+        state.deadlineAt = action.payload.deadlineAt || null;
+        state.serverNow = action.payload.serverNow || null;
+        state.clientReceivedAt = action.payload.clientReceivedAt || Date.now();
         state.questions = action.payload.questions || [];
         state.answersMap = action.payload.answers || {};
         state.shortAnswers = action.payload.shortAnswers || {};
@@ -128,6 +131,9 @@ const attemptSlice = createSlice({
         state.examTitle = action.payload.examTitle;
         state.totalTimeMinutes = action.payload.totalTimeMinutes;
         state.startedAt = action.payload.startedAt;
+        state.deadlineAt = action.payload.deadlineAt || null;
+        state.serverNow = action.payload.serverNow || null;
+        state.clientReceivedAt = action.payload.clientReceivedAt || Date.now();
         state.questions = action.payload.questions || [];
         state.answersMap = action.payload.answers || {};
         state.shortAnswers = action.payload.shortAnswers || {};

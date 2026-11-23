@@ -2,23 +2,49 @@
 // Live countdown timer — সময় শেষ হলে onTimeUp() কল করে (অটো সাবমিটের জন্য)
 import React, { useEffect, useRef, useState } from 'react';
 
-export default function Timer({ startedAt, totalMinutes, onTimeUp }) {
-  const endTime = useRef(new Date(startedAt).getTime() + totalMinutes * 60 * 1000);
-  const [remaining, setRemaining] = useState(Math.max(0, endTime.current - Date.now()));
+export default function Timer({ startedAt, deadlineAt, serverNow, clientReceivedAt, totalMinutes, onTimeUp }) {
+  const endTime = useRef(null);
+  const onTimeUpRef = useRef(onTimeUp);
+  const didFireRef = useRef(false);
+  const [remaining, setRemaining] = useState(0);
+
+  useEffect(() => { onTimeUpRef.current = onTimeUp; }, [onTimeUp]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      const left = endTime.current - Date.now();
+    if (!startedAt) return undefined;
+    const fallbackDeadline = new Date(startedAt).getTime() + (Number(totalMinutes) || 0) * 60 * 1000;
+    const parsedDeadline = deadlineAt ? new Date(deadlineAt).getTime() : fallbackDeadline;
+    if (!Number.isFinite(parsedDeadline)) return undefined;
+    endTime.current = parsedDeadline;
+    didFireRef.current = false;
+
+    const parsedServerNow = serverNow ? new Date(serverNow).getTime() : NaN;
+    const receivedAt = Number(clientReceivedAt);
+    // Advance the server timestamp by time elapsed since the API response. This
+    // remains correct across refreshes even if the device clock itself is skewed.
+    const serverAtMount = Number.isFinite(parsedServerNow) && Number.isFinite(receivedAt)
+      ? parsedServerNow + Math.max(0, Date.now() - receivedAt)
+      : Date.now();
+    const monotonicAtMount = typeof performance !== 'undefined' ? performance.now() : Date.now();
+
+    const tick = () => {
+      const monotonicNow = typeof performance !== 'undefined' ? performance.now() : Date.now();
+      const elapsed = Math.max(0, monotonicNow - monotonicAtMount);
+      const left = parsedDeadline - (serverAtMount + elapsed);
       if (left <= 0) {
-        clearInterval(interval);
         setRemaining(0);
-        onTimeUp();
+        if (!didFireRef.current) {
+          didFireRef.current = true;
+          onTimeUpRef.current?.();
+        }
       } else {
         setRemaining(left);
       }
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [onTimeUp]);
+    };
+    tick();
+    const interval = window.setInterval(tick, 1000);
+    return () => window.clearInterval(interval);
+  }, [startedAt, deadlineAt, serverNow, clientReceivedAt, totalMinutes]);
 
   const mins = Math.floor(remaining / 60000);
   const secs = Math.floor((remaining % 60000) / 1000);

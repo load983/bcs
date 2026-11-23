@@ -382,6 +382,7 @@ export default function CreateMcqExam() {
       questions: questions.map((q) => ({
         questionText: q.questionText.trim(),
         type: q.type || 'mcq',
+        gradingRubric: q.type === 'short' ? (q.gradingRubric || '').trim() || undefined : undefined,
         options: q.type === 'short' ? [] : q.options.map((o) => o.trim()),
         correctOptionIndex: q.type === 'short' ? undefined : q.correctOptionIndex,
         explanation: q.explanation.trim() || undefined,
@@ -523,7 +524,7 @@ export default function CreateMcqExam() {
                   onRemove: (i) => updateQuestion(q.key, { diagrams: (q.diagrams || []).filter((_, k) => k !== i) }),
                 }} />
 
-              {q.type === 'short' ? <p className="rounded-xl bg-primary-50 p-3 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">Student এই প্রশ্নের উত্তর লিখতে বা image/PDF upload করতে পারবে। Teacher পরে manual marks দেবেন।</p> : <div className="space-y-2">
+              {q.type === 'short' ? <div className="space-y-2"><p className="rounded-xl bg-primary-50 p-3 text-sm text-primary-700 dark:bg-primary-500/10 dark:text-primary-300">Student লিখিত উত্তর বা image/PDF দেবে; শিক্ষক হাতে নম্বর দেবেন।</p><label className="block text-sm font-medium dark:text-gray-200">শিক্ষকের marking rubric / নম্বর দেওয়ার নির্দেশনা (ঐচ্ছিক)<textarea maxLength={3000} rows={3} value={q.gradingRubric || ''} onChange={(e) => updateQuestion(q.key, { gradingRubric: e.target.value })} className="input mt-1 w-full resize-y" placeholder="যেমন: মূল ধারণা ১ নম্বর, উদাহরণ ১ নম্বর; আংশিক উত্তরে আংশিক নম্বর" /></label></div> : <div className="space-y-2">
                 {q.options.map((opt, i) => (
                   <div key={i} className={`flex items-center rounded-xl border transition-colors ${side ? 'gap-1 p-1 sm:gap-2 sm:p-1.5 sm:pr-2' : 'gap-2 p-1.5 pr-2'} ${q.correctOptionIndex === i ? 'border-emerald-300 bg-emerald-50/70 dark:border-emerald-500/40 dark:bg-emerald-500/10' : 'border-transparent'}`}>
                     <input

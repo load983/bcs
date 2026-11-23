@@ -126,7 +126,9 @@ test('optionalAuth keeps public routes open but omits revoked identities', async
 });
 
 test('student login does not issue a token for an account with no password hash', async () => {
-  User.findOne = async () => ({ _id: 'passwordless-student', role: 'student', phone: '+8801700000000' });
+  User.findOne = () => ({
+    select() { return Promise.resolve({ _id: 'passwordless-student', role: 'student', phone: '+8801700000000' }); },
+  });
   const req = { body: { phone: '+8801700000000', password: 'anything' } };
   const res = makeResponse();
 

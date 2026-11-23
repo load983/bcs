@@ -194,10 +194,14 @@ async function resultsVisibleForAttempt(attempt, exam) {
 }
 const attemptExpired = (attempt, exam, now = Date.now()) => {
   if (!exam || !attempt?.startedAt) return true;
-  const minutes = Number(exam.settings?.totalTimeMinutes) > 0 ? Number(exam.settings.totalTimeMinutes) : 10;
-  if (now - new Date(attempt.startedAt).getTime() > minutes * 60 * 1000 + 15000) return true;
+  const startedAt = new Date(attempt.startedAt).getTime();
+  if (!Number.isFinite(startedAt)) return true;
+  const configuredMinutes = Number(exam.settings?.totalTimeMinutes);
+  const minutes = Number.isFinite(configuredMinutes) && configuredMinutes > 0 ? configuredMinutes : 10;
+  if (now - startedAt > minutes * 60 * 1000 + 15000) return true;
   const schedule = exam.settings?.schedule;
-  return !!(schedule?.enabled && schedule.endAt && now > new Date(schedule.endAt).getTime());
+  const scheduleEnd = schedule?.enabled && schedule.endAt ? new Date(schedule.endAt).getTime() : Number.POSITIVE_INFINITY;
+  return Number.isFinite(scheduleEnd) && now > scheduleEnd;
 };
 
 function buildStudentExamPayload(exam, attempt, questions) {
@@ -213,7 +217,16 @@ function buildStudentExamPayload(exam, attempt, questions) {
   });
 
   // সময় ০ বা undefined হলে ডিফল্ট ১০ মিনিট দেখাবে
-  const timeLimit = Number(exam.settings?.totalTimeMinutes) || 10;
+  const configuredMinutes = Number(exam.settings?.totalTimeMinutes);
+  const timeLimit = Number.isFinite(configuredMinutes) && configuredMinutes > 0 ? configuredMinutes : 10;
+  const parsedStart = new Date(attempt.startedAt).getTime();
+  const safeStart = Number.isFinite(parsedStart) ? parsedStart : Date.now();
+  const durationDeadline = safeStart + timeLimit * 60 * 1000;
+  const parsedScheduleEnd = exam.settings?.schedule?.enabled && exam.settings.schedule.endAt
+    ? new Date(exam.settings.schedule.endAt).getTime()
+    : Number.POSITIVE_INFINITY;
+  const scheduledDeadline = Number.isFinite(parsedScheduleEnd) ? parsedScheduleEnd : Number.POSITIVE_INFINITY;
+  const deadlineAt = Math.min(durationDeadline, scheduledDeadline);
 
   // রিফ্রেশ/পুনরায় জয়েন করলেও আগের দেওয়া উত্তর ফেরত যাবে (লক থাকার জন্য)
   const answers = {};
@@ -232,7 +245,9 @@ function buildStudentExamPayload(exam, attempt, questions) {
     attemptId: attempt._id,
     examTitle: exam.title,
     totalTimeMinutes: timeLimit,
-    startedAt: attempt.startedAt,
+    startedAt: Number.isFinite(parsedStart) ? attempt.startedAt : new Date(safeStart),
+    deadlineAt: new Date(deadlineAt).toISOString(),
+    serverNow: new Date().toISOString(),
     questions: safeQuestions,
     answers,
     shortAnswers,
@@ -298,7 +313,10 @@ exports.saveAnswer = async (req, res) => {
     const question = await Question.findById(qid).select('type options');
     const isShort = isShortQuestion(question, exam);
     if (isShort) {
-      const text = typeof answerText === 'string' ? answerText.slice(0, 20000) : '';
+      if (typeof answerText === 'string' && answerText.length > 20000) {
+        return res.status(400).json({ message: 'লিখিত উত্তরের সীমা ২০,০০০ অক্ষর; সংক্ষিপ্ত করে আবার চেষ্টা করুন' });
+      }
+      const text = typeof answerText === 'string' ? answerText : '';
       if (Array.isArray(answerFiles) && answerFiles.length > 5) return res.status(400).json({ message: 'সর্বোচ্চ ৫টি ছবি/PDF সংযুক্ত করা যাবে' });
       const files = [];
       for (const file of Array.isArray(answerFiles) ? answerFiles : []) {
@@ -434,6 +452,7 @@ exports.submitAttempt = async (req, res) => {
       // longer gradable and must not accidentally count as a correct answer.
       if (!q) {
         ans.isCorrect = false;
+        skipped += 1;
         return;
       }
 
@@ -484,6 +503,7 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
     showInstantly,
     examId: exam?._id,
     examTitle: exam?.title || '',
+    isShortExam: exam?.settings?.questionType === 'short' || exam?.questionType === 'short',
     hasOriginalSource: !!(exam?.sourcePdfPath && fs.existsSync(exam.sourcePdfPath)),
     showLeaderboard: !!exam?.settings?.showLeaderboard,
     submittedAt: attempt.submittedAt,
@@ -498,6 +518,7 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
     payload.totalWrong = attempt.totalWrong;
     payload.totalSkipped = attempt.totalSkipped;
     payload.obtainedMarks = attempt.obtainedMarks;
+    payload.totalMarks = (attempt.questionOrder?.length || 0) * (Number(exam?.settings?.marksPerQuestion) || 1);
   }
   return payload;
 }
@@ -728,8 +749,6 @@ exports.getAttemptReview = async (req, res) => {
         answerFiles: ans?.answerFiles || [],
         annotations: ans?.annotations || {},
         marksAwarded: ans?.marksAwarded !== null && ans?.marksAwarded !== undefined && Number.isFinite(Number(ans.marksAwarded)) ? Number(ans.marksAwarded) : null,
-        gradingRubric: short ? q.gradingRubric || '' : '',
-        gradingRubricAudio: short ? q.gradingRubricAudio || '' : '',
         status: short ? (hasResponse ? 'answered' : 'skipped') : selectedOptionIndex === null ? 'skipped' : ans.isCorrect ? 'correct' : 'wrong',
         explanation: q.explanation || null,
         explanationMedia: q.explanationMedia || [],
@@ -754,7 +773,7 @@ exports.getMyAttempts = async (req, res) => {
 
     const examIds = [...new Set(attempts.map((a) => a.exam.toString()))];
     const exams = await Exam.find({ _id: { $in: examIds } })
-      .select('title examCode status questionType settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
+      .select('title examCode status questionType sourcePdfPath settings.questionType settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
       .lean();
 
     const examMap = {};
@@ -769,6 +788,8 @@ exports.getMyAttempts = async (req, res) => {
         examTitle: exam.title || '',
         examCode: exam.examCode || '',
         examStatus: exam.status || null,
+        isShortExam: exam.settings?.questionType === 'short' || exam.questionType === 'short',
+        hasOriginalSource: !!(exam.sourcePdfPath && fs.existsSync(exam.sourcePdfPath)),
         allowRepetition: !!exam.settings?.allowRepetition,
         showResultInstantly: resultsEnabled(exam) && !reviewPending,
         reviewPending,
@@ -815,16 +836,24 @@ exports.getTeacherExamDashboardResults = async (req, res) => {
 // ✅ ক্রম: বেশি নম্বর আগে; নম্বর সমান হলে যে কম সময়ে শেষ করেছে সে আগে।
 exports.getLeaderboard = async (req, res) => {
   try {
-    const exam = await Exam.findById(req.params.examId).select('title settings.showLeaderboard');
+    const exam = await Exam.findById(req.params.examId).select('title settings.showLeaderboard settings.showResultInstantly settings.questionType');
     if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
 
     if (!exam.settings?.showLeaderboard) {
       return res.status(403).json({ message: 'এই পরীক্ষার লিডারবোর্ড বন্ধ আছে', disabled: true });
     }
+    if (exam.settings?.showResultInstantly === false) {
+      return res.status(403).json({ message: 'ফলাফল প্রকাশ না হওয়া পর্যন্ত লিডারবোর্ড দেখা যাবে না', disabled: true });
+    }
 
     const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' })
-      .select('studentId studentName studentRoll obtainedMarks startedAt submittedAt')
+      .select('studentId studentName studentRoll obtainedMarks startedAt submittedAt questionOrder answers')
       .lean();
+
+    const pendingReviews = await Promise.all(attempts.map((attempt) => hasPendingShortReview(attempt, exam)));
+    if (pendingReviews.some(Boolean)) {
+      return res.status(403).json({ message: 'সব short question-এর নম্বর দেওয়ার পর লিডারবোর্ড প্রকাশিত হবে', disabled: true });
+    }
 
     const myId = String(req.user.id);
     const iParticipated = attempts.some((a) => a.studentId && String(a.studentId) === myId);

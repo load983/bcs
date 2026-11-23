@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema(
     credentialUpdatedAt: { type: Date },
     passwordResetTokenHash: { type: String, select: false },
     passwordResetExpires: { type: Date, select: false },
+    tokenVersion: { type: Number, default: 0, select: false },
     role: { type: String, enum: ['teacher', 'student', 'admin'], required: true },
 
     roll: { type: String },

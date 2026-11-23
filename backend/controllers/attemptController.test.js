@@ -12,8 +12,10 @@ const attemptId = '507f1f77bcf86cd799439011';
 const studentId = '507f1f77bcf86cd799439012';
 const otherStudentId = '507f1f77bcf86cd799439013';
 const originalAttemptFindById = Attempt.findById;
+const originalAttemptFind = Attempt.find;
 const originalAttemptFindOneAndUpdate = Attempt.findOneAndUpdate;
 const originalExamFindById = Exam.findById;
+const originalExamFind = Exam.find;
 const originalQuestionFind = Question.find;
 const originalQuestionFindById = Question.findById;
 
@@ -53,8 +55,10 @@ function mockExam(exam) {
 
 test.after(() => {
   Attempt.findById = originalAttemptFindById;
+  Attempt.find = originalAttemptFind;
   Attempt.findOneAndUpdate = originalAttemptFindOneAndUpdate;
   Exam.findById = originalExamFindById;
+  Exam.find = originalExamFind;
   Question.find = originalQuestionFind;
   Question.findById = originalQuestionFindById;
 });
@@ -157,9 +161,10 @@ test('submit counts only unanswered short questions as skipped', async () => {
   assert.equal(attempt.totalCorrect, 0);
   assert.equal(attempt.totalWrong, 0);
   assert.equal(attempt.status, 'submitted');
+  assert.equal(res.body.isShortExam, true);
 });
 
-test('released short-answer review is returned as answered and includes teacher marks and annotations', async () => {
+test('released short-answer review returns marks and annotations but never exposes the teacher rubric', async () => {
   const questionId = '507f1f77bcf86cd799439014';
   const attempt = {
     _id: attemptId,
@@ -196,7 +201,8 @@ test('released short-answer review is returned as answered and includes teacher 
   assert.equal(res.body.items[0].marksAwarded, 1.5);
   assert.equal(res.body.items[0].answerText, 'Written answer');
   assert.equal(res.body.items[0].annotations['0'][0].points.length, 2);
-  assert.equal(res.body.items[0].gradingRubricAudio, question.gradingRubricAudio);
+  assert.equal(res.body.items[0].gradingRubricAudio, undefined);
+  assert.equal(res.body.items[0].gradingRubric, undefined);
 
   attempt.answers[0].reviewed = false;
   const locked = response();
@@ -242,4 +248,75 @@ test('short answer autosave can update a prior draft and rejects invalid file da
   }, res);
   assert.equal(res.statusCode, 400);
   assert.match(res.body.message, /format/);
+});
+
+test('resume returns a finite deadline when stored start or schedule dates are invalid', async () => {
+  mockAttempt({
+    _id: attemptId,
+    studentId,
+    exam: 'exam-1',
+    status: 'in-progress',
+    startedAt: new Date('invalid'),
+    questionOrder: [],
+    answers: [],
+  });
+  mockExam({ title: 'Date edge case', settings: { totalTimeMinutes: 15, schedule: { enabled: true, endAt: 'not-a-date' } } });
+  Question.find = async () => [];
+
+  const res = response();
+  await controller.resumeAttempt({ params: { attemptId }, user: { id: studentId } }, res);
+
+  assert.equal(res.statusCode, 200);
+  assert.equal(Number.isFinite(Date.parse(res.body.deadlineAt)), true);
+  assert.equal(Number.isFinite(Date.parse(res.body.startedAt)), true);
+  assert.equal(Number.isFinite(Date.parse(res.body.serverNow)), true);
+});
+
+test('leaderboard stays hidden while any short answer is awaiting teacher review', async () => {
+  const questionId = '507f1f77bcf86cd799439014';
+  const exam = { _id: 'exam-short', title: 'Short exam', settings: { showLeaderboard: true, showResultInstantly: true, questionType: 'short' } };
+  Exam.findById = () => ({ select: async () => exam });
+  const attempts = [{ studentId, studentName: 'Student', studentRoll: '1', obtainedMarks: 0, questionOrder: [questionId], answers: [{ question: questionId, answerText: 'response', reviewed: false }] }];
+  Attempt.find = () => ({
+    select() { return this; },
+    lean: async () => attempts,
+  });
+  Question.find = () => ({
+    select() { return this; },
+    lean: async () => [{ _id: questionId, type: 'short', options: [] }],
+  });
+
+  const res = response();
+  await controller.getLeaderboard({ params: { examId: 'exam-short' }, user: { id: studentId } }, res);
+
+  assert.equal(res.statusCode, 403);
+  assert.equal(res.body.disabled, true);
+  assert.match(res.body.message, /নম্বর দেওয়ার পর/);
+});
+
+test('past exam list returns original PDF availability and short-exam display metadata', async () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'bcs-past-source-'));
+  const sourcePath = path.join(tempDir, 'source.pdf');
+  fs.writeFileSync(sourcePath, 'source pdf');
+  try {
+    Attempt.find = () => ({
+      select() { return this; },
+      sort() { return this; },
+      lean: async () => [{ _id: attemptId, exam: 'exam-short', questionOrder: [], answers: [], submittedAt: new Date(), totalSkipped: 1, obtainedMarks: 2 }],
+    });
+    Exam.find = () => ({
+      select() { return this; },
+      lean: async () => [{ _id: 'exam-short', title: 'Short paper', sourcePdfPath: sourcePath, settings: { questionType: 'short', showResultInstantly: true } }],
+    });
+    Question.find = () => ({ select() { return this; }, lean: async () => [] });
+
+    const res = response();
+    await controller.getMyAttempts({ user: { id: studentId } }, res);
+
+    assert.equal(res.statusCode, 200);
+    assert.equal(res.body[0].isShortExam, true);
+    assert.equal(res.body[0].hasOriginalSource, true);
+  } finally {
+    fs.rmSync(tempDir, { recursive: true, force: true });
+  }
 });

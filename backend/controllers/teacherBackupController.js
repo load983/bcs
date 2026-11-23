@@ -179,8 +179,10 @@ exports.exportBackup = async (req, res) => {
       .select('_id name phone roll password initialPasswordEnc connectedTeachers connectedClasses bannedByTeachers createdAt updatedAt')
       .lean();
 
-    const cleanClasses = asJson(classes).map((item) => { delete item.accessCode; return item; });
-    const cleanExams = asJson(exams).map((item) => { delete item.examCode; delete item.accessCode; return item; });
+    // Share codes are required to keep restored classes/exams usable. Backups
+    // are already treated as sensitive because they contain credential hashes.
+    const cleanClasses = asJson(classes);
+    const cleanExams = asJson(exams);
     const cleanAttempts = asJson(attempts).map((item) => { delete item.ipAddress; return item; });
     const ownClasses = new Set(classIds.map(String));
     const cleanStudents = students.map((student) => ({

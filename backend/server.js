@@ -49,30 +49,6 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ডাটাবেসের সাথে কানেক্ট হও
-connectDB();
-
-// একবারের মাইগ্রেশন: আগের একক classRef থাকলে সেটা classRefs অ্যারেতে নিয়ে যাওয়া (নিরাপদ — বারবার চললেও সমস্যা নেই)
-mongoose.connection.once('open', async () => {
-  try {
-    await mongoose.connection.collection('exams').updateMany(
-      { classRef: { $exists: true, $ne: null }, $or: [{ classRefs: { $exists: false } }, { classRefs: { $size: 0 } }] },
-      [{ $set: { classRefs: ['$classRef'] } }, { $unset: 'classRef' }]
-    );
-  } catch (err) {
-    console.error('classRef migration skipped:', err.message);
-  }
-});
-
-// .env-এর ইমেইল/পাসওয়ার্ড দিয়ে একমাত্র অ্যাডমিন একাউন্ট নিজে থেকে তৈরি/সিঙ্ক হয়
-mongoose.connection.once('open', ensureAdmin);
-
-// ⏰ সাবস্ক্রিপশনের মেয়াদ শেষের ৭/৩/১ দিন আগে শিক্ষককে নোটিফিকেশন + পুশ (EXPIRY_REMINDERS=off দিলে বন্ধ)
-mongoose.connection.once('open', startExpiryReminderJob);
-
-// 🧾 অ্যাডমিন অ্যাক্টিভিটি লগ: AUDIT_LOG_DAYS=365 দিলে পুরনো লগ নিজে মুছে যায় (না দিলে সব থাকে)
-mongoose.connection.once('open', startAuditPurge);
-
 // CORS কনফিগারেশন (credentials: true থাকলে specific origin প্রয়োজন)
 const norm = (u) => String(u || '').trim().replace(/\/+$/, '');
 const allowedOrigins = [
@@ -177,10 +153,28 @@ app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }
 // গ্লোবাল এরর হ্যান্ডলার
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(err.status || 500).json({
-    message: err.message || 'সার্ভারে একটি সমস্যা হয়েছে',
-  });
+  const status = Number.isInteger(err.status) && err.status >= 400 && err.status < 500 ? err.status : 500;
+  res.status(status).json({ message: status < 500 ? (err.message || 'অনুরোধটি সম্পন্ন করা যায়নি') : 'সার্ভারে একটি সমস্যা হয়েছে' });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server চলছে পোর্ট ${PORT} এ`));
+async function startServer() {
+  await connectDB();
+  try {
+    // Idempotent migration from the legacy singular classRef field.
+    await mongoose.connection.collection('exams').updateMany(
+      { classRef: { $exists: true, $ne: null }, $or: [{ classRefs: { $exists: false } }, { classRefs: { $size: 0 } }] },
+      [{ $set: { classRefs: ['$classRef'] } }, { $unset: 'classRef' }]
+    );
+  } catch (err) {
+    console.error('classRef migration skipped:', err.message);
+  }
+  await ensureAdmin();
+  startExpiryReminderJob();
+  startAuditPurge();
+  app.listen(PORT, () => console.log(`✅ Server চলছে পোর্ট ${PORT} এ`));
+}
+startServer().catch((err) => {
+  console.error('Server initialization failed:', err.stack || err.message);
+  process.exit(1);
+});
