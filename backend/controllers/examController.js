@@ -21,6 +21,7 @@ const { getTeacherStatus, getActiveTeacherIds } = require('../utils/subscription
 const { isFeatureEnabled } = require('../utils/features');
 const { announceExamPublished } = require('./messageController');
 const Announcement = require('../models/Announcement');
+const { storeOriginalSource, deleteSource } = require('../utils/originalSourceStore');
 
 // 8 অক্ষরের ইউনিক এক্সাম কোড তৈরি করার হেলপার ফাংশন
 const generateExamCode = () => crypto.randomBytes(4).toString('hex');
@@ -76,6 +77,7 @@ const isSafeResourceLink = (value) => {
 
 // ---------- ১. PDF আপলোড করে নতুন Exam তৈরি করা ----------
 exports.uploadExamPdf = async (req, res) => {
+  let storedSourceId = null;
   try {
     if (!req.file) {
       return res.status(400).json({ message: 'PDF অথবা Word ফাইল আবশ্যক' });
@@ -108,13 +110,20 @@ exports.uploadExamPdf = async (req, res) => {
       });
     }
 
+    // Local uploads/ directory is ephemeral on many hosted deployments. Keep
+    // the original source in MongoDB GridFS so it survives restarts/redeploys.
+    storedSourceId = await storeOriginalSource(req.file.path, req.file.originalname, req.file.mimetype);
+
     const examCode = generateExamCode();
 
     const exam = await Exam.create({
       teacher: req.user.id,
       title,
       classRefs: classCheck.ids,
-      sourcePdfPath: req.file.path || null,
+      sourcePdfPath: null,
+      sourcePdfGridFsId: storedSourceId,
+      sourcePdfOriginalName: req.file.originalname,
+      sourcePdfMime: req.file.mimetype || 'application/pdf',
       examCode,
       status: 'draft',
       settings: {
@@ -132,9 +141,12 @@ exports.uploadExamPdf = async (req, res) => {
 
     await Question.insertMany(questionDocs);
 
+    safeDeleteFile(req.file.path);
+
     res.status(201).json({ exam, questionCount: questionDocs.length });
   } catch (err) {
     if (req.file?.path) safeDeleteFile(req.file.path);
+    if (storedSourceId) await deleteSource(storedSourceId).catch((cleanupError) => console.error('GridFS source cleanup failed:', cleanupError.message));
     res.status(500).json({ message: err.message || 'PDF আপলোড করতে সমস্যা হয়েছে' });
   }
 };
@@ -534,6 +546,11 @@ exports.downloadSourceFile = async (req, res) => {
     const exam = await Exam.findById(req.params.id);
     if (!exam) return res.status(404).json({ message: 'Exam পাওয়া যায়নি' });
     if (exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
+    if (exam.sourcePdfGridFsId) {
+      const { sourceExists, downloadSource } = require('../utils/originalSourceStore');
+      if (!(await sourceExists(exam.sourcePdfGridFsId))) return res.status(404).json({ message: 'মূল আপলোড ফাইলটি পাওয়া যায়নি' });
+      return downloadSource(exam.sourcePdfGridFsId, res, exam.sourcePdfOriginalName || 'original.pdf', exam.sourcePdfMime);
+    }
     if (!exam.sourcePdfPath || !fs.existsSync(exam.sourcePdfPath)) {
       return res.status(404).json({ message: 'মূল আপলোড ফাইলটি পাওয়া যায়নি' });
     }
@@ -930,12 +947,27 @@ exports.gradeShortAnswers = async (req, res) => {
     if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
     const exam = await Exam.findById(attempt.exam);
     if (!exam || exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
-    const questions = await Question.find({ exam: exam._id }).select('type options _id');
+    const questions = await Question.find({ exam: exam._id }).select('type options _id gradingRubric gradingRubricAudio');
     const shortIds = new Set(questions.filter((q) => isShortQuestion(q, exam)).map((q) => String(q._id)));
+    const questionById = new Map(questions.map((question) => [String(question._id), question]));
+    if (req.body?.draftOnly === true) {
+      const draftMarks = req.body.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
+      const draftRubrics = req.body.rubrics && typeof req.body.rubrics === 'object' ? req.body.rubrics : {};
+      for (const qid of [...Object.keys(draftMarks), ...Object.keys(draftRubrics)]) {
+        if (!shortIds.has(String(qid))) return res.status(400).json({ message: 'Draft-এ প্রশ্নের ID সঠিক নয়' });
+      }
+      const maxDraft = Number(exam.settings?.marksPerQuestion) || 1;
+      const cleanMarks = Object.fromEntries(Object.entries(draftMarks).filter(([qid, value]) => shortIds.has(String(qid)) && (value === '' || (Number.isFinite(Number(value)) && Number(value) >= 0 && Number(value) <= maxDraft))).map(([qid, value]) => [qid, String(value).slice(0, 12)]));
+      const cleanRubrics = Object.fromEntries(Object.entries(draftRubrics).filter(([qid, value]) => shortIds.has(String(qid)) && typeof value === 'string').map(([qid, value]) => [qid, value.slice(0, 3000)]));
+      attempt.reviewDraft = { marks: cleanMarks, rubrics: cleanRubrics, feedback: String(req.body.feedback || '').slice(0, 5000), savedAt: new Date() };
+      await attempt.save();
+      return res.json({ message: 'Review draft autosaved', savedAt: attempt.reviewDraft.savedAt });
+    }
     const marks = req.body?.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
     const rubrics = req.body?.rubrics && typeof req.body.rubrics === 'object' ? req.body.rubrics : {};
     const rubricAudios = req.body?.rubricAudios && typeof req.body.rubricAudios === 'object' ? req.body.rubricAudios : {};
     const annotationsInput = req.body?.annotations && typeof req.body.annotations === 'object' ? req.body.annotations : {};
+    const oldFeedback = attempt.teacherFeedback || '';
     const questionUpdates = new Map();
     for (const questionId of new Set([...Object.keys(rubrics), ...Object.keys(rubricAudios)])) {
       if (!shortIds.has(String(questionId))) return res.status(400).json({ message: 'রুব্রিকের প্রশ্ন সঠিক নয়' });
@@ -959,6 +991,8 @@ exports.gradeShortAnswers = async (req, res) => {
       if (!validated.ok) return res.status(400).json({ message: validated.message });
       attempt.teacherFeedbackMedia = validated.media;
     }
+    const oldMarks = new Map((attempt.answers || []).map((answer) => [String(answer.question), answer.marksAwarded]));
+    const oldAnnotations = new Map((attempt.answers || []).map((answer) => [String(answer.question), JSON.stringify(answer.annotations || {})]));
     const answerByQuestion = new Map((attempt.answers || []).map((answer) => [String(answer.question), answer]));
     for (const [questionId, rawAnnotations] of Object.entries(annotationsInput)) {
       if (!shortIds.has(String(questionId))) return res.status(400).json({ message: 'Annotation-এর প্রশ্ন সঠিক নয়' });
@@ -988,6 +1022,27 @@ exports.gradeShortAnswers = async (req, res) => {
     const mcqMarks = (Number(attempt.totalCorrect) || 0) * max;
     const negative = exam.settings?.negativeMarking?.enabled ? (Number(attempt.totalWrong) || 0) * (Number(exam.settings?.negativeMarking?.marksPerWrong) || 0) : 0;
     attempt.obtainedMarks = Math.round((mcqMarks + shortMarks - negative) * 100) / 100;
+    const changedRubricIds = [...questionUpdates.entries()].filter(([questionId, update]) => {
+      const previous = questionById.get(String(questionId));
+      return Object.entries(update).some(([field, value]) => String(previous?.[field] || '') !== String(value || ''));
+    }).map(([questionId]) => String(questionId));
+    const changedAnnotationIds = Object.keys(annotationsInput).filter((questionId) => oldAnnotations.get(String(questionId)) !== JSON.stringify(annotationsInput[questionId] || {}));
+    const changedQuestionIds = [...new Set([
+      ...(attempt.answers || []).filter((answer) => shortIds.has(String(answer.question))
+        && oldMarks.get(String(answer.question)) !== answer.marksAwarded).map((answer) => String(answer.question)),
+      ...changedAnnotationIds,
+      ...changedRubricIds,
+    ])].filter((questionId) => shortIds.has(String(questionId)));
+    if (changedQuestionIds.length || oldFeedback !== (attempt.teacherFeedback || '')) {
+      attempt.reviewAudit = [...(attempt.reviewAudit || []), {
+        teacherId: req.user.id,
+        at: new Date(),
+        changedQuestionIds,
+        reviewedCount: (attempt.answers || []).filter((answer) => shortIds.has(String(answer.question)) && answer.reviewed).length,
+        feedbackChanged: oldFeedback !== (attempt.teacherFeedback || ''),
+      }].slice(-100);
+    }
+    attempt.reviewDraft = null;
     await attempt.save();
     const responseShortAnswers = (attempt.answers || []).filter((answer) => shortIds.has(String(answer.question))
       && (String(answer.answerText || '').trim() || (answer.answerFiles || []).length));
@@ -997,6 +1052,66 @@ exports.gradeShortAnswers = async (req, res) => {
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 
+
+exports.exportShortAnswerReviewPdf = async (req, res) => {
+  try {
+    const attempt = await Attempt.findById(req.params.attemptId).populate('answers.question');
+    if (!attempt) return res.status(404).json({ message: 'Attempt পাওয়া যায়নি' });
+    if (attempt.status !== 'submitted') return res.status(400).json({ message: 'শুধু জমা দেওয়া পরীক্ষার review PDF তৈরি করা যাবে' });
+    const exam = await Exam.findById(attempt.exam);
+    if (!exam || String(exam.teacher) !== String(req.user.id)) return res.status(403).json({ message: 'অনুমতি নেই' });
+    const items = (attempt.answers || []).filter((answer) => answer.question && isShortQuestion(answer.question, exam))
+      .sort((a, b) => (Number(a.question.order) || 0) - (Number(b.question.order) || 0));
+    if (!items.length) return res.status(404).json({ message: 'Short answer পাওয়া যায়নি' });
+    const filename = `review-${String(attempt.studentRoll || 'student').replace(/[^a-z0-9_-]/gi, '-')}.pdf`;
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    const doc = new PDFDocument({ size: 'A4', margin: 42, info: { Title: `Reviewed answers - ${exam.title}` } });
+    doc.pipe(res);
+    const fonts = registerFonts(doc);
+    const write = (text, size = 11, options = {}) => { doc.fontSize(size).fillColor('black'); writeText(doc, fonts, String(text ?? ''), options); };
+    write(exam.title, 18, { align: 'center' }); doc.moveDown(0.3);
+    write(`${attempt.studentName} · Roll ${attempt.studentRoll}`, 10); doc.moveDown(0.8);
+    items.forEach((answer, index) => {
+      const question = answer.question;
+      write(`${index + 1}. ${question.questionText || ''}`, 12); doc.moveDown(0.25);
+      write(`Answer: ${answer.answerText || 'No typed answer'}`, 10); doc.moveDown(0.2);
+      (answer.answerFiles || []).forEach((file, fileIndex) => {
+        if (file.mime?.startsWith('image/') && /^data:image\/(png|jpeg|webp);base64,/.test(file.data || '')) {
+          try {
+            const buffer = Buffer.from(file.data.split(',')[1], 'base64');
+            const image = doc.openImage(buffer);
+            const scale = Math.min(440 / image.width, 240 / image.height, 1);
+            const width = image.width * scale;
+            const height = image.height * scale;
+            const x = doc.page.margins.left;
+            const y = doc.y;
+            doc.image(buffer, x, y, { width, height });
+            const strokes = answer.annotations?.[String(fileIndex)] || [];
+            strokes.forEach((stroke) => {
+              const points = stroke.points || [];
+              if (points.length < 2) return;
+              doc.save().strokeColor(stroke.color || '#e11d48').lineWidth(Math.max(1, Number(stroke.width) || 2));
+              doc.moveTo(x + points[0].x * width, y + points[0].y * height);
+              points.slice(1).forEach((point) => doc.lineTo(x + point.x * width, y + point.y * height));
+              doc.stroke().restore();
+            });
+            doc.y = y + height + 8;
+            doc.x = x;
+          } catch { /* Skip malformed image data. */ }
+        }
+      });
+      write(`Marks: ${answer.marksAwarded ?? 'Not reviewed'} / ${Number(exam.settings?.marksPerQuestion) || 1}`, 10);
+      if (question.gradingRubric) write(`Rubric: ${question.gradingRubric}`, 9);
+      doc.moveDown(0.8);
+    });
+    if (attempt.teacherFeedback) write(`Teacher feedback: ${attempt.teacherFeedback}`, 10);
+    doc.end();
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ message: err.message || 'Review PDF তৈরি করা যায়নি' });
+    else res.end();
+  }
+};
 
 // ---------- ৮. Excel এ Export ----------
 exports.exportResultsExcel = async (req, res) => {
@@ -1306,6 +1421,7 @@ exports.deleteExam = async (req, res) => {
 
     // ফাইল সেফলি ডিলিট
     if (exam.sourcePdfPath) safeDeleteFile(exam.sourcePdfPath);
+    if (exam.sourcePdfGridFsId) await deleteSource(exam.sourcePdfGridFsId);
     if (exam.resource?.pdfPath) safeDeleteFile(exam.resource.pdfPath);
 
     await exam.deleteOne();

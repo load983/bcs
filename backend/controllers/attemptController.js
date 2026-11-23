@@ -10,6 +10,7 @@ const { getTeacherStatus } = require('../utils/subscription');
 const { registerFonts, writeText } = require('../utils/pdfFonts');
 const messaging = require('../utils/messaging');
 const { validateAnswerAnnotations } = require('../utils/answerAnnotations');
+const { sourceExists, downloadSource } = require('../utils/originalSourceStore');
 
 const MAX_ANSWER_FILE_DATA_CHARS = 2_000_000;
 const MAX_ATTEMPT_ANSWER_DATA_CHARS = 5_000_000;
@@ -504,7 +505,7 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
     examId: exam?._id,
     examTitle: exam?.title || '',
     isShortExam: exam?.settings?.questionType === 'short' || exam?.questionType === 'short',
-    hasOriginalSource: !!(exam?.sourcePdfPath && fs.existsSync(exam.sourcePdfPath)),
+    hasOriginalSource: !!((exam?.sourcePdfGridFsId && await sourceExists(exam.sourcePdfGridFsId)) || (exam?.sourcePdfPath && fs.existsSync(exam.sourcePdfPath))),
     showLeaderboard: !!exam?.settings?.showLeaderboard,
     submittedAt: attempt.submittedAt,
     resource,
@@ -677,9 +678,15 @@ exports.downloadOriginalSourcePdf = async (req, res) => {
       return res.status(400).json({ message: 'পরীক্ষা এখনো জমা হয়নি' });
     }
 
-    const exam = await Exam.findById(attempt.exam).select('title sourcePdfPath');
-    if (!exam?.sourcePdfPath) {
+    const exam = await Exam.findById(attempt.exam).select('title sourcePdfPath sourcePdfGridFsId sourcePdfOriginalName sourcePdfMime');
+    if (!exam?.sourcePdfPath && !exam?.sourcePdfGridFsId) {
       return res.status(404).json({ message: 'মূল আপলোড PDF পাওয়া যায়নি' });
+    }
+    if (exam.sourcePdfGridFsId) {
+      if (!(await sourceExists(exam.sourcePdfGridFsId))) return res.status(404).json({ message: 'মূল আপলোড PDF ফাইলটি সার্ভারে খুঁজে পাওয়া যায়নি' });
+      const extension = path.extname(exam.sourcePdfOriginalName || '').toLowerCase() || '.pdf';
+      const safeTitle = String(exam.title || 'exam').replace(/[\\/:*?"<>|\x00-\x1F]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 120) || 'exam';
+      return downloadSource(exam.sourcePdfGridFsId, res, `${safeTitle}-original${extension}`, exam.sourcePdfMime);
     }
     if (!fs.existsSync(exam.sourcePdfPath)) {
       return res.status(404).json({ message: 'মূল আপলোড PDF ফাইলটি সার্ভারে খুঁজে পাওয়া যায়নি' });
@@ -773,7 +780,7 @@ exports.getMyAttempts = async (req, res) => {
 
     const examIds = [...new Set(attempts.map((a) => a.exam.toString()))];
     const exams = await Exam.find({ _id: { $in: examIds } })
-      .select('title examCode status questionType sourcePdfPath settings.questionType settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
+      .select('title examCode status questionType sourcePdfPath sourcePdfGridFsId sourcePdfOriginalName settings.questionType settings.allowRepetition settings.showResultInstantly settings.showLeaderboard')
       .lean();
 
     const examMap = {};
@@ -789,7 +796,8 @@ exports.getMyAttempts = async (req, res) => {
         examCode: exam.examCode || '',
         examStatus: exam.status || null,
         isShortExam: exam.settings?.questionType === 'short' || exam.questionType === 'short',
-        hasOriginalSource: !!(exam.sourcePdfPath && fs.existsSync(exam.sourcePdfPath)),
+        hasOriginalSource: !!((exam.sourcePdfGridFsId && await sourceExists(exam.sourcePdfGridFsId)) || (exam.sourcePdfPath && fs.existsSync(exam.sourcePdfPath))),
+        originalSourceName: exam.sourcePdfOriginalName || '',
         allowRepetition: !!exam.settings?.allowRepetition,
         showResultInstantly: resultsEnabled(exam) && !reviewPending,
         reviewPending,

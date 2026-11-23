@@ -81,15 +81,16 @@ export default function PastExams() {
     }
   };
 
-  const handleDownloadOriginal = async (attemptId, examTitle) => {
+  const handleDownloadOriginal = async (attemptId, examTitle, originalName) => {
     setDownloadingOriginalId(attemptId);
     setOriginalDownloadError(null);
     try {
       const { data } = await axiosClient.get(`/attempts/${attemptId}/source-pdf`, { responseType: 'blob' });
       const safeTitle = String(examTitle || 'exam').replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'exam';
-      downloadBlob(data, `${safeTitle}-original.pdf`);
-    } catch {
-      setOriginalDownloadError({ attemptId, message: 'মূল PDF ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।' });
+      const extension = String(originalName || '').match(/\.[a-z0-9]{1,8}$/i)?.[0] || '.pdf';
+      downloadBlob(data, `${safeTitle}-original${extension}`);
+    } catch (err) {
+      setOriginalDownloadError({ attemptId, message: err.response?.data?.message || err.message || 'মূল PDF ডাউনলোড করা যায়নি। আবার চেষ্টা করুন।' });
     } finally {
       setDownloadingOriginalId(null);
     }
@@ -217,7 +218,7 @@ export default function PastExams() {
                       </button>
                     )}
                     {a.hasOriginalSource && (
-                      <button onClick={() => handleDownloadOriginal(a.attemptId, a.examTitle)} disabled={downloadingOriginalId === a.attemptId} className="btn-secondary text-sm disabled:opacity-60">
+                      <button onClick={() => handleDownloadOriginal(a.attemptId, a.examTitle, a.originalSourceName)} disabled={downloadingOriginalId === a.attemptId} className="btn-secondary text-sm disabled:opacity-60">
                         {downloadingOriginalId === a.attemptId ? 'ডাউনলোড হচ্ছে…' : 'মূল PDF ডাউনলোড'}
                       </button>
                     )}

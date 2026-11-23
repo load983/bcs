@@ -10,6 +10,9 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   const [strokeWidth, setStrokeWidth] = useState(4);
   const [showZoom, setShowZoom] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
+  const [rotation, setRotation] = useState(0);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const panRef = useRef(null);
 
   const pointFromEvent = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -89,7 +92,10 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
       {showZoom && <div className="fixed inset-0 z-[100] flex flex-col bg-black/95 p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={`${name || 'উত্তরের ছবি'} বড় করে দেখুন`} onClick={() => setShowZoom(false)}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-white" onClick={(event) => event.stopPropagation()}>
           <p className="min-w-0 truncate text-sm font-medium">{name || 'শিক্ষার্থীর উত্তরের ছবি'}</p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" aria-label="৯০ ডিগ্রি ঘোরান" onClick={() => setRotation((value) => (value + 90) % 360)}>ঘোরান</button>
+            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" onClick={() => { setZoomScale(1); setPan({ x: 0, y: 0 }); }}>Fit</button>
+            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" onClick={() => { setZoomScale(1); setRotation(0); setPan({ x: 0, y: 0 }); }}>Reset</button>
             <button type="button" className="rounded-lg border border-white/30 px-3 py-1.5 text-sm" aria-label="ছোট করে দেখুন" disabled={zoomScale <= 1} onClick={() => setZoomScale((scale) => Math.max(1, scale - 0.25))}>−</button>
             <span className="min-w-12 text-center text-xs tabular-nums">{Math.round(zoomScale * 100)}%</span>
             <button type="button" className="rounded-lg border border-white/30 px-3 py-1.5 text-sm" aria-label="বড় করে দেখুন" disabled={zoomScale >= 3} onClick={() => setZoomScale((scale) => Math.min(3, scale + 0.25))}>+</button>
@@ -97,7 +103,7 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
           </div>
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto" onClick={(event) => event.stopPropagation()}>
-          <div className="relative inline-block" style={{ transform: `scale(${zoomScale})`, transformOrigin: 'center center' }}>
+          <div className="relative inline-block touch-none" onPointerDown={(event) => { if (zoomScale <= 1) return; event.currentTarget.setPointerCapture(event.pointerId); panRef.current = { x: event.clientX, y: event.clientY, start: pan }; }} onPointerMove={(event) => { if (!panRef.current) return; setPan({ x: panRef.current.start.x + event.clientX - panRef.current.x, y: panRef.current.start.y + event.clientY - panRef.current.y }); }} onPointerUp={() => { panRef.current = null; }} onPointerCancel={() => { panRef.current = null; }} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale}) rotate(${rotation}deg)`, transformOrigin: 'center center', cursor: zoomScale > 1 ? 'grab' : 'default' }}>
             <img src={src} alt={name || 'Student answer image'} className="block max-h-[calc(100vh-7rem)] max-w-[92vw] object-contain" />
             {hasDimensions && <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
               {renderedStrokes.map((stroke, index) => {

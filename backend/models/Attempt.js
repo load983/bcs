@@ -23,6 +23,16 @@ const teacherFeedbackMediaSchema = new mongoose.Schema(
   },
   { _id: false }
 );
+const reviewAuditSchema = new mongoose.Schema(
+  {
+    teacherId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    at: { type: Date, default: Date.now },
+    changedQuestionIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Question' }],
+    reviewedCount: { type: Number, default: 0 },
+    feedbackChanged: { type: Boolean, default: false },
+  },
+  { _id: false }
+);
 
 const attemptSchema = new mongoose.Schema(
   {
@@ -54,6 +64,8 @@ const attemptSchema = new mongoose.Schema(
     obtainedMarks: { type: Number, default: 0 },
     teacherFeedback: { type: String, default: '' },
     teacherFeedbackMedia: { type: [teacherFeedbackMediaSchema], default: [] },
+    reviewAudit: { type: [reviewAuditSchema], default: [] },
+    reviewDraft: { type: mongoose.Schema.Types.Mixed, default: null },
 
     status: { type: String, enum: ['in-progress', 'submitted'], default: 'in-progress' },
   },

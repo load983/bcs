@@ -12,6 +12,9 @@ const examSchema = new mongoose.Schema(
 
     // মূল PDF ফাইলের পাথ (স্টুডেন্ট শেষে এই PDF ডাউনলোড করতে পারবে)
     sourcePdfPath: { type: String },
+    sourcePdfGridFsId: { type: mongoose.Schema.Types.ObjectId, default: null },
+    sourcePdfOriginalName: { type: String, default: '' },
+    sourcePdfMime: { type: String, default: 'application/pdf' },
 
     // Exam Settings (শিক্ষক যা On/Off করবে)
     settings: {

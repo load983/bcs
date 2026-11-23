@@ -175,7 +175,8 @@ export default function ExamEditor() {
   const downloadOriginalSource = async () => {
     try {
       const blob = await fetchFileBlob(`/exams/${id}/source`);
-      const ext = String(currentExam.sourcePdfPath || '').split('.').pop() || 'pdf';
+      const sourceName = currentExam.sourcePdfOriginalName || currentExam.sourcePdfPath || '';
+      const ext = String(sourceName).match(/\.([a-z0-9]{1,8})$/i)?.[1] || 'pdf';
       downloadBlob(blob, `${currentExam.title || 'source'}.${ext}`);
     } catch (err) { alert(err.message); }
   };
@@ -266,7 +267,7 @@ export default function ExamEditor() {
               {has('downloadExamPdf') ? '' : '🔒 '}{label}
             </button>
           ))}
-          {currentExam.sourcePdfPath && (
+          {(currentExam.sourcePdfPath || currentExam.sourcePdfGridFsId) && (
             <button type="button" className="btn-secondary" onClick={downloadOriginalSource}>
               📎 Original PDF/DOC
             </button>
