@@ -8,6 +8,7 @@ const answerSchema = new mongoose.Schema(
     selectedOptionIndex: { type: Number, default: null }, // null = স্কিপ করেছে
     answerText: { type: String, default: '' },
     answerFiles: [{ name: String, mime: String, data: String }],
+    annotations: { type: mongoose.Schema.Types.Mixed, default: {} },
     isCorrect: { type: Boolean, default: false },
     marksAwarded: { type: Number, default: null },
     reviewed: { type: Boolean, default: false },

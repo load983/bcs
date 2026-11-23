@@ -5,16 +5,20 @@ import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import Timer from '../../components/Timer';
 import QuestionPalette from '../../components/QuestionPalette';
-import { saveAnswer, submitAttempt } from '../../features/attempt/attemptSlice';
+import { resumeAttempt, saveAnswer, submitAttempt } from '../../features/attempt/attemptSlice';
 import { useLanguage } from '../../context/LanguageContext';
 import MathText from '../../components/MathText';
 import assetUrl from '../../utils/assetUrl';
 import ChemDiagramList from '../../components/ChemDiagramList';
 import ZoomImage from '../../components/ZoomImage';
+import { compactImage, fileToDataUrl, loadImage } from '../../utils/imageCompact';
+
+const sameFiles = (left = [], right = []) => left.length === right.length
+  && left.every((file, index) => file.data === right[index]?.data && file.name === right[index]?.name && file.mime === right[index]?.mime);
 
 export default function StudentExam() {
   const { t } = useLanguage();
-  const { attemptId, examTitle, totalTimeMinutes, startedAt, questions, answersMap, result } =
+  const { attemptId, examTitle, totalTimeMinutes, startedAt, questions, answersMap, shortAnswers, result } =
     useSelector((s) => s.attempt);
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -24,7 +28,10 @@ export default function StudentExam() {
   const [lockedQ, setLockedQ] = useState({});
   const [saveError, setSaveError] = useState('');
   const [shortDrafts, setShortDrafts] = useState({});
+  const [savingShort, setSavingShort] = useState({});
   const pendingSavesRef = useRef(new Map());
+  const shortTimersRef = useRef(new Map());
+  const shortSaveQueueRef = useRef(Promise.resolve());
   const failedSavesRef = useRef(new Set());
   const submittedRef = useRef(false);
   const questionRefs = useRef([]);
@@ -45,6 +52,66 @@ export default function StudentExam() {
     if (!attemptId) navigate('/');
   }, [attemptId, navigate]);
 
+  useEffect(() => {
+    if (attemptId && !result) dispatch(resumeAttempt(attemptId));
+  }, [attemptId, dispatch, result]);
+
+  useEffect(() => {
+    setShortDrafts((drafts) => {
+      const next = { ...drafts };
+      Object.entries(shortAnswers || {}).forEach(([qid, answer]) => {
+        if (!Object.prototype.hasOwnProperty.call(next, qid)) next[qid] = { answerText: answer.answerText || '', files: answer.answerFiles || [] };
+      });
+      return next;
+    });
+  }, [shortAnswers]);
+
+  const queueShortSave = useCallback((questionId, draft) => {
+    failedSavesRef.current.delete(questionId);
+    setSaveError(failedSavesRef.current.size ? t('exam.answerSaveFailed') : '');
+    setSavingShort((current) => ({ ...current, [questionId]: true }));
+    const request = () => dispatch(saveAnswer({
+      attemptId, questionId, selectedOptionIndex: null,
+      answerText: draft.answerText || '', answerFiles: draft.files || [],
+    }));
+    const savePromise = shortSaveQueueRef.current.catch(() => undefined).then(request);
+    shortSaveQueueRef.current = savePromise.then(() => undefined, () => undefined);
+    pendingSavesRef.current.set(questionId, savePromise);
+    savePromise.then((res) => {
+      if (res.meta?.requestStatus === 'rejected') {
+        failedSavesRef.current.add(questionId);
+        setSaveError(res.payload || t('exam.answerSaveFailed'));
+      } else {
+        failedSavesRef.current.delete(questionId);
+        if (!failedSavesRef.current.size) setSaveError('');
+      }
+    }).finally(() => {
+      if (pendingSavesRef.current.get(questionId) === savePromise) pendingSavesRef.current.delete(questionId);
+      setSavingShort((current) => { const next = { ...current }; delete next[questionId]; return next; });
+    });
+    return savePromise;
+  }, [attemptId, dispatch, t]);
+
+  useEffect(() => {
+    if (submitting) return undefined;
+    questions.filter((q) => q.type === 'short').forEach((q) => {
+      const qid = q._id;
+      const draft = shortDrafts[qid] || { answerText: '', files: [] };
+      const saved = shortAnswers?.[qid] || { answerText: '', answerFiles: [] };
+      const sameText = (draft.answerText || '') === (saved.answerText || '');
+      if (sameText && sameFiles(draft.files || [], saved.answerFiles || [])) return;
+      clearTimeout(shortTimersRef.current.get(qid));
+      shortTimersRef.current.set(qid, setTimeout(() => {
+        shortTimersRef.current.delete(qid);
+        queueShortSave(qid, draft);
+      }, 650));
+    });
+    return () => {
+      shortTimersRef.current.forEach(clearTimeout);
+      shortTimersRef.current.clear();
+    };
+  }, [shortDrafts, shortAnswers, questions, submitting, queueShortSave]);
+
   // একবার Submit হয়ে গেলে রেজাল্ট পেজে যাও
   useEffect(() => {
     if (result) navigate('/exam/result');
@@ -53,14 +120,23 @@ export default function StudentExam() {
   const handleSubmit = useCallback(
     async (auto = false) => {
       if (submittedRef.current) return;
-      // A failed save means answersMap may not contain the answer the student selected.
-      // Do not submit until that answer is selected again and saved successfully.
-      if (saveError || failedSavesRef.current.size > 0) return;
+      // Flush all current drafts before finalizing; a failed autosave must never be
+      // silently omitted from the submitted attempt.
       submittedRef.current = true;
       setSubmitting(true);
+      shortTimersRef.current.forEach(clearTimeout);
+      shortTimersRef.current.clear();
+      const latestSaves = [];
+      questions.filter((q) => q.type === 'short').forEach((q) => {
+        const draft = shortDrafts[q._id] || { answerText: '', files: [] };
+        const saved = shortAnswers?.[q._id] || { answerText: '', answerFiles: [] };
+        if ((draft.answerText || '') !== (saved.answerText || '') || !sameFiles(draft.files || [], saved.answerFiles || [])) {
+          latestSaves.push(queueShortSave(q._id, draft));
+        }
+      });
       const pendingSaves = [...pendingSavesRef.current.values()];
-      const saveResults = await Promise.all(pendingSaves);
-      if (saveResults.some((res) => res.meta?.requestStatus === 'rejected')) {
+      const saveResults = await Promise.all([...new Set([...pendingSaves, ...latestSaves])]);
+      if (saveResults.some((res) => res.meta?.requestStatus === 'rejected') || failedSavesRef.current.size > 0) {
         // The save handler unlocks failed questions and leaves the student able to retry.
         submittedRef.current = false;
         setSubmitting(false);
@@ -74,7 +150,7 @@ export default function StudentExam() {
         setSubmitting(false);
       }
     },
-    [attemptId, dispatch, saveError]
+    [attemptId, dispatch, questions, shortDrafts, shortAnswers, queueShortSave]
   );
 
   // 🔒 পরীক্ষা চলাকালীন অন্য ট্যাব/ব্রাউজার/অ্যাপে চলে গেলে যতটুকু দেওয়া হয়েছে তা অটো সাবমিট
@@ -125,33 +201,37 @@ export default function StudentExam() {
     });
   };
 
-  const handleShortSubmit = (questionId) => {
-    if (isLocked(questionId) || submitting) return;
-    const draft = shortDrafts[questionId] || { text: '', files: [] };
-    if (!draft.text.trim() && !draft.files.length) return;
-    failedSavesRef.current.delete(questionId);
-    setSaveError(failedSavesRef.current.size ? t('exam.answerSaveFailed') : '');
-    setLockedQ((m) => ({ ...m, [questionId]: true }));
-    const savePromise = dispatch(saveAnswer({ attemptId, questionId, selectedOptionIndex: null, answerText: draft.text, answerFiles: draft.files }));
-    pendingSavesRef.current.set(questionId, savePromise);
-    savePromise.then((res) => {
-      if (res.meta?.requestStatus === 'rejected') {
-        failedSavesRef.current.add(questionId);
-        setLockedQ((m) => { const n = { ...m }; delete n[questionId]; return n; });
-        setSaveError(res.payload || t('exam.answerSaveFailed'));
-      }
-    }).finally(() => pendingSavesRef.current.delete(questionId));
-  };
-
   const readAnswerFiles = (fileList, questionId) => {
     const alreadyAttached = shortDrafts[questionId]?.files?.length || 0;
-    const files = [...fileList].slice(0, Math.max(0, 5 - alreadyAttached)).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type) && file.size <= 10 * 1024 * 1024);
-    Promise.all(files.map((file) => new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve({ name: file.name, mime: file.type, data: reader.result });
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(file);
-    }))).then((items) => setShortDrafts((d) => ({ ...d, [questionId]: { ...(d[questionId] || {}), files: [...(d[questionId]?.files || []), ...items.filter(Boolean)].slice(0, 5) } })));
+    const selected = [...fileList];
+    const remaining = Math.max(0, 5 - alreadyAttached);
+    const files = selected.slice(0, remaining);
+    if (selected.length > remaining) setSaveError('সর্বোচ্চ ৫টি ছবি/PDF সংযুক্ত করা যাবে।');
+    const supported = files.filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type));
+    if (supported.length < files.length) setSaveError('শুধু JPG, PNG, WebP ছবি অথবা PDF সংযুক্ত করুন।');
+    const tooLargePdf = supported.some((file) => file.type === 'application/pdf' && file.size > 1_450_000);
+    if (tooLargePdf) setSaveError('PDF সর্বোচ্চ ১.৪ MB হতে পারবে।');
+    const accepted = supported.filter((file) => file.type !== 'application/pdf' || file.size <= 1_450_000);
+    const imageFiles = accepted.filter((file) => file.type.startsWith('image/'));
+    if (imageFiles.some((file) => file.size > 10 * 1024 * 1024)) setSaveError('ছবি ১০ MB-এর বেশি হতে পারবে না।');
+    const readyFiles = accepted.filter((file) => file.type === 'application/pdf' || file.size <= 10 * 1024 * 1024);
+    Promise.all(readyFiles.map(async (file) => {
+      try {
+        if (file.type === 'application/pdf') {
+          return { name: file.name, mime: file.type, data: await fileToDataUrl(file) };
+        }
+        const source = await fileToDataUrl(file);
+        const image = await loadImage(source);
+        const data = compactImage(image, { max: 1800, limit: 1_850_000 });
+        return { name: file.name, mime: data.slice(5, data.indexOf(';')), data };
+      } catch (error) {
+        setSaveError(error.message || 'ছবি/PDF পড়া যায়নি।');
+        return null;
+      }
+    })).then((items) => {
+      const ready = items.filter(Boolean);
+      if (ready.length) setShortDrafts((drafts) => ({ ...drafts, [questionId]: { ...(drafts[questionId] || {}), files: [...(drafts[questionId]?.files || []), ...ready].slice(0, 5) } }));
+    });
   };
 
   if (!questions.length) {
@@ -165,7 +245,15 @@ export default function StudentExam() {
     );
   }
 
-  const answeredCount = Object.values(answersMap).filter((v) => v !== null && v !== undefined).length;
+  const hasShortResponse = (qid) => {
+    const draft = shortDrafts[qid];
+    const saved = shortAnswers?.[qid];
+    return !!((draft?.answerText || saved?.answerText || '').trim() || draft?.files?.length || saved?.answerFiles?.length);
+  };
+  const isAnswered = (question) => question.type === 'short'
+    ? hasShortResponse(question._id)
+    : answersMap[question._id] !== null && answersMap[question._id] !== undefined;
+  const answeredCount = questions.filter(isAnswered).length;
   const progressPct = Math.round((answeredCount / questions.length) * 100);
   const jumpToQuestion = (index) => {
     setCurrentIndex(index);
@@ -195,8 +283,8 @@ export default function StudentExam() {
             <article key={q._id} ref={(element) => { questionRefs.current[index] = element; }} data-question-index={index} className="card scroll-mt-4 p-5 sm:p-7">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-primary-600 dark:text-primary-400">{t('exam.questionOf', { current: index + 1, total: questions.length })}</p>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${answersMap[q._id] !== undefined && answersMap[q._id] !== null ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>
-                  {answersMap[q._id] !== undefined && answersMap[q._id] !== null ? 'উত্তর জমা হয়েছে' : 'উত্তর বাকি'}
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isAnswered(q) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>
+                  {isAnswered(q) ? 'উত্তর সেভ হয়েছে' : 'উত্তর বাকি'}
                 </span>
               </div>
               <h2 className="mb-5 text-lg font-medium leading-relaxed dark:text-white sm:text-xl"><MathText text={q.questionText} /></h2>
@@ -205,19 +293,19 @@ export default function StudentExam() {
               {q.diagrams?.length > 0 && <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>}
               {q.type === 'short' ? (
                 <div className="space-y-3">
-                  <textarea className="input min-h-36 w-full" disabled={isLocked(q._id) || submitting} value={shortDrafts[q._id]?.text || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), text: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+                  <textarea className="input min-h-36 w-full" disabled={submitting} value={shortDrafts[q._id]?.answerText || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), answerText: e.target.value } }))} placeholder="উত্তর লিখুন…" />
                   <div className="flex flex-wrap gap-2">
                     <label className="cursor-pointer rounded-xl border border-primary-300 px-3 py-2 text-sm font-medium text-primary-700 dark:border-primary-500/40 dark:text-primary-300">
                       ক্যামেরা দিয়ে ছবি তুলুন
-                      <input className="sr-only" type="file" disabled={isLocked(q._id) || submitting} accept="image/*" capture="environment" onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
+                      <input className="sr-only" type="file" disabled={submitting} accept="image/jpeg,image/png,image/webp" capture="environment" onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
                     </label>
                     <label className="cursor-pointer rounded-xl border border-gray-300 px-3 py-2 text-sm dark:border-white/15 dark:text-gray-200">
                       ছবি/PDF আপলোড করুন
-                      <input className="sr-only" type="file" disabled={isLocked(q._id) || submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
+                      <input className="sr-only" type="file" disabled={submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
                     </label>
                   </div>
-                  {(shortDrafts[q._id]?.files || []).length > 0 && <p className="text-xs text-gray-500">{shortDrafts[q._id].files.length}টি file প্রস্তুত হয়েছে</p>}
-                  <button type="button" className="btn-primary" disabled={isLocked(q._id) || submitting} onClick={() => handleShortSubmit(q._id)}>{isLocked(q._id) ? 'উত্তর জমা হয়েছে' : 'উত্তর জমা দিন'}</button>
+                  {!!shortDrafts[q._id]?.files?.length && <div className="space-y-1">{shortDrafts[q._id].files.map((file, fileIndex) => <div key={`${file.name}-${fileIndex}`} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-white/5"><span className="min-w-0 truncate text-gray-600 dark:text-gray-300">{file.name} · {file.mime === 'application/pdf' ? 'PDF' : 'ছবি'}</span><button type="button" className="shrink-0 text-red-600 hover:underline" disabled={submitting} onClick={() => setShortDrafts((drafts) => ({ ...drafts, [q._id]: { ...(drafts[q._id] || {}), files: (drafts[q._id]?.files || []).filter((_, index) => index !== fileIndex) } }))}>সরান</button></div>)}</div>}
+                  <p className="text-xs text-gray-500" role="status">{savingShort[q._id] ? 'উত্তর অটো-সেভ হচ্ছে…' : isAnswered(q) ? 'উত্তর অটো-সেভ হয়েছে' : 'লেখা বা ছবি/PDF দিলে স্বয়ংক্রিয়ভাবে সেভ হবে'}</p>
                 </div>
               ) : (
                 <div className="space-y-3">

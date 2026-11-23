@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import axiosClient from '../../api/axiosClient';
-import { resetAttempt, fetchReview } from '../../features/attempt/attemptSlice';
+import { resetAttempt, fetchAttemptResult, fetchReview } from '../../features/attempt/attemptSlice';
 import { useLanguage } from '../../context/LanguageContext';
 import MathText from '../../components/MathText';
 import assetUrl from '../../utils/assetUrl';
@@ -13,6 +13,7 @@ import ExamFeedbackForm from '../../components/ExamFeedbackForm';
 import PdfPreviewModal from '../../components/PdfPreviewModal';
 import { downloadBlob, fetchFileBlob } from '../../utils/download';
 import FeedbackMediaItem from '../../components/FeedbackMediaItem';
+import ShortAnswerReview from '../../components/ShortAnswerReview';
 
 export default function StudentResult() {
   const { t } = useLanguage();
@@ -32,6 +33,14 @@ export default function StudentResult() {
   const [reviewError, setReviewError] = useState('');
 
   useEffect(() => { if (!result) navigate('/'); }, [result, navigate]);
+
+  useEffect(() => {
+    if (!attemptId || !result?.reviewPending) return undefined;
+    const refresh = () => dispatch(fetchAttemptResult(attemptId));
+    refresh();
+    const timer = window.setInterval(refresh, 12000);
+    return () => window.clearInterval(timer);
+  }, [attemptId, result?.reviewPending, dispatch]);
 
   const closePdfPreview = () => {
     if (pdfPreview?.url) window.URL.revokeObjectURL(pdfPreview.url);
@@ -117,8 +126,9 @@ export default function StudentResult() {
         correct: review.items.filter((i) => i.status === 'correct').length,
         wrong: review.items.filter((i) => i.status === 'wrong').length,
         skipped: review.items.filter((i) => i.status === 'skipped').length,
+        answered: review.items.filter((i) => i.status === 'answered').length,
       }
-    : { all: 0, correct: 0, wrong: 0, skipped: 0 };
+    : { all: 0, correct: 0, wrong: 0, skipped: 0, answered: 0 };
 
   const filteredItems = review ? review.items.filter((i) => filter === 'all' || i.status === filter) : [];
 
@@ -158,7 +168,7 @@ export default function StudentResult() {
             </div>
           </div>
         ) : (
-          <p className="mb-6 text-gray-500 dark:text-gray-400">{t('result.later')}</p>
+          <p className="mb-6 text-gray-500 dark:text-gray-400">{result.reviewPending ? 'শিক্ষক উত্তর review করছেন। review শেষ হলে এই পেজে ফলাফল স্বয়ংক্রিয়ভাবে দেখা যাবে।' : t('result.later')}</p>
         )}
 
         <div className="space-y-3">
@@ -233,6 +243,7 @@ export default function StudentResult() {
                   ['correct', t('result.filterCorrect', { n: counts.correct })],
                   ['wrong', t('result.filterWrong', { n: counts.wrong })],
                   ['skipped', t('result.filterSkipped', { n: counts.skipped })],
+                  ['answered', `সংক্ষিপ্ত উত্তর (${counts.answered})`],
                 ].map(([key, label]) => (
                   <button
                     key={key}
@@ -282,10 +293,12 @@ function QuestionReviewCard({ item }) {
       ? { text: t('common.correct'), cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' }
       : item.status === 'wrong'
       ? { text: t('common.wrong'), cls: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' }
+      : item.status === 'answered'
+      ? { text: 'উত্তর জমা হয়েছে', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' }
       : { text: t('common.skipped'), cls: 'bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-300' };
 
   const borderColor =
-    item.status === 'correct' ? 'border-emerald-500' : item.status === 'wrong' ? 'border-red-500' : 'border-gray-300 dark:border-white/10';
+    item.status === 'correct' ? 'border-emerald-500' : item.status === 'wrong' ? 'border-red-500' : item.status === 'answered' ? 'border-blue-500' : 'border-gray-300 dark:border-white/10';
 
   return (
     <div className={`card border-l-4 p-5 ${borderColor}`}>
@@ -312,11 +325,7 @@ function QuestionReviewCard({ item }) {
             </div>
           );
         })}
-        {options.length === 0 && (item.answerText || item.answerFiles?.length > 0) && (
-          <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 p-3 text-sm dark:border-white/10 dark:bg-white/5 dark:text-gray-200">
-            <strong>{t('result.yourAnswer')}:</strong> {item.answerText || 'ফাইল সংযুক্ত করা হয়েছে'}
-          </div>
-        )}
+      {options.length === 0 && <ShortAnswerReview item={item} />}
       </div>
       {(item.explanation || item.explanationAudio || item.explanationMedia?.length > 0) && (
         <div className="mt-3 rounded-lg bg-primary-50 p-3 text-sm dark:bg-primary-500/10 dark:text-gray-100">

@@ -9,6 +9,11 @@ const PDFDocument = require('pdfkit');
 const { getTeacherStatus } = require('../utils/subscription');
 const { registerFonts, writeText } = require('../utils/pdfFonts');
 const messaging = require('../utils/messaging');
+const { validateAnswerAnnotations } = require('../utils/answerAnnotations');
+
+const MAX_ANSWER_FILE_DATA_CHARS = 2_000_000;
+const MAX_ATTEMPT_ANSWER_DATA_CHARS = 5_000_000;
+const ANSWER_FILE_RE = /^data:(image\/(jpeg|png|webp)|application\/pdf);base64,([A-Za-z0-9+/]+={0,2})$/;
 
 const DIAGRAM_RE = /^\/uploads\/[A-Za-z0-9._-]+\.(png|jpe?g|webp|gif)$/i;
 const DIAGRAM_DATA_RE = /^data:image\/(png|jpeg|webp|gif);base64,[A-Za-z0-9+/=]+$/;
@@ -165,22 +170,27 @@ exports.joinExam = async (req, res) => {
 // কেমিস্ট্রি ডায়াগ্রাম: শিক্ষার্থীকে শুধু ছবির URL (ও আবার আঁকার SMILES) পাঠানো হয় — নাম/সমীকরণ নয়, যাতে উত্তরের ইঙ্গিত ফাঁস না হয়
 const studentDiagrams = (q) => (q.diagrams && q.diagrams.length ? q.diagrams.map((d) => ({ svg: d.svg, smiles: d.smiles || undefined, conditions: d.conditions || undefined })) : undefined);
 const resultsEnabled = (exam) => exam?.settings?.showResultInstantly !== false;
+const isShortQuestion = (question, exam) => question?.type === 'short'
+  || (exam?.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
+
+async function hasPendingShortReview(attempt, exam) {
+  const questionIds = [...new Set([
+    ...(attempt?.questionOrder || []).map(String),
+    ...(attempt?.answers || []).map((answer) => String(answer.question || '')).filter(Boolean),
+  ])];
+  const questions = await Question.find({ _id: { $in: questionIds } }).select('_id type options').lean();
+  const shortIds = new Set(questions.filter((question) => isShortQuestion(question, exam)).map((question) => String(question._id)));
+  return (attempt?.answers || []).some((answer) => {
+    if (!shortIds.has(String(answer.question))) return false;
+    const hasResponse = String(answer.answerText || '').trim().length > 0 || (answer.answerFiles || []).length > 0;
+    return hasResponse && answer.reviewed !== true;
+  });
+}
 // Keep written-answer scores private until every non-empty short answer on this
 // attempt has been reviewed. Original exam-file access uses a separate endpoint.
 async function resultsVisibleForAttempt(attempt, exam) {
   if (!resultsEnabled(exam)) return false;
-  const answers = attempt?.answers || [];
-  if (!answers.length) return true;
-  const questionIds = answers.map((answer) => answer.question).filter(Boolean);
-  const questions = await Question.find({ _id: { $in: questionIds } }).select('_id type options').lean();
-  const questionMap = new Map(questions.map((question) => [String(question._id), question]));
-  return !answers.some((answer) => {
-    const question = questionMap.get(String(answer.question));
-    const isShort = question?.type === 'short'
-      || (exam?.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
-    const hasResponse = String(answer.answerText || '').trim().length > 0 || (answer.answerFiles || []).length > 0;
-    return isShort && hasResponse && answer.reviewed !== true;
-  });
+  return !(await hasPendingShortReview(attempt, exam));
 }
 const attemptExpired = (attempt, exam, now = Date.now()) => {
   if (!exam || !attempt?.startedAt) return true;
@@ -192,13 +202,14 @@ const attemptExpired = (attempt, exam, now = Date.now()) => {
 
 function buildStudentExamPayload(exam, attempt, questions) {
   const optionOrderMap = attempt.optionOrderMap || {};
-  const safeQuestions = questions.map((q) => {
+  const byId = new Map(questions.map((q) => [String(q._id), q]));
+  const orderedQuestions = (attempt.questionOrder || []).map((id) => byId.get(String(id))).filter(Boolean);
+  const safeQuestions = orderedQuestions.map((q) => {
     const order = optionOrderMap[q._id.toString()];
     const options = order ? order.map((i) => q.options[i]) : (q.options || []);
     const imgs = q.optionImages && q.optionImages.length ? (order ? order.map((i) => q.optionImages[i] || '') : q.optionImages) : undefined;
-    const isShortQuestion = q.type === 'short'
-      || (exam.settings?.questionType === 'short' && options.length === 0);
-    return { _id: q._id, type: isShortQuestion ? 'short' : (q.type || 'mcq'), maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, questionAudio: q.questionAudio || undefined, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
+    const short = isShortQuestion(q, exam);
+    return { _id: q._id, type: short ? 'short' : (q.type || 'mcq'), maxMarks: Number(exam.settings?.marksPerQuestion) || 1, questionText: q.questionText, questionAudio: q.questionAudio || undefined, diagram: q.diagram || undefined, diagrams: studentDiagrams(q), options, optionImages: imgs };
   });
 
   // সময় ০ বা undefined হলে ডিফল্ট ১০ মিনিট দেখাবে
@@ -206,9 +217,13 @@ function buildStudentExamPayload(exam, attempt, questions) {
 
   // রিফ্রেশ/পুনরায় জয়েন করলেও আগের দেওয়া উত্তর ফেরত যাবে (লক থাকার জন্য)
   const answers = {};
+  const shortAnswers = {};
   (attempt.answers || []).forEach((a) => {
-    if (a.selectedOptionIndex === null || a.selectedOptionIndex === undefined) return;
     const qid = a.question.toString();
+    if (String(a.answerText || '').trim() || (a.answerFiles || []).length) {
+      shortAnswers[qid] = { answerText: a.answerText || '', answerFiles: a.answerFiles || [] };
+    }
+    if (a.selectedOptionIndex === null || a.selectedOptionIndex === undefined) return;
     const order = optionOrderMap[qid];
     answers[qid] = order ? order.indexOf(a.selectedOptionIndex) : a.selectedOptionIndex;
   });
@@ -220,8 +235,25 @@ function buildStudentExamPayload(exam, attempt, questions) {
     startedAt: attempt.startedAt,
     questions: safeQuestions,
     answers,
+    shortAnswers,
   };
 }
+
+exports.resumeAttempt = async (req, res) => {
+  try {
+    const attempt = await loadOwnAttempt(req, res);
+    if (!attempt) return;
+    if (attempt.status !== 'in-progress' || attempt.submittedAt) {
+      return res.status(409).json({ message: 'এই পরীক্ষা এখন আর চালু নেই' });
+    }
+    const exam = await Exam.findById(attempt.exam);
+    if (!exam) return res.status(404).json({ message: 'পরীক্ষাটি পাওয়া যায়নি' });
+    const questions = await Question.find({ _id: { $in: attempt.questionOrder } });
+    return res.json(buildStudentExamPayload(exam, attempt, questions));
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'পরীক্ষার উত্তর ফেরত আনতে সমস্যা হয়েছে' });
+  }
+};
 
 // ---------- 🔒 মালিকানা চেক: attempt-টি লগইন করা স্টুডেন্টের নিজের কিনা ----------
 const mongooseIsValidId = (id) => /^[a-f\d]{24}$/i.test(String(id || ''));
@@ -243,7 +275,7 @@ async function loadOwnAttempt(req, res) {
 // ---------- ২. উত্তর সেভ করা ----------
 exports.saveAnswer = async (req, res) => {
   try {
-    const attempt = await loadOwnAttempt(req, res);
+    let attempt = await loadOwnAttempt(req, res);
     if (!attempt) return;
     const { questionId, selectedOptionIndex, answerText, answerFiles } = req.body || {};
 
@@ -264,19 +296,51 @@ exports.saveAnswer = async (req, res) => {
 
     // অপশন ইনডেক্স: null (স্কিপ) অথবা প্রশ্নের অপশন-সংখ্যার মধ্যে একটি পূর্ণসংখ্যা
     const question = await Question.findById(qid).select('type options');
-    const isShortQuestion = question?.type === 'short'
-      || (exam.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
-    if (isShortQuestion) {
-      const text = String(answerText || '').trim().slice(0, 20000);
-      const files = Array.isArray(answerFiles) ? answerFiles.slice(0, 5).filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(String(file?.mime || '')) && String(file?.data || '').startsWith('data:') && String(file.data).length <= 14 * 1024 * 1024).map((file) => ({ name: String(file.name || 'answer').slice(0, 120), mime: String(file.mime), data: String(file.data) })) : [];
-      if (!text && !files.length) return res.status(400).json({ message: 'উত্তর লিখুন অথবা ছবি/PDF upload করুন' });
-      const existingAnswer = attempt.answers.find((a) => a.question.toString() === qid);
-      if (existingAnswer && (existingAnswer.answerText || existingAnswer.answerFiles?.length)) return res.status(409).json({ message: 'এই প্রশ্নের উত্তর ইতিমধ্যে দেওয়া হয়েছে' });
-      if (existingAnswer) { existingAnswer.answerText = text; existingAnswer.answerFiles = files; }
-      else attempt.answers.push({ question: qid, answerText: text, answerFiles: files, selectedOptionIndex: null });
-      const saved = await Attempt.findOneAndUpdate({ _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v }, { $set: { answers: attempt.answers }, $inc: { __v: 1 } }, { new: true });
-      if (!saved) return res.status(409).json({ message: 'উত্তর জমা/পরিবর্তন হয়েছে; পরীক্ষা রিফ্রেশ করে আবার চেষ্টা করুন' });
-      return res.json({ message: 'সেভ হয়েছে' });
+    const isShort = isShortQuestion(question, exam);
+    if (isShort) {
+      const text = typeof answerText === 'string' ? answerText.slice(0, 20000) : '';
+      if (Array.isArray(answerFiles) && answerFiles.length > 5) return res.status(400).json({ message: 'সর্বোচ্চ ৫টি ছবি/PDF সংযুক্ত করা যাবে' });
+      const files = [];
+      for (const file of Array.isArray(answerFiles) ? answerFiles : []) {
+        const mime = String(file?.mime || '').toLowerCase();
+        const data = String(file?.data || '');
+        const match = data.match(ANSWER_FILE_RE);
+        if (!match || match[1] !== mime || data.length > MAX_ANSWER_FILE_DATA_CHARS) {
+          return res.status(400).json({ message: 'প্রতিটি ছবি/PDF সঠিক format-এ এবং সর্বোচ্চ ১.৪ MB হতে হবে' });
+        }
+        files.push({ name: String(file.name || 'answer').slice(0, 120), mime, data });
+      }
+
+      // A blank draft is valid when clearing an existing response; it is not
+      // stored when the student has not answered this question yet.
+      if (!text.trim() && !files.length && !attempt.answers.some((a) => String(a.question) === qid)) {
+        return res.json({ message: 'সেভ হয়েছে', hasResponse: false });
+      }
+      for (let retry = 0; retry < 5; retry += 1) {
+        if (retry) attempt = await Attempt.findById(attempt._id);
+        if (!attempt || attempt.status !== 'in-progress' || attempt.submittedAt) {
+          return res.status(409).json({ message: 'পরীক্ষা জমা হয়েছে; আর উত্তর পরিবর্তন করা যাবে না' });
+        }
+        const existing = attempt.answers.find((a) => String(a.question) === qid);
+        const aggregateChars = attempt.answers.reduce((sum, answer) => sum + (String(answer.question) === qid ? 0 : (answer.answerFiles || []).reduce((n, item) => n + String(item.data || '').length, 0)), 0)
+          + files.reduce((sum, file) => sum + file.data.length, 0);
+        if (aggregateChars > MAX_ATTEMPT_ANSWER_DATA_CHARS) {
+          return res.status(413).json({ message: 'সব উত্তরের সংযুক্ত ফাইলের মোট আকার বেশি। ফাইল ছোট করুন বা কম ফাইল দিন।' });
+        }
+        if (existing) {
+          existing.answerText = text;
+          existing.answerFiles = files;
+        } else {
+          attempt.answers.push({ question: qid, answerText: text, answerFiles: files, selectedOptionIndex: null });
+        }
+        const saved = await Attempt.findOneAndUpdate(
+          { _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v },
+          { $set: { answers: attempt.answers }, $inc: { __v: 1 } },
+          { new: true }
+        );
+        if (saved) return res.json({ message: 'সেভ হয়েছে', hasResponse: !!(text.trim() || files.length) });
+      }
+      return res.status(409).json({ message: 'একসাথে অনেক উত্তর সেভ হচ্ছে; আবার চেষ্টা করুন' });
     }
     const optCount = question?.options?.length || 0;
     const isNull = selectedOptionIndex === null || selectedOptionIndex === undefined;
@@ -290,27 +354,25 @@ exports.saveAnswer = async (req, res) => {
       return res.status(400).json({ message: 'অপশন সঠিক নয়' });
     }
 
-    const existingAnswer = attempt.answers.find((a) => a.question.toString() === qid);
-    // 🔒 একবার উত্তর দিলে আর বদলানো যাবে না
-    if (
-      existingAnswer &&
-      existingAnswer.selectedOptionIndex !== null &&
-      existingAnswer.selectedOptionIndex !== undefined
-    ) {
-      return res.status(409).json({ message: 'এই প্রশ্নের উত্তর ইতিমধ্যে দেওয়া হয়েছে, আর পরিবর্তন করা যাবে না' });
+    for (let retry = 0; retry < 5; retry += 1) {
+      if (retry) attempt = await Attempt.findById(attempt._id);
+      if (!attempt || attempt.status !== 'in-progress' || attempt.submittedAt) {
+        return res.status(409).json({ message: 'পরীক্ষা জমা হয়েছে; আর উত্তর দেওয়া যাবে না' });
+      }
+      const existingAnswer = attempt.answers.find((a) => String(a.question) === qid);
+      if (existingAnswer?.selectedOptionIndex !== null && existingAnswer?.selectedOptionIndex !== undefined) {
+        return res.status(409).json({ message: 'এই প্রশ্নের উত্তর ইতিমধ্যে দেওয়া হয়েছে, আর পরিবর্তন করা যাবে না' });
+      }
+      if (existingAnswer) existingAnswer.selectedOptionIndex = originalIndex;
+      else attempt.answers.push({ question: qid, selectedOptionIndex: originalIndex });
+      const saved = await Attempt.findOneAndUpdate(
+        { _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v },
+        { $set: { answers: attempt.answers }, $inc: { __v: 1 } },
+        { new: true }
+      );
+      if (saved) return res.json({ message: 'সেভ হয়েছে' });
     }
-    if (existingAnswer) {
-      existingAnswer.selectedOptionIndex = originalIndex;
-    } else {
-      attempt.answers.push({ question: qid, selectedOptionIndex: originalIndex });
-    }
-    const saved = await Attempt.findOneAndUpdate(
-      { _id: attempt._id, status: 'in-progress', submittedAt: { $exists: false }, __v: attempt.__v },
-      { $set: { answers: attempt.answers }, $inc: { __v: 1 } },
-      { new: true }
-    );
-    if (!saved) return res.status(409).json({ message: 'উত্তর জমা/পরিবর্তন হয়েছে; পরীক্ষা রিফ্রেশ করে আবার চেষ্টা করুন' });
-    res.json({ message: 'সেভ হয়েছে' });
+    return res.status(409).json({ message: 'একসাথে অনেক উত্তর সেভ হচ্ছে; আবার চেষ্টা করুন' });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -349,7 +411,7 @@ exports.submitAttempt = async (req, res) => {
     const qMap = {};
     questions.forEach((q) => (qMap[q._id.toString()] = q));
 
-    let correct = 0, wrong = 0, shortMarks = 0;
+    let correct = 0, wrong = 0, skipped = 0, shortMarks = 0;
     const marksPerQ = exam.settings?.marksPerQuestion || 1;
     const negEnabled = exam.settings?.negativeMarking?.enabled || false;
     const negMarks = exam.settings?.negativeMarking?.marksPerWrong || 0;
@@ -361,12 +423,13 @@ exports.submitAttempt = async (req, res) => {
         || (exam.settings?.questionType === 'short' && (!Array.isArray(q?.options) || q.options.length === 0));
       if (isShortQuestion) {
         if (!ans || (!String(ans.answerText || '').trim() && !ans.answerFiles?.length)) {
+          skipped += 1;
           return;
         }
         if (Number.isFinite(Number(ans.marksAwarded))) shortMarks += Math.max(0, Number(ans.marksAwarded));
         return;
       }
-      if (!ans || ans.selectedOptionIndex === null || ans.selectedOptionIndex === undefined) return;
+      if (!ans || ans.selectedOptionIndex === null || ans.selectedOptionIndex === undefined) { skipped += 1; return; }
       // A question may have been deleted after this attempt started. It is no
       // longer gradable and must not accidentally count as a correct answer.
       if (!q) {
@@ -381,7 +444,6 @@ exports.submitAttempt = async (req, res) => {
     });
 
     const totalQ = attempt.questionOrder.length;
-    const skipped = totalQ - correct - wrong;
     const obtainedMarks = correct * marksPerQ + shortMarks - (negEnabled ? wrong * negMarks : 0);
 
     attempt.totalCorrect = correct;
@@ -426,6 +488,7 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
     showLeaderboard: !!exam?.settings?.showLeaderboard,
     submittedAt: attempt.submittedAt,
     resource,
+    reviewPending: !showInstantly && resultsEnabled(exam) ? await hasPendingShortReview(attempt, exam) : false,
   };
 
   // Keep the submit response useful while withholding all scored result
@@ -438,6 +501,19 @@ async function buildResultPayload(attempt, exam, showInstantly = true) {
   }
   return payload;
 }
+
+exports.getAttemptResult = async (req, res) => {
+  try {
+    const attempt = await loadOwnAttempt(req, res);
+    if (!attempt) return;
+    if (attempt.status !== 'submitted') return res.status(400).json({ message: 'পরীক্ষা এখনো জমা হয়নি' });
+    const exam = await Exam.findById(attempt.exam);
+    if (!exam) return res.status(404).json({ message: 'পরীক্ষাটি পাওয়া যায়নি' });
+    return res.json(await buildResultPayload(attempt, exam, await resultsVisibleForAttempt(attempt, exam)));
+  } catch (err) {
+    return res.status(500).json({ message: err.message || 'ফলাফল আনতে সমস্যা হয়েছে' });
+  }
+};
 
 // ---------- ৪. Result PDF ডাউনলোড ----------
 exports.downloadResultPdf = async (req, res) => {
@@ -483,11 +559,8 @@ exports.downloadResultPdf = async (req, res) => {
         W(`${idx + 1}. প্রশ্নটি আর পাওয়া যাচ্ছে না`, 11);
         return;
       }
-      const correctLetter = String.fromCharCode(65 + q.correctOptionIndex);
-      const studentLetter =
-        ans && ans.selectedOptionIndex !== null && ans.selectedOptionIndex !== undefined
-          ? String.fromCharCode(65 + ans.selectedOptionIndex)
-          : 'স্কিপ';
+      const short = isShortQuestion(q, exam);
+      const hasResponse = !!(String(ans?.answerText || '').trim() || ans?.answerFiles?.length);
 
       doc.moveDown(0.5);
       W(`${idx + 1}. ${q.questionText}`, 11);
@@ -501,7 +574,7 @@ exports.downloadResultPdf = async (req, res) => {
           doc.x = doc.page.margins.left;
         } catch { /* ছবি না বসলে লেখা PDF চলবে */ }
       }
-      q.options.forEach((opt, i) => {
+      (short ? [] : (Array.isArray(q.options) ? q.options : [])).forEach((opt, i) => {
         W(`   ${String.fromCharCode(65 + i)}. ${opt}`, 10);
         const optionImage = imageSource(q.optionImages?.[i]);
         if (optionImage) {
@@ -514,9 +587,33 @@ exports.downloadResultPdf = async (req, res) => {
           } catch { /* ছবি না বসলে লেখা PDF চলবে */ }
         }
       });
-      doc.fillColor(ans?.isCorrect ? 'green' : 'red');
-      W(`   তোমার উত্তর: ${studentLetter}  |  সঠিক উত্তর: ${correctLetter}`, 10);
-      doc.fillColor('black');
+      if (short) {
+        doc.fillColor('black');
+        W(`   তোমার উত্তর: ${hasResponse ? (ans.answerText || 'ফাইল সংযুক্ত') : 'স্কিপ'}`, 10);
+        if (ans?.marksAwarded !== null && ans?.marksAwarded !== undefined) W(`   প্রাপ্ত নম্বর: ${ans.marksAwarded}`, 10);
+        (ans?.answerFiles || []).forEach((file) => {
+          W(`   সংযুক্ত উত্তর: ${file.name || 'ফাইল'}`, 9);
+          if (String(file.mime || '').startsWith('image/')) {
+            const match = String(file.data || '').match(ANSWER_FILE_RE);
+            if (match) {
+              try {
+                if (doc.y + 180 > doc.page.height - doc.page.margins.bottom) doc.addPage();
+                const y = doc.y;
+                doc.image(Buffer.from(match[3], 'base64'), doc.page.margins.left + 12, y, { fit: [300, 170] });
+                doc.y = y + 176;
+                doc.x = doc.page.margins.left;
+              } catch { /* invalid image bytes do not break the result PDF */ }
+            }
+          }
+        });
+      } else {
+        const correctLetter = Number.isInteger(q.correctOptionIndex) ? String.fromCharCode(65 + q.correctOptionIndex) : '—';
+        const studentLetter = ans && ans.selectedOptionIndex !== null && ans.selectedOptionIndex !== undefined
+          ? String.fromCharCode(65 + ans.selectedOptionIndex) : 'স্কিপ';
+        doc.fillColor(ans?.isCorrect ? 'green' : 'red');
+        W(`   তোমার উত্তর: ${studentLetter}  |  সঠিক উত্তর: ${correctLetter}`, 10);
+        doc.fillColor('black');
+      }
       if (q.explanation) {
         W(`   ব্যাখ্যা: ${q.explanation}`, 9.5);
       }
@@ -614,6 +711,8 @@ exports.getAttemptReview = async (req, res) => {
           ? ans.selectedOptionIndex
           : null;
 
+      const short = isShortQuestion(q, exam);
+      const hasResponse = !!(String(ans?.answerText || '').trim() || ans?.answerFiles?.length);
       return {
         serial: idx + 1,
         questionText: q.questionText,
@@ -627,8 +726,11 @@ exports.getAttemptReview = async (req, res) => {
         selectedOptionIndex,
         answerText: ans?.answerText || '',
         answerFiles: ans?.answerFiles || [],
-        marksAwarded: Number.isFinite(Number(ans?.marksAwarded)) ? Number(ans.marksAwarded) : null,
-        status: selectedOptionIndex === null ? 'skipped' : ans.isCorrect ? 'correct' : 'wrong',
+        annotations: ans?.annotations || {},
+        marksAwarded: ans?.marksAwarded !== null && ans?.marksAwarded !== undefined && Number.isFinite(Number(ans.marksAwarded)) ? Number(ans.marksAwarded) : null,
+        gradingRubric: short ? q.gradingRubric || '' : '',
+        gradingRubricAudio: short ? q.gradingRubricAudio || '' : '',
+        status: short ? (hasResponse ? 'answered' : 'skipped') : selectedOptionIndex === null ? 'skipped' : ans.isCorrect ? 'correct' : 'wrong',
         explanation: q.explanation || null,
         explanationMedia: q.explanationMedia || [],
       };
@@ -660,6 +762,7 @@ exports.getMyAttempts = async (req, res) => {
 
     const result = await Promise.all(attempts.map(async (a) => {
       const exam = examMap[a.exam.toString()] || {};
+      const reviewPending = resultsEnabled(exam) ? await hasPendingShortReview(a, exam) : false;
       const payload = {
         attemptId: a._id,
         examId: a.exam,
@@ -667,7 +770,8 @@ exports.getMyAttempts = async (req, res) => {
         examCode: exam.examCode || '',
         examStatus: exam.status || null,
         allowRepetition: !!exam.settings?.allowRepetition,
-        showResultInstantly: await resultsVisibleForAttempt(a, exam),
+        showResultInstantly: resultsEnabled(exam) && !reviewPending,
+        reviewPending,
         showLeaderboard: !!exam.settings?.showLeaderboard,
         totalQuestions: a.questionOrder?.length || 0,
         submittedAt: a.submittedAt,

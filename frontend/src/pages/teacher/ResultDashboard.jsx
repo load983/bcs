@@ -8,6 +8,8 @@ import axiosClient from '../../api/axiosClient';
 import { useLanguage } from '../../context/LanguageContext';
 import useTeacherFeatures from '../../hooks/useTeacherFeatures';
 import FeedbackMediaItem from '../../components/FeedbackMediaItem';
+import QuestionAudioField from '../../components/QuestionAudioField';
+import AnswerImageAnnotation from '../../components/AnswerImageAnnotation';
 
 const FEEDBACK_MEDIA_TYPES = new Set([
   'image/jpeg', 'image/png', 'image/webp', 'image/gif',
@@ -78,6 +80,9 @@ export default function ResultDashboard() {
   const [reviewAttempt, setReviewAttempt] = useState(null);
   const [reviewMarks, setReviewMarks] = useState({});
   const [reviewRubrics, setReviewRubrics] = useState({});
+  const [reviewRubricAudios, setReviewRubricAudios] = useState({});
+  const [reviewAnnotations, setReviewAnnotations] = useState({});
+  const [reviewSaveMessage, setReviewSaveMessage] = useState('');
   const [suggestionReasons, setSuggestionReasons] = useState({});
   const [suggesting, setSuggesting] = useState(false);
   const [bulkMark, setBulkMark] = useState('');
@@ -156,9 +161,22 @@ export default function ResultDashboard() {
       setReviewAttempt(data);
       const initial = {};
       const rubrics = {};
-      (data.answers || []).forEach((a) => { if (a.question?.type === 'short') { initial[a.question._id] = a.marksAwarded ?? ''; rubrics[a.question._id] = a.question.gradingRubric || ''; } });
+      const rubricAudios = {};
+      const annotations = {};
+      (data.answers || []).forEach((a) => {
+        if (a.question && (a.question.type === 'short' || !a.question.options?.length)) {
+          const qid = a.question._id;
+          initial[qid] = a.marksAwarded ?? '';
+          rubrics[qid] = a.question.gradingRubric || '';
+          rubricAudios[qid] = a.question.gradingRubricAudio || '';
+          annotations[qid] = a.annotations || {};
+        }
+      });
       setReviewMarks(initial);
       setReviewRubrics(rubrics);
+      setReviewRubricAudios(rubricAudios);
+      setReviewAnnotations(annotations);
+      setReviewSaveMessage('');
       setSuggestionReasons({});
       setReviewFeedback(data.teacherFeedback || '');
       setReviewFeedbackMedia(data.teacherFeedbackMedia || []);
@@ -202,9 +220,16 @@ export default function ResultDashboard() {
     if (!reviewAttempt) return;
     setReviewBusy(true);
     try {
-      await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, { marks: reviewMarks, rubrics: reviewRubrics, feedback: reviewFeedback, feedbackMedia: reviewFeedbackMedia });
-      setReviewAttempt(null);
+      const { data } = await axiosClient.patch(`/exams/attempts/${reviewAttempt._id}/short-answers`, {
+        marks: reviewMarks, rubrics: reviewRubrics, rubricAudios: reviewRubricAudios,
+        annotations: reviewAnnotations, feedback: reviewFeedback, feedbackMedia: reviewFeedbackMedia,
+      });
       dispatch(fetchExamResults(id));
+      if (data.reviewProgress?.total > data.reviewProgress?.reviewed) {
+        setReviewSaveMessage(`${data.reviewProgress.reviewed}/${data.reviewProgress.total}টি উত্তর review হয়েছে। ফল প্রকাশের জন্য বাকি উত্তরগুলোর নম্বরও দিন।`);
+      } else {
+        setReviewAttempt(null);
+      }
     } catch (err) { window.alert(err.response?.data?.message || 'Marks save করা যায়নি'); }
     finally { setReviewBusy(false); }
   };
@@ -230,7 +255,7 @@ export default function ResultDashboard() {
   };
   const reviewAnswers = reviewAttempt
     ? (reviewAttempt.answers || [])
-      .filter((a) => a.question?.type === 'short')
+      .filter((a) => a.question && (a.question.type === 'short' || !a.question.options?.length))
       .sort((a, b) => (Number(a.question?.order) || 0) - (Number(b.question?.order) || 0))
     : [];
   const shortMax = Number(currentExam?.settings?.marksPerQuestion) || 1;
@@ -373,6 +398,8 @@ export default function ResultDashboard() {
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm"><span className="rounded-lg bg-white px-3 py-2 font-semibold text-primary-700 shadow-sm dark:bg-white/10 dark:text-primary-200">{reviewAnswers.length} questions</span><span className="rounded-lg bg-white px-3 py-2 font-semibold text-emerald-700 shadow-sm dark:bg-white/10 dark:text-emerald-300">Marks given: {reviewedTotal} / {reviewAnswers.length * shortMax}</span></div>
         </div>
         <div className="space-y-4 p-5">
+          {reviewSaveMessage && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">{reviewSaveMessage}</p>}
+          {currentExam?.settings?.showResultInstantly === false && <p className="rounded-xl bg-blue-50 p-3 text-sm text-blue-800 dark:bg-blue-500/10 dark:text-blue-200">নম্বর review/save হবে, তবে “Show result instantly” বন্ধ থাকলে শিক্ষার্থীদের result ও review প্রকাশ হবে না।</p>}
           {reviewAnswers.length === 0 ? <p className="rounded-xl bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">এই শিক্ষার্থী কোনো Short Question উত্তর জমা দেয়নি।</p> : <>
             <div className="flex flex-wrap items-end gap-3 rounded-xl bg-gray-50 p-3 dark:bg-white/5">
               <label className="text-sm font-medium dark:text-gray-200">একই নম্বর সবার জন্য<input className="input mt-1 w-32" type="number" min="0" max={shortMax} step="0.01" value={bulkMark} onChange={(e) => setBulkMark(e.target.value)} placeholder={`0–${shortMax}`} /></label>
@@ -384,8 +411,8 @@ export default function ResultDashboard() {
               const qid = a.question._id;
               return <article key={qid} className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-white/[0.03]">
                 <div className="flex flex-wrap items-start justify-between gap-3"><div className="flex gap-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-100 text-sm font-bold text-primary-700 dark:bg-primary-500/20 dark:text-primary-200">{index + 1}</span><p className="pt-1 font-semibold leading-relaxed dark:text-white">{a.question.questionText}</p></div><span className="rounded-md bg-gray-100 px-2 py-1 text-xs text-gray-600 dark:bg-white/10 dark:text-gray-300">পূর্ণমান: {shortMax}</span></div>
-                <div className="ml-11 mt-4"><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">MARKING RUBRIC / KEY POINTS<textarea className="input mt-1 min-h-16 w-full bg-gray-50 dark:bg-gray-900" maxLength={3000} value={reviewRubrics[qid] || ''} onChange={(e) => setReviewRubrics((items) => ({ ...items, [qid]: e.target.value }))} placeholder="কোন মূল ধারণা থাকলে কত নম্বর দিতে হবে? (optional)" /></label></div>
-                <div className="ml-11 mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-4 dark:border-white/15 dark:bg-black/10"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Student answer</p><p className="whitespace-pre-wrap break-words text-sm leading-7 dark:text-gray-200">{a.answerText || 'কোনো লিখিত উত্তর নেই'}</p>{a.answerFiles?.length > 0 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{a.answerFiles.map((file, i) => <ShortAnswerFile key={`${file.name}-${i}`} file={file} index={i} />)}</div>}</div>
+                <div className="ml-11 mt-4 space-y-3"><label className="block text-xs font-semibold text-gray-500 dark:text-gray-400">MARKING RUBRIC / KEY POINTS<textarea className="input mt-1 min-h-16 w-full bg-gray-50 dark:bg-gray-900" maxLength={3000} value={reviewRubrics[qid] || ''} onChange={(e) => setReviewRubrics((items) => ({ ...items, [qid]: e.target.value }))} placeholder="কোন মূল ধারণা থাকলে কত নম্বর দিতে হবে? (optional)" /></label><QuestionAudioField label="Key points-এর voice note" value={reviewRubricAudios[qid] || ''} onChange={(audio) => setReviewRubricAudios((items) => ({ ...items, [qid]: audio }))} /></div>
+                <div className="ml-11 mt-4 rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-4 dark:border-white/15 dark:bg-black/10"><p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Student answer</p><p className="whitespace-pre-wrap break-words text-sm leading-7 dark:text-gray-200">{a.answerText || 'কোনো লিখিত উত্তর নেই'}</p>{a.answerFiles?.length > 0 && <div className="mt-4 grid gap-3 sm:grid-cols-2">{a.answerFiles.map((file, i) => file.mime?.startsWith('image/') ? <div key={`${file.name}-${i}`} className="min-w-0 rounded-xl border border-gray-200 bg-white p-2 dark:border-white/10 dark:bg-gray-900"><AnswerImageAnnotation src={file.data} name={file.name} strokes={reviewAnnotations[qid]?.[String(i)] || []} onChange={(strokes) => setReviewAnnotations((all) => ({ ...all, [qid]: { ...(all[qid] || {}), [String(i)]: strokes } }))} /></div> : <ShortAnswerFile key={`${file.name}-${i}`} file={file} index={i} />)}</div>}</div>
                 <div className="ml-11 mt-4 flex flex-wrap items-center justify-between gap-3"><label className="flex items-center gap-2 text-sm font-semibold dark:text-gray-200">প্রাপ্ত নম্বর <input type="number" min="0" max={shortMax} step="0.01" className="input w-28" placeholder="0" value={reviewMarks[qid] ?? ''} onChange={(e) => setReviewMarks((m) => ({ ...m, [qid]: e.target.value }))} /></label>{suggestionReasons[qid] ? <span className="text-xs text-violet-700 dark:text-violet-300">AI প্রস্তাব: {suggestionReasons[qid]}</span> : <span className="text-xs text-gray-500 dark:text-gray-400">এই প্রশ্নের নম্বর লিখুন</span>}</div>
               </article>;
             })}

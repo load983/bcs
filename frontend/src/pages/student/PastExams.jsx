@@ -10,6 +10,8 @@ import MathText from '../../components/MathText';
 import ExamFeedbackForm from '../../components/ExamFeedbackForm';
 import PdfPreviewModal from '../../components/PdfPreviewModal';
 import { downloadBlob, fetchFileBlob } from '../../utils/download';
+import ShortAnswerReview from '../../components/ShortAnswerReview';
+import FeedbackMediaItem from '../../components/FeedbackMediaItem';
 
 export default function PastExams() {
   const { t } = useLanguage();
@@ -38,6 +40,14 @@ export default function PastExams() {
       .finally(() => setLoading(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStudent]);
+
+  useEffect(() => {
+    if (!isStudent || !attempts.some((attempt) => attempt.reviewPending)) return undefined;
+    const timer = window.setInterval(() => {
+      axiosClient.get('/attempts/my').then(({ data }) => setAttempts(Array.isArray(data) ? data : [])).catch(() => {});
+    }, 15000);
+    return () => window.clearInterval(timer);
+  }, [attempts, isStudent]);
 
   const handleToggleDetails = async (attemptId) => {
     if (expandedId === attemptId) {
@@ -189,7 +199,10 @@ export default function PastExams() {
                       ) : review?.error ? (
                         <p className="text-center text-sm text-red-500">{t('pastExams.loadFailed')}</p>
                       ) : (
-                        review?.items?.map((item) => <ReviewItem key={item.serial} item={item} t={t} />)
+                        <>
+                          {(review?.teacherFeedback || review?.teacherFeedbackMedia?.length > 0) && <div className="rounded-xl bg-primary-50 p-3 dark:bg-primary-500/10"><p className="font-semibold dark:text-white">শিক্ষকের feedback</p>{review.teacherFeedback && <p className="mt-1 whitespace-pre-wrap text-sm dark:text-gray-200">{review.teacherFeedback}</p>}{!!review.teacherFeedbackMedia?.length && <div className="mt-3 grid gap-3 sm:grid-cols-2">{review.teacherFeedbackMedia.map((item, index) => <FeedbackMediaItem key={`${item.name}-${index}`} item={item} />)}</div>}</div>}
+                          {review?.items?.map((item) => <ReviewItem key={item.serial} item={item} t={t} />)}
+                        </>
                       )}
                     </div>
                   )}
@@ -221,10 +234,12 @@ function ReviewItem({ item, t }) {
       ? { text: t('common.correct'), cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400' }
       : item.status === 'wrong'
       ? { text: t('common.wrong'), cls: 'bg-red-100 text-red-700 dark:bg-red-500/10 dark:text-red-400' }
+      : item.status === 'answered'
+      ? { text: 'উত্তর জমা হয়েছে', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300' }
       : { text: t('common.skipped'), cls: 'bg-gray-200 text-gray-600 dark:bg-white/10 dark:text-gray-300' };
 
   const borderColor =
-    item.status === 'correct' ? 'border-emerald-500' : item.status === 'wrong' ? 'border-red-500' : 'border-gray-300 dark:border-white/10';
+    item.status === 'correct' ? 'border-emerald-500' : item.status === 'wrong' ? 'border-red-500' : item.status === 'answered' ? 'border-blue-500' : 'border-gray-300 dark:border-white/10';
 
   return (
     <div className={`rounded-xl border-l-4 bg-gray-50 p-4 dark:bg-white/5 ${borderColor}`}>
@@ -247,11 +262,7 @@ function ReviewItem({ item, t }) {
             </div>
           );
         })}
-        {options.length === 0 && (item.answerText || item.answerFiles?.length > 0) && (
-          <div className="rounded-lg border border-dashed border-gray-300 px-3 py-2 text-sm dark:border-white/10 dark:text-gray-200">
-            <strong>{t('result.yourAnswer')}:</strong> {item.answerText || 'ফাইল সংযুক্ত করা হয়েছে'}
-          </div>
-        )}
+        {options.length === 0 && <ShortAnswerReview item={item} />}
       </div>
       {item.explanation && (
         <div className="mt-2 rounded-lg bg-primary-50 p-2.5 text-sm dark:bg-primary-500/10 dark:text-gray-100">

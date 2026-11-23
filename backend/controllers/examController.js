@@ -8,6 +8,7 @@ const Question = require('../models/Question');
 const Attempt = require('../models/Attempt');
 const { validateTeacherFeedbackMedia } = require('../utils/teacherFeedbackMedia');
 const { validateExplanationMedia } = require('../utils/explanationMedia');
+const { validateAnswerAnnotations } = require('../utils/answerAnnotations');
 const { getAiConfig } = require('../utils/aiConfig');
 const { callModel } = require('../utils/aiProvider');
 const User = require('../models/User');
@@ -23,6 +24,8 @@ const Announcement = require('../models/Announcement');
 
 // 8 অক্ষরের ইউনিক এক্সাম কোড তৈরি করার হেলপার ফাংশন
 const generateExamCode = () => crypto.randomBytes(4).toString('hex');
+const isShortQuestion = (question, exam) => question?.type === 'short'
+  || (exam?.settings?.questionType === 'short' && (!Array.isArray(question?.options) || question.options.length === 0));
 
 // হেলপার ফাংশন: সেফলি ফাইল ডিলিট করার জন্য
 const safeDeleteFile = (filePath) => {
@@ -845,8 +848,8 @@ exports.getExamResults = async (req, res) => {
     }
 
     const attempts = await Attempt.find({ exam: exam._id, status: 'submitted' }).select('-teacherFeedbackMedia').sort({ obtainedMarks: -1 }).lean();
-    const questions = await Question.find({ exam: exam._id }).select('_id type').lean();
-    const shortIds = new Set(questions.filter((question) => question.type === 'short').map((question) => String(question._id)));
+    const questions = await Question.find({ exam: exam._id }).select('_id type options').lean();
+    const shortIds = new Set(questions.filter((question) => isShortQuestion(question, exam)).map((question) => String(question._id)));
     const withProgress = attempts.map((attempt) => {
       const shortAnswers = (attempt.answers || []).filter((answer) => shortIds.has(String(answer.question))
         && (String(answer.answerText || '').trim() || (answer.answerFiles || []).length));
@@ -883,7 +886,7 @@ exports.suggestShortAnswerMarks = async (req, res) => {
     const cfg = await getAiConfig();
     if (!cfg.enabled || !cfg.apiKey) return res.status(503).json({ message: 'AI grading চালু নেই বা AI key সেট করা হয়নি' });
     const maxMarks = Number(exam.settings?.marksPerQuestion) || 1;
-    const answers = (attempt.answers || []).filter((answer) => answer.question?.type === 'short' && String(answer.answerText || '').trim())
+    const answers = (attempt.answers || []).filter((answer) => isShortQuestion(answer.question, exam) && String(answer.answerText || '').trim())
       .slice(0, 40).map((answer) => ({
         questionId: String(answer.question._id),
         question: String(answer.question.questionText || '').slice(0, 2000),
@@ -920,15 +923,25 @@ exports.gradeShortAnswers = async (req, res) => {
     const exam = await Exam.findById(attempt.exam);
     if (!exam || exam.teacher.toString() !== req.user.id) return res.status(403).json({ message: 'অনুমতি নেই' });
     const questions = await Question.find({ exam: exam._id }).select('type options _id');
-    const shortIds = new Set(questions.filter((q) => q.type === 'short'
-      || (exam.settings?.questionType === 'short' && (!Array.isArray(q.options) || q.options.length === 0)))
-      .map((q) => String(q._id)));
+    const shortIds = new Set(questions.filter((q) => isShortQuestion(q, exam)).map((q) => String(q._id)));
     const marks = req.body?.marks && typeof req.body.marks === 'object' ? req.body.marks : {};
     const rubrics = req.body?.rubrics && typeof req.body.rubrics === 'object' ? req.body.rubrics : {};
-    for (const [questionId, rubric] of Object.entries(rubrics)) {
-      if (shortIds.has(String(questionId)) && typeof rubric === 'string') {
-        await Question.updateOne({ _id: questionId, exam: exam._id }, { $set: { gradingRubric: rubric.slice(0, 3000) } });
+    const rubricAudios = req.body?.rubricAudios && typeof req.body.rubricAudios === 'object' ? req.body.rubricAudios : {};
+    const annotationsInput = req.body?.annotations && typeof req.body.annotations === 'object' ? req.body.annotations : {};
+    const questionUpdates = new Map();
+    for (const questionId of new Set([...Object.keys(rubrics), ...Object.keys(rubricAudios)])) {
+      if (!shortIds.has(String(questionId))) return res.status(400).json({ message: 'রুব্রিকের প্রশ্ন সঠিক নয়' });
+      const update = {};
+      if (Object.prototype.hasOwnProperty.call(rubrics, questionId)) {
+        if (typeof rubrics[questionId] !== 'string') return res.status(400).json({ message: 'রুব্রিকের লেখা সঠিক নয়' });
+        update.gradingRubric = rubrics[questionId].slice(0, 3000);
       }
+      if (Object.prototype.hasOwnProperty.call(rubricAudios, questionId)) {
+        const audio = cleanQuestionAudio(rubricAudios[questionId]);
+        if (audio === undefined) return res.status(400).json({ message: 'রুব্রিকের voice note সঠিক নয় বা ১.৮ MB সীমা ছাড়িয়েছে' });
+        update.gradingRubricAudio = audio;
+      }
+      questionUpdates.set(String(questionId), update);
     }
     if (Object.prototype.hasOwnProperty.call(req.body || {}, 'feedback')) {
       attempt.teacherFeedback = String(req.body.feedback || '').trim().slice(0, 5000);
@@ -938,23 +951,41 @@ exports.gradeShortAnswers = async (req, res) => {
       if (!validated.ok) return res.status(400).json({ message: validated.message });
       attempt.teacherFeedbackMedia = validated.media;
     }
+    const answerByQuestion = new Map((attempt.answers || []).map((answer) => [String(answer.question), answer]));
+    for (const [questionId, rawAnnotations] of Object.entries(annotationsInput)) {
+      if (!shortIds.has(String(questionId))) return res.status(400).json({ message: 'Annotation-এর প্রশ্ন সঠিক নয়' });
+      const answer = answerByQuestion.get(String(questionId));
+      const checked = validateAnswerAnnotations(rawAnnotations, answer?.answerFiles?.length || 0);
+      if (!checked.ok) return res.status(400).json({ message: checked.message });
+      for (const fileIndex of Object.keys(checked.annotations)) {
+        if (!String(answer.answerFiles[Number(fileIndex)]?.mime || '').startsWith('image/')) {
+          return res.status(400).json({ message: 'শুধু student-এর answer image-এ আঁকা যাবে' });
+        }
+      }
+      if (answer) answer.annotations = checked.annotations;
+    }
     const max = Number(exam.settings?.marksPerQuestion) || 1;
-    attempt.answers.forEach((answer) => {
+    for (const answer of attempt.answers) {
       const id = String(answer.question);
-      if (!shortIds.has(id) || marks[id] === undefined) return;
+      if (!shortIds.has(id) || marks[id] === undefined || marks[id] === '') continue;
       const value = Number(marks[id]);
-      if (!Number.isFinite(value) || value < 0 || value > max) return;
+      if (!Number.isFinite(value) || value < 0 || value > max) return res.status(400).json({ message: `প্রশ্নের নম্বর ০ থেকে ${max}-এর মধ্যে দিন` });
       answer.marksAwarded = Math.round(value * 100) / 100;
       answer.reviewed = true;
-    });
+    }
+    for (const [questionId, update] of questionUpdates) {
+      await Question.updateOne({ _id: questionId, exam: exam._id }, { $set: update });
+    }
     const shortMarks = attempt.answers.reduce((sum, answer) => sum + (Number(answer.marksAwarded) || 0), 0);
     const mcqMarks = (Number(attempt.totalCorrect) || 0) * max;
     const negative = exam.settings?.negativeMarking?.enabled ? (Number(attempt.totalWrong) || 0) * (Number(exam.settings?.negativeMarking?.marksPerWrong) || 0) : 0;
     attempt.obtainedMarks = Math.round((mcqMarks + shortMarks - negative) * 100) / 100;
     await attempt.save();
+    const responseShortAnswers = (attempt.answers || []).filter((answer) => shortIds.has(String(answer.question))
+      && (String(answer.answerText || '').trim() || (answer.answerFiles || []).length));
     const responseAttempt = attempt.toObject();
     delete responseAttempt.teacherFeedbackMedia;
-    res.json({ message: 'Short question-এর নম্বর সংরক্ষিত হয়েছে', attempt: responseAttempt });
+    res.json({ message: 'Short question-এর নম্বর সংরক্ষিত হয়েছে', attempt: responseAttempt, reviewProgress: { total: responseShortAnswers.length, reviewed: responseShortAnswers.filter((answer) => answer.reviewed).length } });
   } catch (err) { res.status(500).json({ message: err.message }); }
 };
 

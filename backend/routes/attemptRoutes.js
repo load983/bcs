@@ -15,6 +15,8 @@ router.get('/my', protect, authorize('student'), ctrl.getMyAttempts);
 router.get('/leaderboard/:examId', protect, authorize('student'), ctrl.getLeaderboard);
 // 🔒 নিচের সবগুলোতে স্টুডেন্ট লগইন লাগবে এবং attempt-টি অবশ্যই তার নিজের হতে হবে (কন্ট্রোলারে মালিকানা চেক হয়)
 const own = [protect, authorize('student')];
+router.get('/:attemptId/resume', ...own, ctrl.resumeAttempt);
+router.get('/:attemptId/result', ...own, ctrl.getAttemptResult);
 router.put('/:attemptId/answer', ...own, ctrl.saveAnswer);
 router.post('/:attemptId/submit', ...own, ctrl.submitAttempt);
 router.get('/:attemptId/download-pdf', ...own, ctrl.downloadResultPdf);
