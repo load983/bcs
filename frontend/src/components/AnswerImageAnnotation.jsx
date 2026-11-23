@@ -4,6 +4,7 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   const imageRef = useRef(null);
   const activeRef = useRef(false);
   const drawingRef = useRef(null);
+  const panRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [drawing, setDrawing] = useState(null);
   const [color, setColor] = useState('#e11d48');
@@ -12,7 +13,7 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
   const [pan, setPan] = useState({ x: 0, y: 0 });
-  const panRef = useRef(null);
+  const [zoomDrawing, setZoomDrawing] = useState(false);
 
   const pointFromEvent = (event) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -53,6 +54,19 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   };
   const renderedStrokes = drawing ? [...(strokes || []), drawing] : (strokes || []);
   const hasDimensions = dimensions.width > 0 && dimensions.height > 0;
+  const undo = () => onChange?.((strokes || []).slice(0, -1));
+  const clear = () => onChange?.([]);
+  const openZoom = () => {
+    setZoomScale(1);
+    setPan({ x: 0, y: 0 });
+    setZoomDrawing(false);
+    setShowZoom(true);
+  };
+  const closeZoom = () => {
+    setZoomDrawing(false);
+    panRef.current = null;
+    setShowZoom(false);
+  };
 
   return (
     <div className="min-w-0">
@@ -60,10 +74,10 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
         <span className="text-xs font-medium text-gray-600 dark:text-gray-300">ছবিতে আঁকুন</span>
         <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">রং<input aria-label="আঁকার রং" type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-8 w-9 cursor-pointer rounded border-0 bg-transparent p-0" /></label>
         <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">✏️ ঘনত্ব<input aria-label="কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-24 accent-primary-600" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label>
-        <button type="button" className="rounded-lg border px-2 py-1 text-xs dark:border-white/15 dark:text-gray-200" disabled={!strokes?.length} onClick={() => onChange?.((strokes || []).slice(0, -1))}>Undo</button>
-        <button type="button" className="rounded-lg border px-2 py-1 text-xs text-red-600 dark:border-white/15" disabled={!strokes?.length} onClick={() => onChange?.([])}>সব মুছুন</button>
+        <button type="button" className="rounded-lg border px-2 py-1 text-xs dark:border-white/15 dark:text-gray-200" disabled={!strokes?.length} onClick={undo}>Undo</button>
+        <button type="button" className="rounded-lg border px-2 py-1 text-xs text-red-600 dark:border-white/15" disabled={!strokes?.length} onClick={clear}>সব মুছুন</button>
       </div>}
-      <button type="button" className="mb-2 rounded-lg border border-primary-300 px-2.5 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-500/10" onClick={() => { setZoomScale(1); setShowZoom(true); }}>ছবি বড় করে দেখুন</button>
+      <button type="button" className="mb-2 rounded-lg border border-primary-300 px-2.5 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 dark:border-primary-500/30 dark:text-primary-300 dark:hover:bg-primary-500/10" onClick={openZoom}>ছবি বড় করে দেখুন</button>
       <div className="relative inline-block max-w-full overflow-hidden rounded-lg bg-white align-top">
         <img
           ref={imageRef}
@@ -89,23 +103,30 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
           })}
         </svg>}
       </div>
-      {showZoom && <div className="fixed inset-0 z-[100] flex flex-col bg-black/95 p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={`${name || 'উত্তরের ছবি'} বড় করে দেখুন`} onClick={() => setShowZoom(false)}>
+      {showZoom && <div className="fixed inset-0 z-[100] flex flex-col bg-black/95 p-3 sm:p-5" role="dialog" aria-modal="true" aria-label={`${name || 'উত্তরের ছবি'} বড় করে দেখুন`} onClick={closeZoom}>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-white" onClick={(event) => event.stopPropagation()}>
           <p className="min-w-0 truncate text-sm font-medium">{name || 'শিক্ষার্থীর উত্তরের ছবি'}</p>
           <div className="flex flex-wrap items-center gap-2">
-            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" aria-label="৯০ ডিগ্রি ঘোরান" onClick={() => setRotation((value) => (value + 90) % 360)}>ঘোরান</button>
+            {!readOnly && <>
+              <button type="button" aria-pressed={zoomDrawing} className={`rounded-lg border px-2.5 py-1.5 text-sm ${zoomDrawing ? 'border-emerald-300 bg-emerald-600 text-white' : 'border-white/30'}`} onClick={() => { setZoomDrawing((active) => !active); setRotation(0); panRef.current = null; }}>{zoomDrawing ? 'আঁকা বন্ধ' : 'আঁকা শুরু'}</button>
+              <label className="flex items-center gap-1 text-xs">রং<input aria-label="বড় ছবিতে আঁকার রং" type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-8 w-9 cursor-pointer rounded border-0 bg-transparent p-0" /></label>
+              <label className="flex items-center gap-1.5 text-xs">✏️<input aria-label="বড় ছবিতে কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-20 accent-primary-400" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label>
+              <button type="button" className="rounded-lg border border-white/30 px-2 py-1.5 text-sm" disabled={!strokes?.length} onClick={undo}>Undo</button>
+              <button type="button" className="rounded-lg border border-white/30 px-2 py-1.5 text-sm text-red-200" disabled={!strokes?.length} onClick={clear}>সব মুছুন</button>
+            </>}
+            <button type="button" disabled={zoomDrawing} className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm disabled:opacity-40" aria-label="৯০ ডিগ্রি ঘোরান" onClick={() => setRotation((value) => (value + 90) % 360)}>ঘোরান</button>
             <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" onClick={() => { setZoomScale(1); setPan({ x: 0, y: 0 }); }}>Fit</button>
-            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" onClick={() => { setZoomScale(1); setRotation(0); setPan({ x: 0, y: 0 }); }}>Reset</button>
+            <button type="button" className="rounded-lg border border-white/30 px-2.5 py-1.5 text-sm" onClick={() => { setZoomScale(1); setRotation(0); setPan({ x: 0, y: 0 }); setZoomDrawing(false); }}>Reset</button>
             <button type="button" className="rounded-lg border border-white/30 px-3 py-1.5 text-sm" aria-label="ছোট করে দেখুন" disabled={zoomScale <= 1} onClick={() => setZoomScale((scale) => Math.max(1, scale - 0.25))}>−</button>
             <span className="min-w-12 text-center text-xs tabular-nums">{Math.round(zoomScale * 100)}%</span>
             <button type="button" className="rounded-lg border border-white/30 px-3 py-1.5 text-sm" aria-label="বড় করে দেখুন" disabled={zoomScale >= 3} onClick={() => setZoomScale((scale) => Math.min(3, scale + 0.25))}>+</button>
-            <button type="button" className="rounded-lg bg-white/15 px-3 py-1.5 text-sm" onClick={() => setShowZoom(false)}>বন্ধ করুন</button>
+            <button type="button" className="rounded-lg bg-white/15 px-3 py-1.5 text-sm" onClick={closeZoom}>বন্ধ করুন</button>
           </div>
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto" onClick={(event) => event.stopPropagation()}>
-          <div className="relative inline-block touch-none" onPointerDown={(event) => { if (zoomScale <= 1) return; event.currentTarget.setPointerCapture(event.pointerId); panRef.current = { x: event.clientX, y: event.clientY, start: pan }; }} onPointerMove={(event) => { if (!panRef.current) return; setPan({ x: panRef.current.start.x + event.clientX - panRef.current.x, y: panRef.current.start.y + event.clientY - panRef.current.y }); }} onPointerUp={() => { panRef.current = null; }} onPointerCancel={() => { panRef.current = null; }} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale}) rotate(${rotation}deg)`, transformOrigin: 'center center', cursor: zoomScale > 1 ? 'grab' : 'default' }}>
+          <div className="relative inline-block touch-none" onPointerDown={(event) => { if (zoomDrawing || zoomScale <= 1) return; event.currentTarget.setPointerCapture(event.pointerId); panRef.current = { x: event.clientX, y: event.clientY, start: pan }; }} onPointerMove={(event) => { if (!panRef.current) return; setPan({ x: panRef.current.start.x + event.clientX - panRef.current.x, y: panRef.current.start.y + event.clientY - panRef.current.y }); }} onPointerUp={() => { panRef.current = null; }} onPointerCancel={() => { panRef.current = null; }} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale}) rotate(${zoomDrawing ? 0 : rotation}deg)`, transformOrigin: 'center center', cursor: zoomDrawing ? 'crosshair' : zoomScale > 1 ? 'grab' : 'default' }}>
             <img src={src} alt={name || 'Student answer image'} className="block max-h-[calc(100vh-7rem)] max-w-[92vw] object-contain" />
-            {hasDimensions && <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none" className="pointer-events-none absolute inset-0 h-full w-full">
+            {hasDimensions && <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none" className={`absolute inset-0 h-full w-full ${zoomDrawing && !readOnly ? 'touch-none cursor-crosshair' : 'pointer-events-none'}`} onPointerDown={zoomDrawing ? start : undefined} onPointerMove={zoomDrawing ? move : undefined} onPointerUp={zoomDrawing ? finish : undefined} onPointerCancel={zoomDrawing ? finish : undefined} onLostPointerCapture={zoomDrawing ? finish : undefined} aria-label={zoomDrawing ? 'Draw annotations on expanded answer image' : 'Teacher annotations'}>
               {renderedStrokes.map((stroke, index) => {
                 const points = (stroke.points || []).map((point) => `${point.x * dimensions.width},${point.y * dimensions.height}`).join(' ');
                 return <polyline key={index} points={points} fill="none" stroke={stroke.color || '#e11d48'} strokeWidth={stroke.width || 4} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
