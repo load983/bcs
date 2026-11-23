@@ -2,13 +2,16 @@
 // Live countdown timer — সময় শেষ হলে onTimeUp() কল করে (অটো সাবমিটের জন্য)
 import React, { useEffect, useRef, useState } from 'react';
 
-export default function Timer({ startedAt, deadlineAt, serverNow, clientReceivedAt, totalMinutes, onTimeUp }) {
+export default function Timer({ startedAt, deadlineAt, serverNow, clientReceivedAt, totalMinutes, onTimeUp, onThreeMinutes, label = 'Time remaining' }) {
   const endTime = useRef(null);
   const onTimeUpRef = useRef(onTimeUp);
+  const onThreeMinutesRef = useRef(onThreeMinutes);
   const didFireRef = useRef(false);
+  const didWarnRef = useRef(false);
   const [remaining, setRemaining] = useState(0);
 
   useEffect(() => { onTimeUpRef.current = onTimeUp; }, [onTimeUp]);
+  useEffect(() => { onThreeMinutesRef.current = onThreeMinutes; }, [onThreeMinutes]);
 
   useEffect(() => {
     if (!startedAt) return undefined;
@@ -17,6 +20,7 @@ export default function Timer({ startedAt, deadlineAt, serverNow, clientReceived
     if (!Number.isFinite(parsedDeadline)) return undefined;
     endTime.current = parsedDeadline;
     didFireRef.current = false;
+    didWarnRef.current = false;
 
     const parsedServerNow = serverNow ? new Date(serverNow).getTime() : NaN;
     const receivedAt = Number(clientReceivedAt);
@@ -39,6 +43,10 @@ export default function Timer({ startedAt, deadlineAt, serverNow, clientReceived
         }
       } else {
         setRemaining(left);
+        if (left <= 3 * 60 * 1000 && !didWarnRef.current) {
+          didWarnRef.current = true;
+          onThreeMinutesRef.current?.();
+        }
       }
     };
     tick();
@@ -58,7 +66,7 @@ export default function Timer({ startedAt, deadlineAt, serverNow, clientReceived
     : 'bg-primary-100 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300';
 
   return (
-    <div className={`shrink-0 rounded-lg px-3 py-1.5 font-mono text-lg font-bold ${cls}`}>
+    <div role="timer" aria-label={label} className={`shrink-0 rounded-lg px-3 py-1.5 font-mono text-lg font-bold ${cls}`}>
       ⏱ {String(mins).padStart(2, '0')}:{String(secs).padStart(2, '0')}
     </div>
   );

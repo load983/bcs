@@ -24,6 +24,7 @@ export default function StudentExam() {
   const navigate = useNavigate();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [threeMinutesWarning, setThreeMinutesWarning] = useState(false);
   // একই সাথে দ্রুত দুইবার ক্লিক ঠেকাতে: যে প্রশ্নের উত্তর পাঠানো শুরু হয়েছে সেটা সাথে সাথে লক
   const [lockedQ, setLockedQ] = useState({});
   const [saveError, setSaveError] = useState('');
@@ -207,14 +208,14 @@ export default function StudentExam() {
     const selected = [...fileList];
     const remaining = Math.max(0, 5 - alreadyAttached);
     const files = selected.slice(0, remaining);
-    if (selected.length > remaining) setSaveError('সর্বোচ্চ ৫টি ছবি/PDF সংযুক্ত করা যাবে।');
+    if (selected.length > remaining) setSaveError(t('exam.maxFilesError'));
     const supported = files.filter((file) => /^(image\/(jpeg|png|webp)|application\/pdf)$/.test(file.type));
-    if (supported.length < files.length) setSaveError('শুধু JPG, PNG, WebP ছবি অথবা PDF সংযুক্ত করুন।');
+    if (supported.length < files.length) setSaveError(t('exam.fileTypeError'));
     const tooLargePdf = supported.some((file) => file.type === 'application/pdf' && file.size > 1_450_000);
-    if (tooLargePdf) setSaveError('PDF সর্বোচ্চ ১.৪ MB হতে পারবে।');
+    if (tooLargePdf) setSaveError(t('exam.pdfSizeError'));
     const accepted = supported.filter((file) => file.type !== 'application/pdf' || file.size <= 1_450_000);
     const imageFiles = accepted.filter((file) => file.type.startsWith('image/'));
-    if (imageFiles.some((file) => file.size > 10 * 1024 * 1024)) setSaveError('ছবি ১০ MB-এর বেশি হতে পারবে না।');
+    if (imageFiles.some((file) => file.size > 10 * 1024 * 1024)) setSaveError(t('exam.imageSizeError'));
     const readyFiles = accepted.filter((file) => file.type === 'application/pdf' || file.size <= 10 * 1024 * 1024);
     Promise.all(readyFiles.map(async (file) => {
       try {
@@ -226,7 +227,7 @@ export default function StudentExam() {
         const data = compactImage(image, { max: 1800, limit: 1_850_000 });
         return { name: file.name, mime: data.slice(5, data.indexOf(';')), data };
       } catch (error) {
-        setSaveError(error.message || 'ছবি/PDF পড়া যায়নি।');
+        setSaveError(error.message || t('exam.fileReadError'));
         return null;
       }
     })).then((items) => {
@@ -263,10 +264,10 @@ export default function StudentExam() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-5 sm:py-6">
-      <div className="glass -mx-4 mb-4 px-4 pb-3 pt-3 sm:mx-0 sm:rounded-2xl sm:px-5">
+      <div className="glass sticky top-0 z-40 -mx-4 mb-4 px-4 pb-3 pt-3 shadow-md backdrop-blur-xl sm:top-2 sm:mx-0 sm:rounded-2xl sm:px-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <h1 className="truncate text-lg font-semibold dark:text-white">{examTitle}</h1>
-          <Timer startedAt={startedAt} deadlineAt={deadlineAt} serverNow={serverNow} clientReceivedAt={clientReceivedAt} totalMinutes={totalTimeMinutes} onTimeUp={() => handleSubmit(true)} />
+          <Timer startedAt={startedAt} deadlineAt={deadlineAt} serverNow={serverNow} clientReceivedAt={clientReceivedAt} totalMinutes={totalTimeMinutes} onTimeUp={() => handleSubmit(true)} onThreeMinutes={() => setThreeMinutesWarning(true)} label={t('exam.timerLabel')} />
         </div>
         <div className="flex items-center gap-3">
           <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200/80 dark:bg-white/10">
@@ -274,6 +275,7 @@ export default function StudentExam() {
           </div>
           <span className="shrink-0 text-xs font-medium tabular-nums text-gray-500 dark:text-gray-400">{answeredCount}/{questions.length}</span>
         </div>
+        {threeMinutesWarning && <div role="alert" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">{t('exam.threeMinutesWarning')}</div>}
       </div>
       <div className="mb-4 rounded-xl bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-300">{t('exam.tabWarning')}</div>
       {saveError && <p role="alert" className="mb-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{saveError}</p>}
@@ -285,29 +287,29 @@ export default function StudentExam() {
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-primary-600 dark:text-primary-400">{t('exam.questionOf', { current: index + 1, total: questions.length })}</p>
                 <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${isAnswered(q) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300'}`}>
-                  {isAnswered(q) ? 'উত্তর সেভ হয়েছে' : 'উত্তর বাকি'}
+                  {isAnswered(q) ? t('exam.saved') : t('exam.unanswered')}
                 </span>
               </div>
               <h2 className="mb-5 text-lg font-medium leading-relaxed dark:text-white sm:text-xl"><MathText text={q.questionText} /></h2>
-              {q.questionAudio && <div className="mb-5 rounded-xl bg-primary-50 p-3 dark:bg-primary-500/10"><p className="mb-2 text-sm font-medium dark:text-gray-200">🎧 প্রশ্নের voice note</p><audio className="w-full" controls preload="none" src={q.questionAudio}>Audio playback সমর্থিত নয়।</audio></div>}
+              {q.questionAudio && <div className="mb-5 rounded-xl bg-primary-50 p-3 dark:bg-primary-500/10"><p className="mb-2 text-sm font-medium dark:text-gray-200">{t('exam.questionAudio')}</p><audio className="w-full" controls preload="none" src={q.questionAudio}>{t('exam.audioUnsupported')}</audio></div>}
               {q.diagram && <div className="mb-5"><ZoomImage src={assetUrl(q.diagram)} alt={t('diagram.alt')} className="mx-auto max-h-[28rem] w-full rounded-lg border border-gray-200 bg-white object-contain p-1 sm:w-auto" /><p className="mt-1 text-center text-xs text-gray-500 dark:text-gray-400">🔍 {t('diagram.zoomHint')}</p></div>}
               {q.diagrams?.length > 0 && <div className="mb-5 flex justify-center"><ChemDiagramList items={q.diagrams} /></div>}
               {q.type === 'short' ? (
                 <div className="space-y-3">
-                  <textarea className="input min-h-36 w-full" maxLength={20000} disabled={submitting} value={shortDrafts[q._id]?.answerText || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), answerText: e.target.value } }))} placeholder="উত্তর লিখুন…" />
+                  <textarea className="input min-h-36 w-full" maxLength={20000} disabled={submitting} value={shortDrafts[q._id]?.answerText || ''} onChange={(e) => setShortDrafts((d) => ({ ...d, [q._id]: { ...(d[q._id] || {}), answerText: e.target.value } }))} placeholder={t('exam.writeAnswer')} />
                   <p className="text-right text-xs text-gray-500">{(shortDrafts[q._id]?.answerText || '').length}/20,000</p>
                   <div className="flex flex-wrap gap-2">
                     <label className="cursor-pointer rounded-xl border border-primary-300 px-3 py-2 text-sm font-medium text-primary-700 dark:border-primary-500/40 dark:text-primary-300">
-                      ক্যামেরা দিয়ে ছবি তুলুন
+                      {t('exam.takePhoto')}
                       <input className="sr-only" type="file" disabled={submitting} accept="image/jpeg,image/png,image/webp" capture="environment" onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
                     </label>
                     <label className="cursor-pointer rounded-xl border border-gray-300 px-3 py-2 text-sm dark:border-white/15 dark:text-gray-200">
-                      ছবি/PDF আপলোড করুন
+                      {t('exam.uploadFiles')}
                       <input className="sr-only" type="file" disabled={submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
                     </label>
                   </div>
-                  {!!shortDrafts[q._id]?.files?.length && <div className="space-y-1">{shortDrafts[q._id].files.map((file, fileIndex) => <div key={`${file.name}-${fileIndex}`} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-white/5"><button type="button" className="min-w-0 truncate text-left text-primary-700 underline dark:text-primary-300" onClick={() => setPreviewFile(file)}>{file.name} · {file.mime === 'application/pdf' ? 'PDF দেখুন' : 'ছবি দেখুন'}</button><button type="button" className="shrink-0 text-red-600 hover:underline" disabled={submitting} onClick={() => setShortDrafts((drafts) => ({ ...drafts, [q._id]: { ...(drafts[q._id] || {}), files: (drafts[q._id]?.files || []).filter((_, index) => index !== fileIndex) } }))}>সরান</button></div>)}</div>}
-                  <p className="text-xs text-gray-500" role="status">{savingShort[q._id] ? 'উত্তর অটো-সেভ হচ্ছে…' : isAnswered(q) ? 'উত্তর অটো-সেভ হয়েছে' : 'লেখা বা ছবি/PDF দিলে স্বয়ংক্রিয়ভাবে সেভ হবে'}</p>
+                  {!!shortDrafts[q._id]?.files?.length && <div className="space-y-1">{shortDrafts[q._id].files.map((file, fileIndex) => <div key={`${file.name}-${fileIndex}`} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-white/5"><button type="button" className="min-w-0 truncate text-left text-primary-700 underline dark:text-primary-300" onClick={() => setPreviewFile(file)}>{file.name} · {file.mime === 'application/pdf' ? t('exam.viewPdf') : t('exam.viewImage')}</button><button type="button" className="shrink-0 text-red-600 hover:underline" disabled={submitting} onClick={() => setShortDrafts((drafts) => ({ ...drafts, [q._id]: { ...(drafts[q._id] || {}), files: (drafts[q._id]?.files || []).filter((_, index) => index !== fileIndex) } }))}>{t('exam.remove')}</button></div>)}</div>}
+                  <p className="text-xs text-gray-500" role="status">{savingShort[q._id] ? t('exam.saving') : isAnswered(q) ? t('exam.autoSaved') : t('exam.autoSaveHint')}</p>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -325,15 +327,15 @@ export default function StudentExam() {
               )}
             </article>
           ))}
-          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success w-full py-4 text-base disabled:opacity-60">{submitting ? 'জমা হচ্ছে…' : t('exam.submitNow')}</button>
+          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success w-full py-4 text-base disabled:opacity-60">{submitting ? t('exam.submitting') : t('exam.submitNow')}</button>
         </div>
         <aside className="card order-1 h-fit p-4 sm:sticky sm:top-4 sm:order-2">
           <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">{t('exam.answered', { answered: answeredCount, total: questions.length })}</p>
           <QuestionPalette questions={questions} answersMap={answersMap} currentIndex={currentIndex} onJump={jumpToQuestion} />
-          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success mt-4 w-full text-sm disabled:opacity-60">{submitting ? 'জমা হচ্ছে…' : t('exam.submitNow')}</button>
+          <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success mt-4 w-full text-sm disabled:opacity-60">{submitting ? t('exam.submitting') : t('exam.submitNow')}</button>
         </aside>
       </div>
-      {previewFile && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="উত্তরের ফাইল preview" onClick={() => setPreviewFile(null)}><div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-white/10"><span className="truncate text-sm font-medium dark:text-white">{previewFile.name}</span><button type="button" className="rounded-lg border px-3 py-1.5 text-sm dark:border-white/15 dark:text-white" onClick={() => setPreviewFile(null)}>বন্ধ করুন</button></div><div className="min-h-0 flex-1 overflow-auto p-3">{previewFile.mime === 'application/pdf' ? <iframe title={previewFile.name || 'PDF preview'} src={previewFile.data} className="h-[75vh] w-full bg-white" /> : <img src={previewFile.data} alt={previewFile.name || 'উত্তরের ছবি'} className="mx-auto max-h-[75vh] max-w-full object-contain" />}</div></div></div>}
+      {previewFile && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label={t('exam.previewLabel')} onClick={() => setPreviewFile(null)}><div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-white/10"><span className="truncate text-sm font-medium dark:text-white">{previewFile.name}</span><button type="button" className="rounded-lg border px-3 py-1.5 text-sm dark:border-white/15 dark:text-white" onClick={() => setPreviewFile(null)}>{t('exam.close')}</button></div><div className="min-h-0 flex-1 overflow-auto p-3">{previewFile.mime === 'application/pdf' ? <iframe title={previewFile.name || 'PDF preview'} src={previewFile.data} className="h-[75vh] w-full bg-white" /> : <img src={previewFile.data} alt={previewFile.name || t('exam.answerImageAlt')} className="mx-auto max-h-[75vh] max-w-full object-contain" />}</div></div></div>}
     </div>
   );
 }
