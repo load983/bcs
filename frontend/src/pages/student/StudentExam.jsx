@@ -28,6 +28,7 @@ export default function StudentExam() {
   const [lockedQ, setLockedQ] = useState({});
   const [saveError, setSaveError] = useState('');
   const [shortDrafts, setShortDrafts] = useState({});
+  const [previewFile, setPreviewFile] = useState(null);
   const [savingShort, setSavingShort] = useState({});
   const pendingSavesRef = useRef(new Map());
   const shortTimersRef = useRef(new Map());
@@ -304,7 +305,7 @@ export default function StudentExam() {
                       <input className="sr-only" type="file" disabled={submitting} accept="image/jpeg,image/png,image/webp,application/pdf" multiple onClick={() => { attachmentPickerRef.current = true; }} onChange={(e) => { attachmentPickerRef.current = false; readAnswerFiles(e.target.files, q._id); e.target.value = ''; }} />
                     </label>
                   </div>
-                  {!!shortDrafts[q._id]?.files?.length && <div className="space-y-1">{shortDrafts[q._id].files.map((file, fileIndex) => <div key={`${file.name}-${fileIndex}`} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-white/5"><span className="min-w-0 truncate text-gray-600 dark:text-gray-300">{file.name} · {file.mime === 'application/pdf' ? 'PDF' : 'ছবি'}</span><button type="button" className="shrink-0 text-red-600 hover:underline" disabled={submitting} onClick={() => setShortDrafts((drafts) => ({ ...drafts, [q._id]: { ...(drafts[q._id] || {}), files: (drafts[q._id]?.files || []).filter((_, index) => index !== fileIndex) } }))}>সরান</button></div>)}</div>}
+                  {!!shortDrafts[q._id]?.files?.length && <div className="space-y-1">{shortDrafts[q._id].files.map((file, fileIndex) => <div key={`${file.name}-${fileIndex}`} className="flex items-center justify-between gap-2 rounded-lg bg-gray-50 px-3 py-2 text-xs dark:bg-white/5"><button type="button" className="min-w-0 truncate text-left text-primary-700 underline dark:text-primary-300" onClick={() => setPreviewFile(file)}>{file.name} · {file.mime === 'application/pdf' ? 'PDF দেখুন' : 'ছবি দেখুন'}</button><button type="button" className="shrink-0 text-red-600 hover:underline" disabled={submitting} onClick={() => setShortDrafts((drafts) => ({ ...drafts, [q._id]: { ...(drafts[q._id] || {}), files: (drafts[q._id]?.files || []).filter((_, index) => index !== fileIndex) } }))}>সরান</button></div>)}</div>}
                   <p className="text-xs text-gray-500" role="status">{savingShort[q._id] ? 'উত্তর অটো-সেভ হচ্ছে…' : isAnswered(q) ? 'উত্তর অটো-সেভ হয়েছে' : 'লেখা বা ছবি/PDF দিলে স্বয়ংক্রিয়ভাবে সেভ হবে'}</p>
                 </div>
               ) : (
@@ -331,6 +332,7 @@ export default function StudentExam() {
           <button onClick={() => handleSubmit(false)} disabled={submitting} className="btn-success mt-4 w-full text-sm disabled:opacity-60">{submitting ? 'জমা হচ্ছে…' : t('exam.submitNow')}</button>
         </aside>
       </div>
+      {previewFile && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6" role="dialog" aria-modal="true" aria-label="উত্তরের ফাইল preview" onClick={() => setPreviewFile(null)}><div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900" onClick={(event) => event.stopPropagation()}><div className="flex items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 dark:border-white/10"><span className="truncate text-sm font-medium dark:text-white">{previewFile.name}</span><button type="button" className="rounded-lg border px-3 py-1.5 text-sm dark:border-white/15 dark:text-white" onClick={() => setPreviewFile(null)}>বন্ধ করুন</button></div><div className="min-h-0 flex-1 overflow-auto p-3">{previewFile.mime === 'application/pdf' ? <iframe title={previewFile.name || 'PDF preview'} src={previewFile.data} className="h-[75vh] w-full bg-white" /> : <img src={previewFile.data} alt={previewFile.name || 'উত্তরের ছবি'} className="mx-auto max-h-[75vh] max-w-full object-contain" />}</div></div></div>}
     </div>
   );
 }

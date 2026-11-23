@@ -19,7 +19,7 @@ export default function ShortAnswerReview({ item }) {
             <p className="mt-1 truncate text-xs text-gray-500" title={file.name}>{file.name || 'Student answer image'}</p>
           </div>
         ) : (
-          <a key={`${file.name}-${index}`} href={file.data} download={file.name || 'student-answer.pdf'} target="_blank" rel="noreferrer" className="block rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-700 underline dark:border-primary-500/20 dark:bg-gray-900 dark:text-primary-300">PDF উত্তর খুলুন / ডাউনলোড করুন: {file.name || 'student-answer.pdf'}</a>
+          <div key={`${file.name}-${index}`} className="overflow-hidden rounded-lg border border-primary-200 bg-white dark:border-primary-500/20 dark:bg-gray-900"><div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm"><span className="truncate dark:text-gray-100">{file.name || 'student-answer.pdf'}</span><a href={file.data} download={file.name || 'student-answer.pdf'} target="_blank" rel="noreferrer" className="text-primary-700 underline dark:text-primary-300">PDF খুলুন / ডাউনলোড করুন</a></div><iframe title={file.name || 'শিক্ষার্থীর PDF উত্তর'} src={file.data} className="h-80 w-full bg-white" /></div>
         ))}
       </div>}
       {item.marksAwarded !== null && item.marksAwarded !== undefined && <p className="mt-3 font-semibold text-primary-700 dark:text-primary-300">প্রাপ্ত নম্বর: {item.marksAwarded}</p>}
