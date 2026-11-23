@@ -348,6 +348,9 @@ export default function TeacherDashboard() {
     <div>
       <div className="font-medium dark:text-white">{exam.title}</div>
       <div className="font-mono text-xs text-gray-500">{exam.examCode}</div>
+      <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${exam.settings?.questionType === 'short' ? 'bg-violet-100 text-violet-700 dark:bg-violet-500/15 dark:text-violet-300' : 'bg-sky-100 text-sky-700 dark:bg-sky-500/15 dark:text-sky-300'}`}>
+        {exam.settings?.questionType === 'short' ? 'Short Question' : 'MCQ'}
+      </span>
     </div>
   );
 
