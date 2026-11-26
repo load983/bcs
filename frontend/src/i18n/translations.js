@@ -553,6 +553,10 @@ const entries = {
   'editor.correctChoiceRequired': { bn: 'সঠিক উত্তর হিসেবে একটি পূর্ণ অপশন বেছে নাও', en: 'Choose a filled choice as the correct answer' },
   'editor.correctAnswer': { bn: 'সঠিক উত্তর', en: 'Correct answer' },
   'editor.questionsTitle': { bn: 'প্রশ্নসমূহ ({n})', en: 'Questions ({n})' },
+  'editor.publishIssuesTitle': { bn: 'প্রকাশ করা যাচ্ছে না—{count}টি প্রশ্নে সমস্যা আছে। ঠিক করতে প্রশ্ন নম্বরে চাপ দিন:', en: 'Cannot publish—{count} question(s) need attention. Select a question number to fix it:' },
+  'editor.publishIssue.questionText': { bn: 'প্রশ্নের লেখা নেই', en: 'Question text is missing' },
+  'editor.publishIssue.options': { bn: 'কমপক্ষে ২টি অপশন দরকার', en: 'At least 2 options required' },
+  'editor.publishIssue.answer': { bn: 'সঠিক উত্তর নির্বাচন করা নেই', en: 'Valid correct answer not selected' },
 
   // ---------------------------------------------------------------- create online mcq exam
   'createMcq.title': { bn: 'অনলাইনে MCQ পরীক্ষা তৈরি করো', en: 'Create an online MCQ exam' },

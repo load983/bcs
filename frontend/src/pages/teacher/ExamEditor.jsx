@@ -37,7 +37,22 @@ const fromLocalInput = (v) => {
   const d = new Date(v);
   return isNaN(d.getTime()) ? null : d.toISOString();
 };
-
+function getPublishIssueKeys(question, examSettings = {}) {
+  const issues = [];
+  if (!String(question.questionText || '').trim()) issues.push('questionText');
+  const options = Array.isArray(question.options) ? question.options : [];
+  const isShort = question.type === 'short'
+    || (examSettings.questionType === 'short' && options.length === 0);
+  if (isShort) return issues;
+  const answer = question.correctOptionIndex;
+  if (options.length < 2) issues.push('options');
+  const answerHasContent = Number.isInteger(answer)
+    && answer >= 0
+    && answer < options.length
+    && (!!String(options[answer] || '').trim() || !!String(question.optionImages?.[answer] || '').trim());
+  if (!answerHasContent) issues.push('answer');
+  return issues;
+}
 export default function ExamEditor() {
   const { has, lockedMessage, warnLocked } = useTeacherFeatures();
   const [pdfBusy, setPdfBusy] = useState(false);
@@ -48,6 +63,7 @@ export default function ExamEditor() {
   const { currentExam, questions, shareLink } = useSelector((s) => s.exam);
   const [settings, setSettings] = useState(null);
   const [publishing, setPublishing] = useState(false);
+  const [publishAttempted, setPublishAttempted] = useState(false);
   const [accessCode, setAccessCode] = useState('');
   const [classIds, setClassIds] = useState([]);
   const [editingQ, setEditingQ] = useState(null);
@@ -74,6 +90,12 @@ export default function ExamEditor() {
       setResourceLinkInput(currentExam.resource?.kind === 'link'? currentExam.resource.link : '');
     }
   }, [currentExam]);
+
+  const publishIssues = (questions || []).map((question, index) => ({
+    question,
+    index,
+    issueKeys: getPublishIssueKeys(question, currentExam?.settings || {}),
+  })).filter((item) => item.issueKeys.length > 0);
 
   if (!currentExam ||!settings) return <p className="text-center mt-10 dark:text-white">{t('common.loading')}</p>;
 
@@ -107,6 +129,14 @@ export default function ExamEditor() {
 
   const handlePublish = async () => {
     if (publishing) return;
+    if (publishIssues.length) {
+      setPublishAttempted(true);
+      const firstId = publishIssues[0].question._id;
+      setEditingQ(firstId);
+      window.setTimeout(() => document.getElementById(`exam-question-${firstId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 50);
+      return;
+    }
+    setPublishAttempted(false);
     const ok = await saveSettings();
     if (!ok) return;
     setPublishing(true);
@@ -327,9 +357,13 @@ export default function ExamEditor() {
       <FormulaToolbar />
       <div className="card p-5 sm:p-6">
         <h2 className="mb-4 text-lg font-semibold dark:text-white">{t('editor.questionsTitle', { n: questions.length })}</h2>
+        {publishAttempted && publishIssues.length > 0 && <div role="alert" className="mb-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-800 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-200">
+          <p className="font-semibold">{t('editor.publishIssuesTitle', { count: publishIssues.length })}</p>
+          <div className="mt-2 flex flex-wrap gap-2">{publishIssues.map(({ question, index }) => <button key={question._id} type="button" className="rounded-full border border-red-400 bg-white px-3 py-1 font-semibold text-red-700 underline decoration-dotted underline-offset-2 hover:bg-red-100 dark:border-red-500/50 dark:bg-gray-900 dark:text-red-300" onClick={() => { setEditingQ(question._id); document.getElementById(`exam-question-${question._id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}>{t('createMcq.questionLabel', { n: index + 1 })}</button>)}</div>
+        </div>}
         <div className="space-y-4">
           {questions.map((q, idx) => (
-            <QuestionRow key={q._id} index={idx} question={q} isEditing={editingQ === q._id} onEditToggle={() => setEditingQ(editingQ === q._id? null : q._id)} onSave={(payload) => { dispatch(updateQuestion({ questionId: q._id, payload })); setEditingQ(null); }} onDelete={() => dispatch(deleteQuestion(q._id))} />
+            <QuestionRow key={q._id} index={idx} question={q} publishIssueKeys={publishAttempted ? getPublishIssueKeys(q, currentExam?.settings || {}) : []} isEditing={editingQ === q._id} onEditToggle={() => setEditingQ(editingQ === q._id? null : q._id)} onSave={(payload) => { dispatch(updateQuestion({ questionId: q._id, payload })); setEditingQ(null); }} onDelete={() => dispatch(deleteQuestion(q._id))} />
           ))}
         </div>
       </div>
@@ -349,7 +383,7 @@ export default function ExamEditor() {
 
 function Field({ label, children }) { return (<label className="block text-sm"><span className="block mb-1 text-gray-600 dark:text-gray-300">{label}</span>{children}</label>); }
 function Toggle({ label, checked, onChange }) { return (<label className="flex items-center gap-2 text-sm dark:text-gray-200"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="h-4 w-4" />{label}</label>); }
-function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelete }) {
+function QuestionRow({ index, question, publishIssueKeys = [], isEditing, onEditToggle, onSave, onDelete }) {
   const questionOptions = Array.isArray(question.options) ? question.options : [];
   const [text, setText] = useState(question.questionText);
   const [explanation, setExplanation] = useState(question.explanation || '');
@@ -413,9 +447,10 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
   };
   if (!isEditing) {
     return (
-      <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-3 flex justify-between items-start dark:border-white/10 dark:bg-white/[0.03]">
+      <div id={`exam-question-${question._id}`} className={`rounded-xl border p-3 flex justify-between items-start ${publishIssueKeys.length ? 'border-red-400 bg-red-50/80 ring-1 ring-red-300 dark:border-red-500/50 dark:bg-red-500/10 dark:ring-red-500/30' : 'border-gray-100 bg-gray-50/60 dark:border-white/10 dark:bg-white/[0.03]'}`}>
         <div>
           <p className="font-medium dark:text-white">{index + 1}. <MathText text={question.questionText} /></p>
+          {publishIssueKeys.length > 0 && <div className="mt-2 flex flex-wrap gap-1.5" role="alert">{publishIssueKeys.map((issue) => <span key={issue} className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white">{t(`editor.publishIssue.${issue}`)}</span>)}</div>}
           {question.diagram && <ZoomImage src={assetUrl(question.diagram)} className="mt-2 max-h-40 rounded-lg border border-gray-200 bg-white object-contain" />}
           {(question.diagrams || []).length > 0 && <div className="mt-2"><ChemDiagramList items={question.diagrams} compact /></div>}
           {question.questionAudio && <audio className="mt-2 max-w-sm" controls preload="none" src={question.questionAudio} />}
@@ -437,7 +472,8 @@ function QuestionRow({ index, question, isEditing, onEditToggle, onSave, onDelet
     );
   }
   return (
-    <div className="border dark:border-gray-700 rounded-lg p-3 space-y-2 bg-primary-50 dark:bg-gray-700">
+    <div id={`exam-question-${question._id}`} className={`rounded-lg border p-3 space-y-2 ${publishIssueKeys.length ? 'border-red-400 bg-red-50/80 ring-1 ring-red-300 dark:border-red-500/50 dark:bg-red-500/10 dark:ring-red-500/30' : 'border-gray-200 bg-primary-50 dark:border-gray-700 dark:bg-gray-700'}`}>
+      {publishIssueKeys.length > 0 && <div className="flex flex-wrap gap-1.5" role="alert">{publishIssueKeys.map((issue) => <span key={issue} className="rounded-full bg-red-600 px-2.5 py-1 text-xs font-semibold text-white">{t(`editor.publishIssue.${issue}`)}</span>)}</div>}
       <textarea data-math rows={2} value={text} onChange={(e) => setText(e.target.value)} className="input resize-none" />
       <select className="input" value={type} onChange={(e) => setType(e.target.value)}><option value="mcq">MCQ question</option><option value="short">Short question</option></select>
       <QuestionAudioField label="প্রশ্নের voice note" value={questionAudio} onChange={setQuestionAudio} />
