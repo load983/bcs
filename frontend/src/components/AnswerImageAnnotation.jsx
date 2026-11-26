@@ -4,11 +4,14 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   const imageRef = useRef(null);
   const activeRef = useRef(false);
   const drawingRef = useRef(null);
+  const strokesRef = useRef(strokes || []);
   const panRef = useRef(null);
   const [dimensions, setDimensions] = useState({ width: 0, height: 0 });
   const [drawing, setDrawing] = useState(null);
   const [color, setColor] = useState('#e11d48');
   const [strokeWidth, setStrokeWidth] = useState(4);
+  const [eraserSize, setEraserSize] = useState(24);
+  const [tool, setTool] = useState('pen');
   const [showZoom, setShowZoom] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const [rotation, setRotation] = useState(0);
@@ -23,11 +26,50 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
       y: Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height)),
     };
   };
+  strokesRef.current = strokes || [];
+  const eraseAt = (event) => {
+    const point = pointFromEvent(event);
+    const rect = event.currentTarget.getBoundingClientRect();
+    if (!point || !rect.width || !rect.height) return;
+    const radius = eraserSize / 2;
+    let changed = false;
+    const next = [];
+    (strokesRef.current || []).forEach((stroke) => {
+      const runs = [];
+      let run = [];
+      let strokeChanged = false;
+      (stroke.points || []).forEach((sample) => {
+        const dx = (sample.x - point.x) * rect.width;
+        const dy = (sample.y - point.y) * rect.height;
+        if (Math.hypot(dx, dy) <= radius + Math.max(1, (stroke.width || 4) / 2)) {
+          strokeChanged = true;
+          if (run.length > 1) runs.push(run);
+          run = [];
+        } else run.push(sample);
+      });
+      if (run.length > 1) runs.push(run);
+      if (!strokeChanged) next.push(stroke);
+      else if (next.length + runs.length <= 80) {
+        if (runs.length) {
+          changed = true;
+          runs.forEach((points) => next.push({ ...stroke, points }));
+        } else changed = true;
+      } else next.push(stroke);
+    });
+    if (changed) {
+      strokesRef.current = next;
+      onChange?.(next);
+    }
+  };
   const start = (event) => {
     if (readOnly || !onChange || !dimensions.width) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
     activeRef.current = true;
+    if (tool === 'eraser') {
+      eraseAt(event);
+      return;
+    }
     const point = pointFromEvent(event);
     if (point) {
       const stroke = { color, width: strokeWidth, points: [point] };
@@ -37,6 +79,10 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
   };
   const move = (event) => {
     if (!activeRef.current) return;
+    if (tool === 'eraser') {
+      eraseAt(event);
+      return;
+    }
     const point = pointFromEvent(event);
     if (point && drawingRef.current) {
       const stroke = { ...drawingRef.current, points: [...drawingRef.current.points, point] };
@@ -49,13 +95,17 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
     activeRef.current = false;
     const stroke = drawingRef.current;
     drawingRef.current = null;
-    if (stroke?.points?.length > 1) onChange?.([...(strokes || []), stroke]);
+    if (stroke?.points?.length > 1) {
+      const next = [...(strokesRef.current || []), stroke];
+      strokesRef.current = next;
+      onChange?.(next);
+    }
     setDrawing(null);
   };
   const renderedStrokes = drawing ? [...(strokes || []), drawing] : (strokes || []);
   const hasDimensions = dimensions.width > 0 && dimensions.height > 0;
-  const undo = () => onChange?.((strokes || []).slice(0, -1));
-  const clear = () => onChange?.([]);
+  const undo = () => { const next = (strokesRef.current || []).slice(0, -1); strokesRef.current = next; onChange?.(next); };
+  const clear = () => { strokesRef.current = []; onChange?.([]); };
   const openZoom = () => {
     setZoomScale(1);
     setPan({ x: 0, y: 0 });
@@ -72,8 +122,10 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
     <div className="min-w-0">
       {!readOnly && <div className="mb-2 flex flex-wrap items-center gap-2">
         <span className="text-xs font-medium text-gray-600 dark:text-gray-300">ছবিতে আঁকুন</span>
+        <button type="button" aria-pressed={tool === 'pen'} className={`rounded-lg border px-2 py-1 text-xs ${tool === 'pen' ? 'border-primary-500 bg-primary-50 text-primary-700 dark:bg-primary-500/10 dark:text-primary-300' : 'dark:border-white/15 dark:text-gray-200'}`} onClick={() => setTool('pen')}>✏️ কলম</button>
+        <button type="button" aria-pressed={tool === 'eraser'} className={`rounded-lg border px-2 py-1 text-xs ${tool === 'eraser' ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-200' : 'dark:border-white/15 dark:text-gray-200'}`} onClick={() => setTool('eraser')}>⌫ ইরেজার</button>
         <label className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-300">রং<input aria-label="আঁকার রং" type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-8 w-9 cursor-pointer rounded border-0 bg-transparent p-0" /></label>
-        <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">✏️ ঘনত্ব<input aria-label="কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-24 accent-primary-600" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label>
+        {tool === 'pen' ? <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">✏️ ঘনত্ব<input aria-label="কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-24 accent-primary-600" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label> : <label className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">ইরেজারের আকার<input aria-label="ইরেজারের আকার" type="range" min="8" max="64" step="2" value={eraserSize} onChange={(event) => setEraserSize(Number(event.target.value))} className="w-24 accent-amber-600" /><span className="w-8 tabular-nums">{eraserSize}px</span></label>}
         <button type="button" className="rounded-lg border px-2 py-1 text-xs dark:border-white/15 dark:text-gray-200" disabled={!strokes?.length} onClick={undo}>Undo</button>
         <button type="button" className="rounded-lg border px-2 py-1 text-xs text-red-600 dark:border-white/15" disabled={!strokes?.length} onClick={clear}>সব মুছুন</button>
       </div>}
@@ -89,7 +141,7 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
         {hasDimensions && <svg
           viewBox={`0 0 ${dimensions.width} ${dimensions.height}`}
           preserveAspectRatio="none"
-          className={`absolute inset-0 h-full w-full ${readOnly ? 'pointer-events-none' : 'touch-none cursor-crosshair'}`}
+          className={`absolute inset-0 h-full w-full ${readOnly ? 'pointer-events-none' : `touch-none ${tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}`}`}
           onPointerDown={start}
           onPointerMove={move}
           onPointerUp={finish}
@@ -109,8 +161,10 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
           <div className="flex flex-wrap items-center gap-2">
             {!readOnly && <>
               <button type="button" aria-pressed={zoomDrawing} className={`rounded-lg border px-2.5 py-1.5 text-sm ${zoomDrawing ? 'border-emerald-300 bg-emerald-600 text-white' : 'border-white/30'}`} onClick={() => { setZoomDrawing((active) => !active); setRotation(0); panRef.current = null; }}>{zoomDrawing ? 'আঁকা বন্ধ' : 'আঁকা শুরু'}</button>
+              <button type="button" disabled={!zoomDrawing} aria-pressed={tool === 'pen'} className={`rounded-lg border px-2 py-1.5 text-sm disabled:opacity-40 ${tool === 'pen' ? 'border-primary-300 bg-primary-600 text-white' : 'border-white/30'}`} onClick={() => setTool('pen')}>✏️ কলম</button>
+              <button type="button" disabled={!zoomDrawing} aria-pressed={tool === 'eraser'} className={`rounded-lg border px-2 py-1.5 text-sm disabled:opacity-40 ${tool === 'eraser' ? 'border-amber-300 bg-amber-600 text-white' : 'border-white/30'}`} onClick={() => setTool('eraser')}>⌫ ইরেজার</button>
               <label className="flex items-center gap-1 text-xs">রং<input aria-label="বড় ছবিতে আঁকার রং" type="color" value={color} onChange={(event) => setColor(event.target.value)} className="h-8 w-9 cursor-pointer rounded border-0 bg-transparent p-0" /></label>
-              <label className="flex items-center gap-1.5 text-xs">✏️<input aria-label="বড় ছবিতে কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-20 accent-primary-400" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label>
+              {tool === 'pen' ? <label className="flex items-center gap-1.5 text-xs">✏️<input aria-label="বড় ছবিতে কলমের ঘনত্ব" type="range" min="1" max="24" step="1" value={strokeWidth} onChange={(event) => setStrokeWidth(Number(event.target.value))} className="w-20 accent-primary-400" /><span className="w-7 tabular-nums">{strokeWidth}px</span></label> : <label className="flex items-center gap-1.5 text-xs">⌫<input aria-label="বড় ছবিতে ইরেজারের আকার" type="range" min="8" max="64" step="2" value={eraserSize} onChange={(event) => setEraserSize(Number(event.target.value))} className="w-20 accent-amber-400" /><span className="w-8 tabular-nums">{eraserSize}px</span></label>}
               <button type="button" className="rounded-lg border border-white/30 px-2 py-1.5 text-sm" disabled={!strokes?.length} onClick={undo}>Undo</button>
               <button type="button" className="rounded-lg border border-white/30 px-2 py-1.5 text-sm text-red-200" disabled={!strokes?.length} onClick={clear}>সব মুছুন</button>
             </>}
@@ -126,7 +180,7 @@ export default function AnswerImageAnnotation({ src, name, strokes = [], onChang
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto" onClick={(event) => event.stopPropagation()}>
           <div className="relative inline-block touch-none" onPointerDown={(event) => { if (zoomDrawing || zoomScale <= 1) return; event.currentTarget.setPointerCapture(event.pointerId); panRef.current = { x: event.clientX, y: event.clientY, start: pan }; }} onPointerMove={(event) => { if (!panRef.current) return; setPan({ x: panRef.current.start.x + event.clientX - panRef.current.x, y: panRef.current.start.y + event.clientY - panRef.current.y }); }} onPointerUp={() => { panRef.current = null; }} onPointerCancel={() => { panRef.current = null; }} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoomScale}) rotate(${zoomDrawing ? 0 : rotation}deg)`, transformOrigin: 'center center', cursor: zoomDrawing ? 'crosshair' : zoomScale > 1 ? 'grab' : 'default' }}>
             <img src={src} alt={name || 'Student answer image'} className="block max-h-[calc(100vh-7rem)] max-w-[92vw] object-contain" />
-            {hasDimensions && <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none" className={`absolute inset-0 h-full w-full ${zoomDrawing && !readOnly ? 'touch-none cursor-crosshair' : 'pointer-events-none'}`} onPointerDown={zoomDrawing ? start : undefined} onPointerMove={zoomDrawing ? move : undefined} onPointerUp={zoomDrawing ? finish : undefined} onPointerCancel={zoomDrawing ? finish : undefined} onLostPointerCapture={zoomDrawing ? finish : undefined} aria-label={zoomDrawing ? 'Draw annotations on expanded answer image' : 'Teacher annotations'}>
+            {hasDimensions && <svg viewBox={`0 0 ${dimensions.width} ${dimensions.height}`} preserveAspectRatio="none" className={`absolute inset-0 h-full w-full ${zoomDrawing && !readOnly ? `touch-none ${tool === 'eraser' ? 'cursor-cell' : 'cursor-crosshair'}` : 'pointer-events-none'}`} onPointerDown={zoomDrawing ? start : undefined} onPointerMove={zoomDrawing ? move : undefined} onPointerUp={zoomDrawing ? finish : undefined} onPointerCancel={zoomDrawing ? finish : undefined} onLostPointerCapture={zoomDrawing ? finish : undefined} aria-label={zoomDrawing ? 'Draw or erase annotations on expanded answer image' : 'Teacher annotations'}>
               {renderedStrokes.map((stroke, index) => {
                 const points = (stroke.points || []).map((point) => `${point.x * dimensions.width},${point.y * dimensions.height}`).join(' ');
                 return <polyline key={index} points={points} fill="none" stroke={stroke.color || '#e11d48'} strokeWidth={stroke.width || 4} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />;
